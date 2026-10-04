@@ -156,7 +156,33 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = { user, loading, login, signup, guestLogin, logout, updateProfile };
+  // アカウント削除（App Store 5.1.1(v) 対応）
+  // Edge Function 側で本人確認・関連データ削除・auth.users 削除までを行う。
+  const deleteAccount = async () => {
+    if (!user) return { error: 'ログイン情報が見つかりません。' };
+    if (user.isGuest) return { error: 'ゲストアカウントには削除対象のデータがありません。' };
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      return { error: 'セッションが確認できませんでした。再度ログインしてください。' };
+    }
+
+    const { error } = await supabase.functions.invoke('delete-account', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (error) {
+      console.error('アカウント削除エラー:', error.message);
+      return { error: '削除に失敗しました。時間をおいて再度お試しください。' };
+    }
+
+    await supabase.auth.signOut();
+    setUser(null);
+    return { success: true };
+  };
+
+  const value = { user, loading, login, signup, guestLogin, logout, deleteAccount, updateProfile };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

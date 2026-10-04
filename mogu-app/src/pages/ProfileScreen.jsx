@@ -3,6 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import Icon from '../components/Icon';
 import { AVATARS, getAvatarSrc } from '../assets/avatars/avatars';
 
+// 公開ページのURL（GitHub Pages を有効化したあとに開けるようになる。docs/ フォルダ参照）
+const PRIVACY_POLICY_URL = 'https://anzu-1206.github.io/mogu/privacy-policy.html';
+const SUPPORT_EMAIL = 'support@example.com'; // ★実際の連絡先メールアドレスに差し替える
+
 // public/icons/ にあるファイルを、他の画面と同じ Icon コンポーネント経由で参照する。
 // name には拡張子・パスを含めず、ファイル名の本体だけを指定する（他画面の書き方に合わせている）。
 const MENU_ITEMS = [
@@ -14,11 +18,17 @@ const MENU_ITEMS = [
 ];
 
 export default function ProfileScreen() {
-    const { user, logout, updateProfile } = useAuth();
+    const { user, logout, updateProfile, deleteAccount } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [draft, setDraft] = useState(user);
     const [saving, setSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+
+    // アカウント削除の確認モーダル
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteInput, setDeleteInput] = useState('');
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
     if (!user) return null;
@@ -58,7 +68,38 @@ export default function ProfileScreen() {
             window.open(urlWithUser, '_blank', 'noopener,noreferrer');
             return;
         }
+        if (item.key === 'privacy') {
+            window.open(PRIVACY_POLICY_URL, '_blank', 'noopener,noreferrer');
+            return;
+        }
+        if (item.key === 'help') {
+            window.open(`mailto:${SUPPORT_EMAIL}`, '_self');
+            return;
+        }
+        if (item.key === 'delete') {
+            setDeleteError('');
+            setDeleteInput('');
+            setShowDeleteConfirm(true);
+            return;
+        }
         console.log(`「${item.key}」は未実装です。`);
+    };
+
+    // アカウント削除（App Store 5.1.1(v)）。実処理は Edge Function 側で行う。
+    const handleConfirmDelete = async () => {
+        if (deleteInput !== '削除') {
+            setDeleteError('「削除」と入力してください。');
+            return;
+        }
+        setDeleting(true);
+        setDeleteError('');
+        const { error } = await deleteAccount();
+        setDeleting(false);
+        if (error) {
+            setDeleteError(error);
+            return;
+        }
+        setShowDeleteConfirm(false); // 成功時は logout 相当で user が null になり、ログイン画面へ戻る
     };
 
     // draft.avatar が新しい画像アバターのidなら画像、
@@ -188,6 +229,46 @@ export default function ProfileScreen() {
                         >
                             ログアウト
                         </button>
+                    </div>
+                </div>
+            )}
+                    {/* アカウント削除の確認モーダル */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-end sm:items-center">
+                    <div className="w-full max-w-sm bg-white text-stone-800 p-6 shadow-2xl rounded-t-3xl sm:rounded-3xl">
+                        <h2 className="font-black text-base text-stone-900 mb-2">アカウントを削除しますか？</h2>
+                        <p className="text-xs text-stone-500 leading-relaxed mb-4">
+                            この操作は取り消せません。プロフィール・スワイプ履歴・保存したお店・
+                            作成したグループなど、このアカウントに紐づくデータがすべて削除されます。
+                        </p>
+                        <p className="text-xs font-bold text-stone-700 mb-2">
+                            よろしければ「削除」と入力してください。
+                        </p>
+                        <input
+                            type="text"
+                            value={deleteInput}
+                            onChange={(e) => setDeleteInput(e.target.value)}
+                            placeholder="削除"
+                            className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium mb-3 focus:outline-none focus:border-red-400"
+                        />
+                        {deleteError && (
+                            <p className="text-[11px] text-red-500 font-bold mb-3">{deleteError}</p>
+                        )}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="flex-1 py-3 rounded-xl border border-stone-200 text-stone-600 text-xs font-bold"
+                            >
+                                キャンセル
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                disabled={deleting}
+                                className="flex-1 py-3 rounded-xl bg-red-600 text-white text-xs font-bold disabled:opacity-40"
+                            >
+                                {deleting ? '削除中…' : 'アカウントを削除する'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

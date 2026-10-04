@@ -12,6 +12,20 @@ dist
 dist-ssr
 *.local
 
+# 環境変数（APIキー等が入るため絶対にコミットしない）
+.env
+.env.local
+.env.*.local
+
+# Capacitorが生成するネイティブビルド成果物
+ios/App/Pods
+ios/App/build
+ios/App/App/public
+android/app/build
+android/.gradle
+android/local.properties
+android/app/src/main/assets/public
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

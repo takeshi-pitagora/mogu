@@ -30,7 +30,7 @@ export default function BottomNav({ activeTab, setActiveTab }) {
     ];
 
     return (
-        <nav className="h-24 bg-white flex items-center justify-around px-4 pb-3 border-t border-stone-100 select-none">
+        <nav className="safe-bottom h-24 bg-white flex items-center justify-around px-4 pb-3 border-t border-stone-100 select-none">
         {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
 
