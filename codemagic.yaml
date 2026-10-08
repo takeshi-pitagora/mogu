@@ -1,1 +1,97 @@
+# ============================================================
+# MogU  iOS ビルド → TestFlight 自動配信（Mac不要）
+#
+# このファイルは「リポジトリの一番上の階層」に置く必要があります。
+# アプリ本体は mogu-app/ フォルダの中にあるため、各ステップで cd しています。
+#
+# 事前にCodemagicダッシュボードで用意するもの：
+#   ① Integrations → App Store Connect に API Key を登録し、
+#      名前を  mogu_app_store_connection  にする
+#   ② Environment variables にグループ  mogu_secrets  を作り、以下3つを登録
+#      VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / CERTIFICATE_PRIVATE_KEY
+#      （CERTIFICATE_PRIVATE_KEY は署名用の秘密鍵。ssh-keygen -t rsa -b 2048 -m PEM で作る）
+#
+# 自動トリガーは付けていません。最初は「Start new build」で手動実行します
+# （push のたびに有料のMac分数を消費しないようにするため）。
+# ============================================================
+workflows:
+  ios-testflight:
+    name: MogU iOS (TestFlight)
+    max_build_duration: 45
+    instance_type: mac_mini_m2
 
+    integrations:
+      app_store_connect: mogu_app_store_connection
+
+    environment:
+      groups:
+        - mogu_secrets    # VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / CERTIFICATE_PRIVATE_KEY
+      node: 22            # Capacitor 8 は Node 22 以上が必須
+      xcode: latest
+      vars:
+        BUNDLE_ID: app.mogu.mobile
+        APP_DIR: mogu-app
+        XCODE_PROJECT: ios/App/App.xcodeproj   # SPM構成のため .xcworkspace は存在しない
+        XCODE_SCHEME: App
+
+    scripts:
+      - name: 依存パッケージのインストール
+        script: |
+          cd $APP_DIR
+          npm ci
+
+      - name: Webアプリのビルド（Vite）
+        script: |
+          cd $APP_DIR
+          npm run build
+
+      - name: Capacitor同期（Webアセットをiosプロジェクトへ反映）
+        script: |
+          cd $APP_DIR
+          npx cap sync ios
+
+      # ── コード署名（自動）──────────────────────────────────────
+      # Apple に証明書・プロファイルが無ければ作成し、あれば取得する。
+      # 証明書の秘密鍵 CERTIFICATE_PRIVATE_KEY が必須（環境変数グループに登録）。
+      # ※ ios_signing ブロックは「Codemagicへ手動アップロード済みの署名ファイル」を
+      #    探す別方式なので、これとは併用しない（併用するとエラーになる）。
+      - name: 署名用キーチェーンを初期化
+        script: |
+          keychain initialize
+
+      - name: 署名ファイルを取得（無ければ作成）
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: 証明書をキーチェーンに追加
+        script: |
+          keychain add-certificates
+
+      - name: Xcodeプロジェクトに署名設定を適用
+        script: |
+          cd $APP_DIR
+          xcode-project use-profiles --project "$XCODE_PROJECT"
+
+      - name: ビルド番号を更新（Codemagicの連番を使用）
+        script: |
+          cd $APP_DIR/ios/App
+          agvtool new-version -all "$PROJECT_BUILD_NUMBER"
+
+      - name: .ipa を作成
+        script: |
+          cd $APP_DIR
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - $APP_DIR/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
