@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Icon from '../components/Icon';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { buildInviteLink, extractInviteToken } from '../lib/links';
 
 // 表示ラベルと、DB上のpurpose値の対応
 const TAGS = [
@@ -107,7 +108,7 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
             });
             if (error) throw error;
 
-            setInviteLink(`${window.location.origin}/invite/${token}`);
+            setInviteLink(buildInviteLink(token));
         } catch (err) {
             console.error('招待作成エラー:', err.message);
         }
@@ -130,7 +131,7 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
         const rawToken = joinToken.trim();
         if (!rawToken || !user?.id) return;
 
-        const token = rawToken.includes('/invite/') ? rawToken.split('/invite/').pop() : rawToken;
+        const token = extractInviteToken(rawToken);
 
         setJoinLoading(true);
         try {

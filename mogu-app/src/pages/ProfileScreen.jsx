@@ -3,9 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import Icon from '../components/Icon';
 import { AVATARS, getAvatarSrc } from '../assets/avatars/avatars';
 
-// 公開ページのURL（GitHub Pages を有効化したあとに開けるようになる。docs/ フォルダ参照）
-const PRIVACY_POLICY_URL = 'https://anzu-1206.github.io/mogu/privacy-policy.html';
-const SUPPORT_EMAIL = 'support@example.com'; // ★実際の連絡先メールアドレスに差し替える
+import { PRIVACY_POLICY_URL, SUPPORT_EMAIL } from '../lib/links';
 
 // public/icons/ にあるファイルを、他の画面と同じ Icon コンポーネント経由で参照する。
 // name には拡張子・パスを含めず、ファイル名の本体だけを指定する（他画面の書き方に合わせている）。

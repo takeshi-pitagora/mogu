@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>グループへの招待 | MogU</title>
+<style>
+  :root { --accent:#B5703A; --bg:#FBF7F0; --text:#3A342E; --sub:#8B8177; --border:#E5DCCE; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    line-height: 1.8;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 56px 24px 80px; }
+  .logo { font-weight: 900; font-size: 24px; color: var(--accent); letter-spacing: .04em; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { font-size: 14px; margin: 0 0 16px; }
+  .code {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+    word-break: break-all; margin-bottom: 12px;
+  }
+  button {
+    width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--accent);
+    color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 24px;
+  }
+  ol { font-size: 14px; padding-left: 20px; margin: 0; }
+  .sub { color: var(--sub); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">MogU</div>
+  <h1>グループに招待されました</h1>
+  <p>MogUアプリで、下の招待コードを入力すると参加できます。</p>
+
+  <div class="code" id="code">招待コードが見つかりません</div>
+  <button id="copy" type="button" hidden>コードをコピー</button>
+
+  <ol>
+    <li>MogUアプリを開く</li>
+    <li>「グループ」タブの入力欄に、招待コードを貼り付ける</li>
+    <li>参加ボタンを押す</li>
+  </ol>
+  <p class="sub">招待コードの有効期限は発行から7日間です。</p>
+</div>
+<script>
+  // 英数字とハイフン以外は受け付けない（表示にそのまま使うため）
+  var m = location.search.match(/[?&]code=([A-Za-z0-9-]+)/);
+  var code = m ? m[1] : '';
+  var box = document.getElementById('code');
+  var btn = document.getElementById('copy');
+  if (code) {
+    box.textContent = code;
+    btn.hidden = false;
+    btn.addEventListener('click', function () {
+      var done = function () { btn.textContent = 'コピーしました ✓'; };
+      if (navigator.clipboard) { navigator.clipboard.writeText(code).then(done); }
+      else {
+        var r = document.createRange(); r.selectNodeContents(box);
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); done();
+      }
+    });
+  }
+</script>
+</body>
+</html>

@@ -103,20 +103,20 @@ TestFlight アプリを自分の iPhone に入れて、実機で確認してく�
 `appstore_texts.md` の「審査ノート」をそのまま貼り付け。
 
 ### 提出前チェック
-- [ ] プライバシーポリシーURLが実際に開く（GitHub Pages 有効化後）
-- [ ] 問い合わせ先メールアドレスを実在のものに差し替えた（下記）
+- [ ] プライバシーポリシーURLが実際に開く（フォークの Settings → Pages で app-store-prep の /docs を公開後、https://takeshi-pitagora.github.io/mogu/privacy-policy.html）
+- [x] 問い合わせ先メールアドレスを差し替えた（nha824620@gmail.com）
 - [ ] 審査用アカウント（メール・パスワード）を用意した
 - [ ] アカウント削除を TestFlight の実機で確認した
 - [ ] スクリーンショット 4 枚を登録した
 
 ---
 
-## 5. 公開前に必ず差し替える箇所（現在はプレースホルダー）
+## 5. 問い合わせ先メールアドレス（差し替え済み）
 
-`support@example.com` を実際のメールアドレスに置換：
+`nha824620@gmail.com` に設定済み。変更するときは次の3か所：
 - `docs/privacy-policy.html`
 - `docs/support.html`
-- `mogu-app/src/pages/ProfileScreen.jsx`（`SUPPORT_EMAIL` 定数）
+- `mogu-app/src/lib/links.js`（`SUPPORT_EMAIL` 定数）
 
 ---
 
