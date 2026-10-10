@@ -64,8 +64,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="flex justify-center bg-stone-100 min-h-screen">
-      <div className="w-full max-w-sm flex flex-col justify-between min-h-screen bg-white text-stone-800 p-8 shadow-2xl">
+    <div className="fixed inset-0 overflow-y-auto flex justify-center bg-stone-100">
+      <div className="w-full sm:max-w-sm flex flex-col justify-between min-h-full bg-white text-stone-800 p-8 sm:shadow-2xl" style={{ paddingTop: 'calc(var(--safe-top) + 2rem)', paddingBottom: 'calc(var(--safe-bottom) + 2rem)' }}>
 
         {/* ロゴ・ウェルカム */}
         <div className="pt-12 text-center">

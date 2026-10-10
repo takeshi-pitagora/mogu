@@ -5,7 +5,10 @@ export default function Header({ user, onOpenProfile }) {
   const avatarSrc = getAvatarSrc(user?.avatar);
 
   return (
-    <header className="flex items-center justify-between px-6 pt-5 pb-2 bg-white">
+    <header
+      className="flex-none flex items-center justify-between px-6 pb-2 bg-white"
+      style={{ paddingTop: 'calc(var(--safe-top) + 0.75rem)' }}
+    >
       <h1 className="font-logo text-3xl font-black tracking-tight text-stone-900">
         mogu
       </h1>

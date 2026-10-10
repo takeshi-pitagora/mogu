@@ -20,8 +20,16 @@ body {
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-body {
-  padding-top: var(--safe-top);
+/* 画面を固定する：ページ全体はスクロール・バウンスさせない。
+   スクロールが必要な部分は、各コンテンツ欄の中だけで行う。 */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #fff;
 }
 
 /* BottomNav・ヘッダー等、画面端に固定されている要素にセーフエリア分の

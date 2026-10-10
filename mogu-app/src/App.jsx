@@ -15,7 +15,7 @@ function MainApp() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-white text-xs text-stone-400 font-bold">
+            <div className="fixed inset-0 flex items-center justify-center bg-white text-xs text-stone-400 font-bold">
                 読み込み中...
             </div>
         );
@@ -26,8 +26,9 @@ function MainApp() {
     }
 
     return (
-        <div className="flex justify-center bg-stone-100 min-h-screen">
-            <div className="relative w-full max-w-sm flex flex-col min-h-screen bg-white shadow-2xl">
+        // 画面全体を固定。スクロールするのは中央のコンテンツ欄だけ（ヘッダーとナビは動かない）
+        <div className="fixed inset-0 flex justify-center bg-stone-100">
+            <div className="relative w-full sm:max-w-sm h-full flex flex-col bg-white sm:shadow-2xl">
 
                 {/* 共通ヘッダー（スクロール領域の外に固定配置） */}
                 <Header
@@ -35,7 +36,7 @@ function MainApp() {
                     onOpenProfile={() => setActiveTab('settings')}
                 />
 
-                <div className="flex-1 flex flex-col overflow-y-auto pb-24">
+                <div className="flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain">
                     {activeTab === 'home' && <HomeScreen selectedGroup={selectedGroup} />}
                     {activeTab === 'group' && (
                         <GroupScreen selectedGroup={selectedGroup} onSelectGroup={setSelectedGroup} />
@@ -44,8 +45,8 @@ function MainApp() {
                     {activeTab === 'settings' && <ProfileScreen />}
                 </div>
 
-                {/* 共通フッターナビ（画面全体を基準に固定配置） */}
-                <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm z-40">
+                {/* 共通フッターナビ（画面下に固定） */}
+                <div className="flex-none z-40">
                     <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
                 </div>
             </div>
