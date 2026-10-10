@@ -48,6 +48,7 @@ workflows:
       - name: Capacitor同期（Webアセットをiosプロジェクトへ反映）
         script: |
           cd $APP_DIR
+          npm install --no-save typescript
           npx cap sync ios
 
       # ── コード署名（自動）──────────────────────────────────────
