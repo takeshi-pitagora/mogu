@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { PRIVACY_POLICY_URL, TERMS_URL } from '../lib/links';
 
 export default function LoginScreen() {
   const { login, signup, guestLogin } = useAuth();
@@ -142,6 +143,14 @@ export default function LoginScreen() {
           >
             {guestSubmitting ? '接続中...' : '登録せずにお試し（ゲストログイン）'}
           </button>
+
+          <p className="text-[10px] text-stone-400 font-medium text-center leading-relaxed">
+            登録・ログインすると、
+            <button type="button" onClick={() => window.open(TERMS_URL, '_blank', 'noopener,noreferrer')} className="underline">利用規約</button>
+            と
+            <button type="button" onClick={() => window.open(PRIVACY_POLICY_URL, '_blank', 'noopener,noreferrer')} className="underline">プライバシーポリシー</button>
+            に同意したものとみなされます。不適切な投稿や迷惑行為は一切認めていません。
+          </p>
         </form>
 
         {/* モード切替 */}

@@ -6,6 +6,7 @@ export const SITE_BASE_URL = 'https://takeshi-pitagora.github.io/mogu';
 export const SUPPORT_EMAIL = 'nha824620@gmail.com';
 
 export const PRIVACY_POLICY_URL = `${SITE_BASE_URL}/privacy-policy.html`;
+export const TERMS_URL = `${SITE_BASE_URL}/terms.html`;
 
 // 招待リンク。アプリ内（capacitor://localhost）のURLではなく、
 // 誰でも開ける公開ページを指す。コードは ?code= に入る。

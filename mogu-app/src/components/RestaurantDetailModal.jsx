@@ -102,6 +102,9 @@ export default function RestaurantDetailModal({ restaurant, onClose }) {
                         <LinkButton href={tabelogUrl} emoji="🍜" label="食べログでメニューを見る" />
                         <LinkButton href={hotpepperUrl} emoji="📅" label="ホットペッパーで予約する" />
                     </div>
+                    <p className="text-[10px] text-stone-400 font-medium text-center mt-4">
+                        店舗情報・写真提供: Google
+                    </p>
                 </div>
             </div>
         </div>

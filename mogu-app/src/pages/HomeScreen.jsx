@@ -490,6 +490,7 @@ export default function HomeScreen({ selectedGroup }) {
                                     <p>💰 予算: {formatPriceLevel(currentShop.price_level)}</p>
                                     <p>⭐ 評価: {currentShop.rating || '---'}</p>
                                 </div>
+                                <p className="text-[9px] opacity-70 font-medium mt-1.5">店舗情報・写真: Google</p>
                             </div>
                         </div>
                     </div>

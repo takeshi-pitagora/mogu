@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import Icon from '../components/Icon';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { buildInviteLink, extractInviteToken } from '../lib/links';
+import { buildInviteLink, extractInviteToken, SUPPORT_EMAIL } from '../lib/links';
+
+const REPORT_REASONS = [
+    '不適切・攻撃的なグループ名',
+    '迷惑行為・嫌がらせ',
+    'スパム・宣伝目的',
+    'その他',
+];
 
 // 表示ラベルと、DB上のpurpose値の対応
 const TAGS = [
@@ -28,6 +35,12 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
     const [joinToken, setJoinToken] = useState('');
     const [joinError, setJoinError] = useState('');
     const [joinLoading, setJoinLoading] = useState(false);
+
+    // 報告・退出メニュー
+    const [menuGroup, setMenuGroup] = useState(null);
+    const [menuMode, setMenuMode] = useState('menu'); // 'menu' | 'report' | 'reported' | 'leave'
+    const [menuBusy, setMenuBusy] = useState(false);
+    const [menuError, setMenuError] = useState('');
 
     // 選択中のタグ（purpose値）。null は「絞り込みなし」を意味する
     const [activePurposeFilter, setActivePurposeFilter] = useState(null);
@@ -111,6 +124,62 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
             setInviteLink(buildInviteLink(token));
         } catch (err) {
             console.error('招待作成エラー:', err.message);
+        }
+    };
+
+    // ---- 報告・退出（ブロック）メニュー ----
+    const openGroupMenu = (group) => {
+        setMenuGroup(group);
+        setMenuMode('menu');
+        setMenuError('');
+    };
+    const closeGroupMenu = () => {
+        setMenuGroup(null);
+        setMenuError('');
+    };
+
+    // 報告は運営の問い合わせ先へメールで届ける（グループIDを本文に入れて特定できるようにする）
+    const handleReportGroup = (reason) => {
+        if (!menuGroup) return;
+        const subject = `【MogU 通報】グループ「${menuGroup.name}」`;
+        const body = [
+            '以下のグループを報告します。',
+            '',
+            `理由: ${reason}`,
+            `グループ名: ${menuGroup.name}`,
+            `グループID: ${menuGroup.id}`,
+            `報告者ID: ${user?.id ?? '-'}`,
+            '',
+            '詳しい内容（任意）:',
+            '',
+        ].join('\n');
+        window.open(
+            `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+            '_self'
+        );
+        setMenuMode('reported');
+    };
+
+    // 退出＝自分の group_members 行を削除。以後このグループのメンバーとはマッチせず、一覧にも出ない
+    const handleLeaveGroup = async () => {
+        if (!menuGroup || !user?.id) return;
+        setMenuBusy(true);
+        setMenuError('');
+        try {
+            const { error } = await supabase
+                .from('group_members')
+                .delete()
+                .eq('group_id', menuGroup.id)
+                .eq('user_id', user.id);
+            if (error) throw error;
+            if (selectedGroup?.id === menuGroup.id && onSelectGroup) onSelectGroup(null);
+            setGroups((prev) => prev.filter((g) => g.id !== menuGroup.id));
+            closeGroupMenu();
+        } catch (err) {
+            console.error('退出エラー:', err.message);
+            setMenuError('退出に失敗しました。時間をおいて再度お試しください。');
+        } finally {
+            setMenuBusy(false);
         }
     };
 
@@ -284,15 +353,27 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
                     </p>
                     </div>
                 </div>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleGenerateInvite(group);
-                    }}
-                    className="text-[10px] font-bold text-stone-500 border border-stone-200 rounded-full px-3 py-1.5 flex-shrink-0"
-                >
-                    招待する
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleGenerateInvite(group);
+                        }}
+                        className="text-[10px] font-bold text-stone-500 border border-stone-200 rounded-full px-3 py-1.5"
+                    >
+                        招待する
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            openGroupMenu(group);
+                        }}
+                        aria-label="グループのメニュー（報告・退出）"
+                        className="w-8 h-8 rounded-full text-stone-400 text-lg font-black leading-none active:bg-stone-100"
+                    >
+                        ⋯
+                    </button>
+                </div>
                 </div>
             ))}
             </div>
@@ -344,6 +425,122 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
                     </button>
                 </div>
                 </form>
+            </div>
+            </div>
+        )}
+
+        {/* グループのメニュー：報告／退出（App Store 1.2 ユーザー生成コンテンツ対策） */}
+        {menuGroup && (
+            <div
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
+                onClick={closeGroupMenu}
+            >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl"
+                style={{ paddingBottom: 'calc(var(--safe-bottom) + 1.5rem)' }}
+            >
+                <h3 className="text-base font-black text-stone-900 mb-1 truncate">「{menuGroup.name}」</h3>
+
+                {menuMode === 'menu' && (
+                <>
+                    <p className="text-[11px] text-stone-400 font-medium mb-4">
+                        不適切なグループ名や、迷惑なメンバーがいる場合は報告してください。
+                    </p>
+                    <div className="space-y-2">
+                        <button
+                            onClick={() => setMenuMode('report')}
+                            className="w-full py-3 rounded-xl border border-stone-200 text-xs font-bold text-stone-800"
+                        >
+                            このグループを報告する
+                        </button>
+                        <button
+                            onClick={() => setMenuMode('leave')}
+                            className="w-full py-3 rounded-xl bg-red-50 text-xs font-bold text-red-600"
+                        >
+                            グループから退出する（ブロック）
+                        </button>
+                        <button
+                            onClick={closeGroupMenu}
+                            className="w-full py-3 rounded-xl text-xs font-bold text-stone-500"
+                        >
+                            キャンセル
+                        </button>
+                    </div>
+                </>
+                )}
+
+                {menuMode === 'report' && (
+                <>
+                    <p className="text-[11px] text-stone-400 font-medium mb-3">報告の理由を選んでください。</p>
+                    <div className="space-y-2 mb-3">
+                        {REPORT_REASONS.map((reason) => (
+                            <button
+                                key={reason}
+                                onClick={() => handleReportGroup(reason)}
+                                className="w-full py-3 rounded-xl border border-stone-200 text-xs font-bold text-stone-800"
+                            >
+                                {reason}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-[10px] text-stone-400 font-medium mb-3">
+                        報告は運営チームに送信され、24時間以内に内容を確認します。不適切と判断した場合は、グループの削除やユーザーの利用停止を行います。
+                    </p>
+                    <button
+                        onClick={() => setMenuMode('menu')}
+                        className="w-full py-3 rounded-xl text-xs font-bold text-stone-500"
+                    >
+                        戻る
+                    </button>
+                </>
+                )}
+
+                {menuMode === 'reported' && (
+                <>
+                    <p className="text-xs text-stone-600 font-medium leading-relaxed mb-4">
+                        報告用のメールを作成しました。送信していただくと、運営チームが24時間以内に確認します。
+                        <br />
+                        このグループの表示をやめたい場合は、続けて「退出する」を選んでください。
+                    </p>
+                    <button
+                        onClick={() => setMenuMode('leave')}
+                        className="w-full py-3 rounded-xl bg-red-50 text-xs font-bold text-red-600 mb-2"
+                    >
+                        グループから退出する
+                    </button>
+                    <button
+                        onClick={closeGroupMenu}
+                        className="w-full py-3 rounded-xl border border-stone-200 text-xs font-bold text-stone-600"
+                    >
+                        閉じる
+                    </button>
+                </>
+                )}
+
+                {menuMode === 'leave' && (
+                <>
+                    <p className="text-xs text-stone-600 font-medium leading-relaxed mb-4">
+                        退出すると、このグループとメンバーとのマッチングは行われなくなり、一覧にも表示されません。再参加するには新しい招待コードが必要です。
+                    </p>
+                    {menuError && <p className="text-[11px] text-red-500 font-bold mb-3">{menuError}</p>}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setMenuMode('menu')}
+                            className="flex-1 py-3 rounded-xl border border-stone-200 text-xs font-bold text-stone-600"
+                        >
+                            戻る
+                        </button>
+                        <button
+                            onClick={handleLeaveGroup}
+                            disabled={menuBusy}
+                            className="flex-1 py-3 rounded-xl bg-red-600 text-white text-xs font-bold disabled:opacity-40"
+                        >
+                            {menuBusy ? '退出中…' : '退出する'}
+                        </button>
+                    </div>
+                </>
+                )}
             </div>
             </div>
         )}
