@@ -27,7 +27,7 @@ workflows:
       groups:
         - mogu_secrets    # VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / CERTIFICATE_PRIVATE_KEY
       node: 22            # Capacitor 8 は Node 22 以上が必須
-      xcode: latest
+      xcode: 26.5   # latest(26.6系)はビルドマシンが混みやすいため固定
       vars:
         BUNDLE_ID: app.mogu.mobile
         APP_DIR: mogu-app
