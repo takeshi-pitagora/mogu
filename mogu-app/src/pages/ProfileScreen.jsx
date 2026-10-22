@@ -4,13 +4,15 @@ import Icon from '../components/Icon';
 import { AVATARS, getAvatarSrc } from '../assets/avatars/avatars';
 
 import { PRIVACY_POLICY_URL, SUPPORT_EMAIL } from '../lib/links';
+import { getType } from '../lib/mogutype';
+import DiagnosisModal from '../components/DiagnosisModal';
 
 // public/icons/ にあるファイルを、他の画面と同じ Icon コンポーネント経由で参照する。
 // name には拡張子・パスを含めず、ファイル名の本体だけを指定する（他画面の書き方に合わせている）。
 const MENU_ITEMS = [
     { key: 'account', label: 'アカウント', icon: 'account' },
     { key: 'privacy', label: 'プライバシー', icon: 'privacy' },
-    { key: 'diagnosis', label: '診断', icon: 'diagnosis', url: 'https://mogu-mogu-match.pages.dev/' },
+    { key: 'diagnosis', label: '診断', icon: 'diagnosis' },
     { key: 'help', label: 'ヘルプ', icon: 'help' },
     { key: 'delete', label: 'アカウント削除', icon: 'delete' },
 ];
@@ -28,6 +30,7 @@ export default function ProfileScreen() {
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [showDiagnosis, setShowDiagnosis] = useState(false);
 
     if (!user) return null;
 
@@ -59,6 +62,10 @@ export default function ProfileScreen() {
     const handleMenuClick = (item) => {
         if (item.key === 'account') {
             openEdit();
+            return;
+        }
+        if (item.key === 'diagnosis') {
+            setShowDiagnosis(true);
             return;
         }
         if (item.url) {
@@ -203,19 +210,31 @@ export default function ProfileScreen() {
 
                                 <div>
                                     <label className="block text-xs font-bold text-stone-500 mb-1">食スタイル診断</label>
-                                    <div className="flex items-center justify-between p-3 bg-stone-50 border border-stone-200 rounded-xl">
-                                        <span className="text-sm font-bold text-stone-700">{draft.foodStyle}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const urlWithUser = `https://mogu-mogu-match.pages.dev/?user_id=${encodeURIComponent(user.id)}`;
-                                                window.open(urlWithUser, '_blank', 'noopener,noreferrer');
-                                            }}
-                                            className="text-xs font-bold text-amber-800 underline"
-                                        >
-                                            診断を受ける
-                                        </button>
-                                    </div>
+                                    {(() => {
+                                        const type = getType(draft.foodStyle);
+                                        return (
+                                            <div className="flex items-center justify-between gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
+                                                {type ? (
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <img src={getAvatarSrc(type.avatarId)} alt={type.name} className="w-10 h-10 rounded-full object-cover border border-stone-200 flex-shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-black text-stone-800 truncate">{type.name}</p>
+                                                            <p className="text-[10px] font-bold text-stone-400 tracking-wider">{type.code}・{type.tags.slice(0, 2).join('・')}</p>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-sm font-bold text-stone-700">未診断</span>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowDiagnosis(true)}
+                                                    className="text-xs font-bold text-amber-800 underline flex-shrink-0"
+                                                >
+                                                    {type ? 'もう一度診断' : '診断を受ける'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>
@@ -269,6 +288,15 @@ export default function ProfileScreen() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* 食スタイル診断（Mogu Type） */}
+            {showDiagnosis && (
+                <DiagnosisModal
+                    onClose={() => setShowDiagnosis(false)}
+                    // 結果が出たら、編集中の下書き（大きい丸アイコン・食スタイル欄）にも反映する
+                    onResult={({ code, avatarId }) => setDraft((d) => (d ? { ...d, avatar: avatarId, foodStyle: code } : d))}
+                />
             )}
         </div>
     );

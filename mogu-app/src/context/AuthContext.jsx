@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
         name: 'ゲスト',
         avatar: '🍓',
         foodStyle: '未診断',
+        foodAxes: null,
         isGuest: true,
       });
       return;
@@ -47,6 +48,7 @@ export function AuthProvider({ children }) {
       name: profile?.display_name || authUser.email?.split('@')[0] || 'ユーザー',
       avatar: profile?.avatar || '🍓',
       foodStyle: profile?.food_style || '未診断',
+      foodAxes: profile?.food_axes || null, // 診断の4軸スコア {VT,NF,BG,PL}（0〜3）
       isGuest: false,
     });
   };
@@ -151,6 +153,38 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  // Mogu Type 診断の結果を保存する（タイプコード・4軸スコア・キャラのアイコン）
+  // ゲストはサーバーに保存できないため、この画面の間だけ表示に反映する
+  const saveDiagnosis = async ({ code, axes, avatarId }) => {
+    if (!user) return { error: 'ログイン情報が見つかりません。' };
+    const local = { foodStyle: code, foodAxes: axes, avatar: avatarId };
+    if (user.isGuest) {
+      setUser((prev) => ({ ...prev, ...local }));
+      return { success: true, localOnly: true };
+    }
+
+    let { error } = await supabase
+      .from('profiles')
+      .update({ food_style: code, food_axes: axes, avatar: avatarId })
+      .eq('id', user.id);
+
+    // food_axes 列がまだ無いDBでも、タイプとアイコンだけは保存できるようにする
+    if (error && /food_axes/.test(error.message || '')) {
+      console.warn('food_axes 列が見つからないため、タイプとアイコンのみ保存します。');
+      ({ error } = await supabase
+        .from('profiles')
+        .update({ food_style: code, avatar: avatarId })
+        .eq('id', user.id));
+    }
+
+    if (error) {
+      console.error('診断結果の保存エラー:', error.message);
+      return { error: '診断結果を保存できませんでした。時間をおいて再度お試しください。' };
+    }
+    setUser((prev) => ({ ...prev, ...local }));
+    return { success: true };
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -182,7 +216,7 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const value = { user, loading, login, signup, guestLogin, logout, deleteAccount, updateProfile };
+  const value = { user, loading, login, signup, guestLogin, logout, deleteAccount, updateProfile, saveDiagnosis };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
