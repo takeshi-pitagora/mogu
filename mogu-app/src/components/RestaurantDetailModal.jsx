@@ -1,5 +1,26 @@
 import React from 'react';
 
+function openExternalLink(url) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function LinkButton({ href, label }) {
+    return (
+        <button
+            type="button"
+            onClick={() => openExternalLink(href)}
+            className="w-full flex items-center justify-between px-5 py-4 rounded-2xl border border-[#E9E2D6] bg-white active:scale-[0.98] active:bg-stone-50 transition"
+        >
+            <span className="text-sm font-bold text-stone-800">{label}</span>
+            <svg aria-hidden="true" viewBox="0 0 20 20" className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7.5 4.5 13 10l-5.5 5.5" />
+            </svg>
+        </button>
+    );
+}
+
+// お店の詳細（保存一覧からタップで開く）
+// 上: 写真いっぱいに、ジャンル・エリア・店名・評価を重ねる / 下: 外部サービスへのリンク
 export default function RestaurantDetailModal({ restaurant, onClose }) {
     if (!restaurant) return null;
 
@@ -23,86 +44,69 @@ export default function RestaurantDetailModal({ restaurant, onClose }) {
     const tabelogUrl = 'https://tabelog.com/rst/rstlst/?vs=1&sa=&sk=' + encodeURIComponent(name);
     const hotpepperUrl = 'https://www.hotpepper.jp/gstr00000/?keyword=' + encodeURIComponent(name);
 
-    function openExternalLink(url) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-    }
-
-    function LinkButton(props) {
-        return (
-            <button
-                type="button"
-                onClick={function () { openExternalLink(props.href); }}
-                className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border border-[#F0EAE0] bg-white active:scale-[0.98] transition"
-            >
-                <span className="flex items-center gap-2 text-sm font-bold text-stone-800">
-                    <span className="text-lg">{props.emoji}</span>
-                    <span>{props.label}</span>
-                </span>
-                <span className="text-stone-300 text-lg font-bold">＞</span>
-            </button>
-        );
-    }
+    const ratingValue = Number(rating);
+    const hasRating = Number.isFinite(ratingValue) && ratingValue > 0;
 
     return (
         <div
             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
             onClick={onClose}
+            style={{ paddingTop: 'calc(var(--safe-top) + 2.5rem)' }}
         >
             <div
-                onClick={function (e) { e.stopPropagation(); }}
-                className="w-full max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm h-full sm:h-auto sm:max-h-[90vh] bg-white rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden flex flex-col"
             >
-                <div className="relative">
-                    <img
-                        src={mainPhoto}
-                        alt={name}
-                        className="w-full h-56 object-cover rounded-t-3xl sm:rounded-t-3xl"
-                    />
+                {/* 写真＋店名（写真の上に重ねる） */}
+                <div className="relative flex-none h-[58%] min-h-[300px] max-h-[460px] bg-stone-200">
+                    <img src={mainPhoto} alt={name} className="absolute inset-0 w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-stone-700 font-bold shadow-md active:scale-95 transition"
+                        className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/95 flex items-center justify-center text-stone-800 shadow-md active:scale-95 transition"
                         aria-label="閉じる"
                     >
-                        ✕
+                        <svg aria-hidden="true" viewBox="0 0 20 20" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                            <path d="M5 5l10 10M15 5 5 15" />
+                        </svg>
                     </button>
+
+                    <div className="absolute inset-x-0 bottom-0 px-5 pb-5 text-white">
+                        {(genre || area) && (
+                            <div className="flex flex-wrap gap-2 mb-2.5">
+                                {[genre, area].filter(Boolean).map((t) => (
+                                    <span key={t} className="text-[11px] font-bold bg-white/25 backdrop-blur-md px-3 py-1 rounded-full">
+                                        {t}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        <h2 className="text-2xl font-black leading-tight mb-1.5 drop-shadow-sm">{name}</h2>
+                        {hasRating && (
+                            <p className="flex items-center gap-1.5">
+                                <span className="text-amber-400 text-lg leading-none" aria-hidden="true">★</span>
+                                <span className="text-xl font-black">{ratingValue.toFixed(1)}</span>
+                                {userRatingsTotal ? (
+                                    <span className="text-xs font-medium opacity-85">({Number(userRatingsTotal).toLocaleString()})</span>
+                                ) : null}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
-                <div className="p-6">
-                    <h2 className="text-xl font-black text-stone-900 mb-1">{name}</h2>
-                    <p className="text-xs text-stone-400 font-bold mb-4">
-                        {[genre, area].filter(Boolean).join('・')}
-                    </p>
-
-                    <div className="bg-[#F0EAE0] rounded-2xl p-4 mb-6 space-y-3">
-                        <div className="flex items-start gap-2">
-                            <span className="text-sm">📍</span>
-                            <div>
-                                <p className="text-[10px] text-stone-400 font-bold mb-0.5">アクセス</p>
-                                <p className="text-xs text-black font-medium">
-                                    {address || '住所情報がありません'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="h-px bg-stone-700" />
-                        <div className="flex items-start gap-2">
-                            <span className="text-sm">⭐</span>
-                            <div>
-                                <p className="text-[10px] text-stone-400 font-bold mb-0.5">評価</p>
-                                <p className="text-xs text-black font-medium">
-                                    {rating ? rating.toFixed(1) : '---'}
-                                    {userRatingsTotal ? '（' + userRatingsTotal + '件）' : ''}
-                                </p>
-                            </div>
-                        </div>
+                {/* リンク */}
+                <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-5 flex flex-col">
+                    <p className="text-xs font-bold text-stone-500 mb-2.5">予約・詳細はこちら</p>
+                    <div className="space-y-2.5">
+                        <LinkButton href={googleMapsUrl} label="Googleマップで経路を確認" />
+                        <LinkButton href={tabelogUrl} label="食べログでメニューを見る" />
+                        <LinkButton href={hotpepperUrl} label="ホットペッパーで予約する" />
                     </div>
-
-                    <p className="text-xs font-bold text-stone-500 mb-2">予約・詳細はこちら</p>
-                    <div className="space-y-2">
-                        <LinkButton href={googleMapsUrl} emoji="🗺️" label="Googleマップで経路を確認" />
-                        <LinkButton href={tabelogUrl} emoji="🍜" label="食べログでメニューを見る" />
-                        <LinkButton href={hotpepperUrl} emoji="📅" label="ホットペッパーで予約する" />
-                    </div>
-                    <p className="text-[10px] text-stone-400 font-medium text-center mt-4">
+                    <p
+                        className="mt-auto pt-6 text-[11px] text-stone-400 font-medium text-center"
+                        style={{ paddingBottom: 'calc(var(--safe-bottom) + 1rem)' }}
+                    >
                         店舗情報・写真提供: Google
                     </p>
                 </div>
