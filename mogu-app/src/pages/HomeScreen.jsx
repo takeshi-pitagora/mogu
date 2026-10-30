@@ -13,8 +13,10 @@ const BUDGET_OPTIONS = [
 ];
 
 const EMPTY_FILTERS = { areas: [], genre: '', priceLevel: null };
-const SWIPE_THRESHOLD = 100; // これ以上ドラッグしたら確定スワイプとみなす距離(px)
-const EXIT_DURATION = 250; // スワイプアウトのアニメーション時間(ms)
+const SWIPE_THRESHOLD = 60; // これ以上ドラッグしたら確定スワイプとみなす距離(px)
+const FLICK_MIN_DISTANCE = 12; // 素早くはじいたときは、この距離でもめくる(px)
+const FLICK_VELOCITY = 0.3; // 指を離す直前の速さがこれ以上なら「はじいた」とみなす(px/ms)
+const EXIT_DURATION = 180; // スワイプアウトのアニメーション時間(ms)
 
 export default function HomeScreen({ selectedGroup }) {
     const { user } = useAuth();
@@ -32,6 +34,10 @@ export default function HomeScreen({ selectedGroup }) {
     const [isDragging, setIsDragging] = useState(false);
     const [exitDirection, setExitDirection] = useState(null); // null | 'like' | 'nope'
     const dragStartXRef = useRef(0);
+    // 指の位置の履歴（はじく速さを計算するため）。描画に関係しないので ref で持つ
+    const draggingRef = useRef(false);
+    const dragXRef = useRef(0);
+    const samplesRef = useRef([]); // [{ x, t }]
 
     const hasActiveFilters =
         filters.areas.length > 0 || !!filters.genre || filters.priceLevel !== null;
@@ -212,15 +218,23 @@ export default function HomeScreen({ selectedGroup }) {
     const currentShop = restaurants[currentIndex];
 
     const handlePointerDown = (e) => {
-        if (exitDirection) return;
-        setIsDragging(true);
+        if (exitDirection || draggingRef.current) return;
+        draggingRef.current = true;
+        dragXRef.current = 0;
         dragStartXRef.current = e.clientX;
+        samplesRef.current = [{ x: e.clientX, t: e.timeStamp }];
+        setIsDragging(true);
         e.currentTarget.setPointerCapture?.(e.pointerId);
     };
 
     const handlePointerMove = (e) => {
-        if (!isDragging) return;
-        setDragX(e.clientX - dragStartXRef.current);
+        if (!draggingRef.current) return;
+        const dx = e.clientX - dragStartXRef.current;
+        dragXRef.current = dx;
+        const samples = samplesRef.current;
+        samples.push({ x: e.clientX, t: e.timeStamp });
+        if (samples.length > 6) samples.shift();
+        setDragX(dx);
     };
 
     const triggerSwipeOut = (direction) => {
@@ -232,13 +246,33 @@ export default function HomeScreen({ selectedGroup }) {
         }, EXIT_DURATION);
     };
 
-    const handlePointerUp = () => {
-        if (!isDragging) return;
+    // 指を離す直前（約100ms）の横方向の速さ(px/ms)。右が＋
+    const releaseVelocity = (upEvent) => {
+        const samples = samplesRef.current;
+        const now = upEvent?.timeStamp ?? samples[samples.length - 1]?.t ?? 0;
+        const recent = samples.filter((p) => now - p.t <= 100);
+        const pts = recent.length >= 2 ? recent : samples.slice(-2);
+        if (pts.length < 2) return 0;
+        const first = pts[0];
+        const last = pts[pts.length - 1];
+        const dt = last.t - first.t;
+        return dt > 0 ? (last.x - first.x) / dt : 0;
+    };
+
+    const handlePointerUp = (e) => {
+        if (!draggingRef.current) return;
+        draggingRef.current = false;
         setIsDragging(false);
 
-        if (dragX > SWIPE_THRESHOLD) {
+        const dx = dragXRef.current;
+        const v = releaseVelocity(e);
+        // ① ある程度引っぱった ② 短くても素早くはじいた（向きが一致）→ めくる
+        const flickRight = v > FLICK_VELOCITY && dx > FLICK_MIN_DISTANCE;
+        const flickLeft = v < -FLICK_VELOCITY && dx < -FLICK_MIN_DISTANCE;
+
+        if (dx > SWIPE_THRESHOLD || flickRight) {
             triggerSwipeOut('like');
-        } else if (dragX < -SWIPE_THRESHOLD) {
+        } else if (dx < -SWIPE_THRESHOLD || flickLeft) {
             triggerSwipeOut('nope');
         } else {
             setDragX(0);
@@ -246,7 +280,7 @@ export default function HomeScreen({ selectedGroup }) {
     };
 
     let translateX = dragX;
-    let rotateDeg = dragX / 20;
+    let rotateDeg = dragX / 18;
     if (exitDirection === 'like') {
         translateX = 600;
         rotateDeg = 20;
@@ -467,9 +501,12 @@ export default function HomeScreen({ selectedGroup }) {
                             onPointerCancel={handlePointerUp}
                             style={{
                                 transform: `translateX(${translateX}px) rotate(${rotateDeg}deg)`,
-                                transition: isDragging ? 'none' : `transform ${EXIT_DURATION}ms ease`,
+                                transition: isDragging ? 'none' : `transform ${EXIT_DURATION}ms ease-out`,
                                 cursor: isDragging ? 'grabbing' : 'grab',
-                                touchAction: 'pan-y',
+                                // 'none'：カードの上では縦スクロールに指を取られないようにする
+                                // （'pan-y' だと少し斜めに動かしただけで iPhone がスクロール扱いにし、スワイプが途中で止まっていた）
+                                touchAction: 'none',
+                                WebkitUserSelect: 'none',
                             }}
                             className="absolute inset-0 rounded-3xl overflow-hidden shadow-md flex flex-col justify-end bg-stone-200 select-none z-10"
                         >
