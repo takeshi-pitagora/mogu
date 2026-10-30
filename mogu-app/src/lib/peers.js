@@ -61,3 +61,16 @@ export async function fetchGroupPeers(userId) {
     .in('id', ids);
   return profiles || [];
 }
+
+// グループのメンバー全員（自分を含む）のタイプ・4軸を取得する。
+// 関数 get_group_member_types（supabase/migrations/20261030b_group_member_types.sql）を使う。
+// 関数がまだ無い／読めないときは空配列（＝おすすめ度は自分だけで計算される）。
+export async function fetchGroupMembers(groupId) {
+  if (!groupId) return [];
+  const { data, error } = await supabase.rpc('get_group_member_types', { gid: groupId });
+  if (error) {
+    console.warn('グループメンバーのタイプを取得できませんでした:', error.message);
+    return [];
+  }
+  return data || [];
+}

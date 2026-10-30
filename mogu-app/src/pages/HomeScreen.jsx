@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Icon from '../components/Icon';
 import { supabase } from '../lib/supabase';
+import { recommend } from '../lib/recommend';
+import { axesFor, fetchGroupMembers } from '../lib/peers';
 import { useAuth } from '../context/AuthContext';
 
 const AREA_OPTIONS = ['新宿', '渋谷', '恵比寿', '代官山', '中目黒', '池袋'];
@@ -17,6 +19,30 @@ const SWIPE_THRESHOLD = 60; // これ以上ドラッグしたら確定スワイ�
 const FLICK_MIN_DISTANCE = 12; // 素早くはじいたときは、この距離でもめくる(px)
 const FLICK_VELOCITY = 0.3; // 指を離す直前の速さがこれ以上なら「はじいた」とみなす(px/ms)
 const EXIT_DURATION = 180; // スワイプアウトのアニメーション時間(ms)
+
+// グループのおすすめ順に並べ替え、各店に groupPercent（50〜99%）を付ける。
+// - 診断していないメンバーは中間の値（4軸とも真ん中）として計算する
+// - 自分の分は、保存を待たずに手元の最新の診断結果を使う
+// - 誰かの予算を大きく超えるお店は、おすすめ度なしで最後に回す（デッキが空にならないように）
+async function rankForGroup(rows, groupId, user) {
+    if (rows.length === 0) return rows;
+    const memberRows = await fetchGroupMembers(groupId);
+    const others = memberRows.filter((m) => m.id !== user?.id);
+    const members = [
+        { axes: axesFor(user?.foodAxes, user?.foodStyle) || {} },
+        ...others.map((m) => ({ axes: axesFor(m.food_axes, m.food_style) || {} })),
+    ];
+    const ranked = recommend(members, rows, { limit: rows.length });
+    const seen = new Set();
+    const ordered = ranked.map(({ restaurant, percent }) => {
+        seen.add(restaurant.id);
+        return { ...restaurant, groupPercent: percent };
+    });
+    rows.forEach((r) => {
+        if (!seen.has(r.id)) ordered.push({ ...r, groupPercent: null });
+    });
+    return ordered;
+}
 
 export default function HomeScreen({ selectedGroup }) {
     const { user } = useAuth();
@@ -82,6 +108,12 @@ export default function HomeScreen({ selectedGroup }) {
                     data = qData || [];
                 }
 
+                // グループで見ているときは、メンバー全員のタイプでおすすめ順に並べ、おすすめ度(%)を付ける。
+                // 並べる → 自分のスワイプ済みを除く、の順なので、メンバー全員で同じ順番になる。
+                if (selectedGroup?.id) {
+                    data = await rankForGroup(data, selectedGroup.id, user);
+                }
+
                 let filtered = data.filter((r) => !swipedIds.includes(r.id));
 
                 if (filters.genre) {
@@ -104,7 +136,7 @@ export default function HomeScreen({ selectedGroup }) {
         }
         fetchRestaurants();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.id, filters.areas.join(','), filters.genre, filters.priceLevel]);
+    }, [user?.id, selectedGroup?.id, filters.areas.join(','), filters.genre, filters.priceLevel]);
 
         // 次に表示される予定の店舗の画像を先読みしておく（表示ラグ対策）
     useEffect(() => {
@@ -517,6 +549,25 @@ export default function HomeScreen({ selectedGroup }) {
                                 className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+
+                            {/* グループおすすめ度（案1：右上の丸メーター）。グループで見ているときだけ */}
+                            {selectedGroup && currentShop.groupPercent != null && (
+                                <div
+                                    aria-label={`グループおすすめ度 ${currentShop.groupPercent}%`}
+                                    className="absolute top-4 right-4 z-10 w-[76px] h-[76px] rounded-full bg-stone-900/55 backdrop-blur-md flex flex-col items-center justify-center text-white pointer-events-none"
+                                >
+                                    <svg aria-hidden="true" viewBox="0 0 76 76" className="absolute inset-0">
+                                        <circle cx="38" cy="38" r="33" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="5" />
+                                        <circle
+                                            cx="38" cy="38" r="33" fill="none" stroke="#F2C21B" strokeWidth="5" strokeLinecap="round"
+                                            strokeDasharray={`${(2 * Math.PI * 33 * currentShop.groupPercent) / 100} ${2 * Math.PI * 33}`}
+                                            transform="rotate(-90 38 38)"
+                                        />
+                                    </svg>
+                                    <span className="text-xl font-black leading-none">{currentShop.groupPercent}%</span>
+                                    <span className="text-[8px] font-extrabold opacity-85 mt-0.5">おすすめ度</span>
+                                </div>
+                            )}
 
                             <div className="relative z-10 p-5 text-white pointer-events-none">
                                 <span className="text-[10px] bg-white/20 backdrop-blur-md px-2.5 py-0.5 rounded-full font-bold inline-block mb-1.5">
