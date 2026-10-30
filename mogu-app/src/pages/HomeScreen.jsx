@@ -486,9 +486,16 @@ export default function HomeScreen({ selectedGroup }) {
                                     {currentShop.area} · {currentShop.genre}
                                 </span>
                                 <h2 className="text-xl font-black mb-1">{currentShop.name}</h2>
-                                <div className="text-xs space-y-0.5 opacity-90 font-medium">
-                                    <p>💰 予算: {formatPriceLevel(currentShop.price_level)}</p>
-                                    <p>⭐ 評価: {currentShop.rating || '---'}</p>
+                                {/* 予算・評価（絵文字ではなく、白い線のアイコン） */}
+                                <div className="text-xs space-y-1 opacity-95 font-semibold">
+                                    <p className="flex items-center gap-[7px]">
+                                        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none"><rect x="3" y="6" width="18" height="13" rx="2.5" /><path d="M16 12.5h2M3 9.5h18" /></svg>
+                                        予算 {formatPriceLevel(currentShop.price_level)}
+                                    </p>
+                                    <p className="flex items-center gap-[7px]">
+                                        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" className="flex-none"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" /></svg>
+                                        評価 {currentShop.rating || '---'}
+                                    </p>
                                 </div>
                                 <p className="text-[9px] opacity-70 font-medium mt-1.5">店舗情報・写真: Google</p>
                             </div>
