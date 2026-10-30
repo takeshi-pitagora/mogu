@@ -1,23 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Icon from '../components/Icon';
 import { AVATARS, getAvatarSrc } from '../assets/avatars/avatars';
-
-import { PRIVACY_POLICY_URL, SUPPORT_EMAIL } from '../lib/links';
 import { getType } from '../lib/mogutype';
+import { fetchGroupPeers, rankPeers } from '../lib/peers';
 import DiagnosisModal from '../components/DiagnosisModal';
+import SettingsScreen from '../components/SettingsScreen';
+import CompatModal, { CompatRow } from '../components/CompatModal';
 
-// public/icons/ にあるファイルを、他の画面と同じ Icon コンポーネント経由で参照する。
-// name には拡張子・パスを含めず、ファイル名の本体だけを指定する（他画面の書き方に合わせている）。
-const MENU_ITEMS = [
-    { key: 'account', label: 'アカウント', icon: 'account' },
-    { key: 'privacy', label: 'プライバシー', icon: 'privacy' },
-    { key: 'diagnosis', label: '診断', icon: 'diagnosis' },
-    { key: 'help', label: 'ヘルプ', icon: 'help' },
-    { key: 'delete', label: 'アカウント削除', icon: 'delete' },
-];
+// 診断日（food_axes.at に保存）を「2026.10.29」の形にする
+const formatDate = (iso) => {
+    const d = iso ? new Date(iso) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+};
 
-export default function ProfileScreen() {
+// マイページ（デザイン決定案）
+// 上：Mogu Type のチケット（タイプ・キャラ・タグ・ニックネーム）
+// 中：「友達と相性診断する」ボタン
+// 下：相性診断 Top3（同じグループの友達との相性）
+// 設定（ログアウト・アカウント削除・規約など）は右上の歯車 → SettingsScreen
+export default function ProfileScreen({ settingsOpen = false, onCloseSettings, onGoGroup }) {
     const { user, logout, updateProfile, deleteAccount } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [draft, setDraft] = useState(user);
@@ -29,15 +32,51 @@ export default function ProfileScreen() {
     const [deleteInput, setDeleteInput] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
     const [showDiagnosis, setShowDiagnosis] = useState(false);
 
+    // 相性診断：同じグループの友達（null = 読み込み中）
+    const [peersRaw, setPeersRaw] = useState(null);
+    const [showCompat, setShowCompat] = useState(false);
+
+    const userId = user?.id;
+    const isGuest = !!user?.isGuest;
+    useEffect(() => {
+        if (!userId || isGuest) return undefined;
+        let alive = true;
+        fetchGroupPeers(userId)
+            .then((rows) => { if (alive) setPeersRaw(rows); })
+            .catch((e) => {
+                console.error('友達の取得エラー:', e?.message || e);
+                if (alive) setPeersRaw([]);
+            });
+        return () => { alive = false; };
+    }, [userId, isGuest]);
+
     if (!user) return null;
+
+    const myType = getType(user.foodStyle);
+    const peers = rankPeers(user, isGuest ? [] : peersRaw || []);
+    const peersLoading = !isGuest && peersRaw === null;
+    const top3 = peers.filter((p) => p.percent != null).slice(0, 3);
+    const diagnosedAt = formatDate(user.foodAxes?.at);
 
     const openEdit = () => {
         setDraft(user);
         setErrorMessage('');
         setIsEditing(true);
+    };
+
+    const openDelete = () => {
+        setDeleteError('');
+        setDeleteInput('');
+        setShowDeleteConfirm(true);
+    };
+
+    // 「友達と相性診断する」を開くたびに、最新のメンバーを取り直す
+    const openCompat = () => {
+        setShowCompat(true);
+        if (!userId || isGuest) return;
+        fetchGroupPeers(userId).then(setPeersRaw).catch(() => {});
     };
 
     const handleSave = async () => {
@@ -54,40 +93,6 @@ export default function ProfileScreen() {
             return;
         }
         setIsEditing(false);
-    };
-
-    // 「アカウント」カードは既存の編集モーダルを開く。
-    // url を持つ項目（診断）は、そのユーザーのidをパラメータに付けて外部サイトへ遷移させる。
-    // それ以外は未実装のプレースホルダー。
-    const handleMenuClick = (item) => {
-        if (item.key === 'account') {
-            openEdit();
-            return;
-        }
-        if (item.key === 'diagnosis') {
-            setShowDiagnosis(true);
-            return;
-        }
-        if (item.url) {
-            const urlWithUser = `${item.url}?user_id=${encodeURIComponent(user.id)}`;
-            window.open(urlWithUser, '_blank', 'noopener,noreferrer');
-            return;
-        }
-        if (item.key === 'privacy') {
-            window.open(PRIVACY_POLICY_URL, '_blank', 'noopener,noreferrer');
-            return;
-        }
-        if (item.key === 'help') {
-            window.open(`mailto:${SUPPORT_EMAIL}`, '_self');
-            return;
-        }
-        if (item.key === 'delete') {
-            setDeleteError('');
-            setDeleteInput('');
-            setShowDeleteConfirm(true);
-            return;
-        }
-        console.log(`「${item.key}」は未実装です。`);
     };
 
     // アカウント削除（App Store 5.1.1(v)）。実処理は Edge Function 側で行う。
@@ -110,27 +115,110 @@ export default function ProfileScreen() {
     // draft.avatar が新しい画像アバターのidなら画像、
     // それ以外（過去の絵文字データなど）ならそのまま文字として表示する
     const draftAvatarSrc = getAvatarSrc(draft?.avatar);
+    const myCharSrc = myType ? getAvatarSrc(myType.avatarId) : null;
 
     return (
-        <div className="flex-1 flex flex-col px-5 py-8">
+        <div className="flex-1 flex flex-col bg-[#FBF7F0] text-stone-900 px-5 pt-3.5 pb-4">
 
-            {/* メニューカードグリッド */}
-            <div className="grid grid-cols-2 gap-4">
-                {MENU_ITEMS.map((item) => (
-                    <button
-                        key={item.key}
-                        onClick={() => handleMenuClick(item)}
-                        className="flex flex-col items-center justify-center gap-5 py-8 rounded-[28px] border border-[#F0EAE0] bg-[#FBF7F0] active:scale-[0.98] transition"
-                    >
-                        <span className="text-sm font-bold text-stone-700">{item.label}</span>
-                        <Icon name={item.icon} className="w-10 h-10" alt={item.label} />
-                    </button>
-                ))}
-            </div>
+            {/* Mogu Type チケット */}
+            <section className="flex-none bg-[#FFFBF2] border-[2.5px] border-stone-900 rounded-[20px] shadow-[0_5px_0_#1C1917] overflow-hidden">
+                <div className="bg-[#3F7A61] text-[#FFFBF2] flex justify-between items-center px-4 py-[7px]">
+                    <span className="text-[11px] font-black tracking-[0.14em]">MOGU TYPE</span>
+                    <span className="text-[11px] font-extrabold">{diagnosedAt}</span>
+                </div>
+                {myType ? (
+                    <div className="flex flex-col items-center px-4 pt-3 pb-2.5">
+                        <p className="m-0 text-4xl font-black tracking-[0.06em] leading-none">{myType.code}</p>
+                        <img src={myCharSrc} alt={myType.name} className="mt-1 object-contain" style={{ width: 'min(150px, 18vh)', height: 'min(150px, 18vh)' }} />
+                        <h1 className="m-0 text-[22px] font-black">{myType.name}</h1>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center px-4 pt-5 pb-4 gap-3">
+                        <p className="m-0 text-4xl font-black tracking-[0.06em] leading-none text-stone-300">????</p>
+                        <p className="m-0 text-sm font-bold text-stone-500 text-center">20問の診断で、あなたの食スタイルとキャラが決まります。</p>
+                        <button
+                            onClick={() => setShowDiagnosis(true)}
+                            className="px-6 py-2.5 rounded-full bg-[#3F7A61] text-white text-sm font-black active:scale-[0.98] transition"
+                        >
+                            食スタイル診断を受ける
+                        </button>
+                    </div>
+                )}
+                <div aria-hidden="true" className="border-t-[2.5px] border-dashed border-stone-900 mx-3" />
+                <div className="px-4 pt-2.5 pb-3 flex flex-col items-center gap-2">
+                    {myType && (
+                        <div className="flex flex-wrap justify-center gap-1.5">
+                            {myType.tags.map((t) => (
+                                <span key={t} className="text-[11px] font-black bg-[#EFE9DF] rounded-full px-2.5 py-0.5">#{t}</span>
+                            ))}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-extrabold text-[#6B6359]">ニックネーム</span>
+                        <span className="text-[17px] font-black">{user.name}</span>
+                        <button
+                            onClick={openEdit}
+                            aria-label="ニックネームを編集"
+                            className="w-[30px] h-[30px] rounded-full border-[1.5px] border-[#D8CFC1] bg-white flex items-center justify-center"
+                        >
+                            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 3.5l3 3L7 16H4v-3z" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* 友達と相性診断する */}
+            <button
+                onClick={openCompat}
+                className="flex-none mt-5 w-full py-4 rounded-full bg-[#B5603F] text-white text-[17px] font-black border-2 border-stone-900 shadow-[0_5px_0_#1C1917] active:translate-y-[3px] active:shadow-[0_2px_0_#1C1917] transition"
+            >
+                友達と相性診断する
+            </button>
+
+            {/* 相性診断 Top3 */}
+            <section className="flex-none pt-[22px]">
+                <h2 className="mb-2.5 text-[15px] font-black">相性診断 Top3</h2>
+                {!myType ? (
+                    <p className="text-xs font-bold text-stone-400">診断を受けると、友達との相性がここに表示されます。</p>
+                ) : peersLoading ? (
+                    <p className="text-xs font-bold text-stone-400">読み込み中...</p>
+                ) : top3.length === 0 ? (
+                    <p className="text-xs font-bold text-stone-400">
+                        グループの友達が診断すると、相性の高い3人がここに表示されます。
+                    </p>
+                ) : (
+                    <div className="flex flex-col gap-2.5">
+                        {top3.map((p, i) => <CompatRow key={p.id} peer={p} highlight={i === 0} />)}
+                    </div>
+                )}
+            </section>
+
+            {/* 設定（右上の歯車から） */}
+            {settingsOpen && (
+                <SettingsScreen
+                    onClose={onCloseSettings}
+                    onEditProfile={openEdit}
+                    onRetakeDiagnosis={() => setShowDiagnosis(true)}
+                    onLogout={logout}
+                    onDeleteAccount={openDelete}
+                />
+            )}
+
+            {/* 友達との相性一覧 */}
+            {showCompat && (
+                <CompatModal
+                    peers={peers}
+                    loading={peersLoading}
+                    myTypeReady={!!myType}
+                    onClose={() => setShowCompat(false)}
+                    onDiagnose={() => { setShowCompat(false); setShowDiagnosis(true); }}
+                    onGoGroup={() => { setShowCompat(false); onGoGroup?.(); }}
+                />
+            )}
 
             {/* プロフィール編集モーダル（既存ロジックを維持） */}
             {isEditing && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-end sm:items-center">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex justify-center items-end sm:items-center">
                     <div className="w-full max-w-sm flex flex-col justify-between bg-white text-stone-800 p-6 shadow-2xl overflow-y-auto max-h-[90vh] rounded-t-3xl sm:rounded-3xl">
                         <div>
                             {/* ヘッダー */}
@@ -239,19 +327,12 @@ export default function ProfileScreen() {
                             </div>
                         </div>
 
-                        {/* ログアウト */}
-                        <button
-                            onClick={logout}
-                            className="w-full py-3 mt-6 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition"
-                        >
-                            ログアウト
-                        </button>
                     </div>
                 </div>
             )}
-                    {/* アカウント削除の確認モーダル */}
+            {/* アカウント削除の確認モーダル */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-end sm:items-center">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex justify-center items-end sm:items-center">
                     <div className="w-full max-w-sm bg-white text-stone-800 p-6 shadow-2xl rounded-t-3xl sm:rounded-3xl">
                         <h2 className="font-black text-base text-stone-900 mb-2">アカウントを削除しますか？</h2>
                         <p className="text-xs text-stone-500 leading-relaxed mb-4">

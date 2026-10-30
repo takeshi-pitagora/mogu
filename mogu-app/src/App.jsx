@@ -12,6 +12,7 @@ function MainApp() {
     const { user, loading } = useAuth();
     const [activeTab, setActiveTab] = useState('home');
     const [selectedGroup, setSelectedGroup] = useState(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     if (loading) {
         return (
@@ -33,7 +34,9 @@ function MainApp() {
                 {/* 共通ヘッダー（スクロール領域の外に固定配置） */}
                 <Header
                     user={user}
+                    activeTab={activeTab}
                     onOpenProfile={() => setActiveTab('settings')}
+                    onOpenSettings={() => setSettingsOpen(true)}
                 />
 
                 <div className="flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain">
@@ -42,7 +45,13 @@ function MainApp() {
                         <GroupScreen selectedGroup={selectedGroup} onSelectGroup={setSelectedGroup} />
                     )}
                     {activeTab === 'saved' && <SavedScreen />}
-                    {activeTab === 'settings' && <ProfileScreen />}
+                    {activeTab === 'settings' && (
+                        <ProfileScreen
+                            settingsOpen={settingsOpen}
+                            onCloseSettings={() => setSettingsOpen(false)}
+                            onGoGroup={() => setActiveTab('group')}
+                        />
+                    )}
                 </div>
 
                 {/* 共通フッターナビ（画面下に固定） */}

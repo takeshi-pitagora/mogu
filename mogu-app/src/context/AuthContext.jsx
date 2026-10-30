@@ -157,7 +157,9 @@ export function AuthProvider({ children }) {
   // ゲストはサーバーに保存できないため、この画面の間だけ表示に反映する
   const saveDiagnosis = async ({ code, axes, avatarId }) => {
     if (!user) return { error: 'ログイン情報が見つかりません。' };
-    const local = { foodStyle: code, foodAxes: axes, avatar: avatarId };
+    // 診断日をマイページのチケットに出すため、4軸スコアと一緒に at（ISO日時）を保存する
+    const storedAxes = { ...axes, at: new Date().toISOString() };
+    const local = { foodStyle: code, foodAxes: storedAxes, avatar: avatarId };
     if (user.isGuest) {
       setUser((prev) => ({ ...prev, ...local }));
       return { success: true, localOnly: true };
@@ -165,7 +167,7 @@ export function AuthProvider({ children }) {
 
     let { error } = await supabase
       .from('profiles')
-      .update({ food_style: code, food_axes: axes, avatar: avatarId })
+      .update({ food_style: code, food_axes: storedAxes, avatar: avatarId })
       .eq('id', user.id);
 
     // food_axes 列がまだ無いDBでも、タイプとアイコンだけは保存できるようにする
