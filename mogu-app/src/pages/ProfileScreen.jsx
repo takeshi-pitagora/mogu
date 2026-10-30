@@ -118,7 +118,7 @@ export default function ProfileScreen({ settingsOpen = false, onCloseSettings, o
     const myCharSrc = myType ? getAvatarSrc(myType.avatarId) : null;
 
     return (
-        <div className="flex-1 flex flex-col bg-[#FBF7F0] text-stone-900 px-5 pt-3.5 pb-4">
+        <div className="flex-1 flex flex-col bg-[#FBF7F0] text-stone-900 px-5 pt-3.5 pb-4 font-rounded">
 
             {/* Mogu Type チケット */}
             <section className="flex-none bg-[#FFFBF2] border-[2.5px] border-stone-900 rounded-[20px] shadow-[0_5px_0_#1C1917] overflow-hidden">

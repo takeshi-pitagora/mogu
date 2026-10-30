@@ -46,7 +46,7 @@ export function CompatRow({ peer, highlight = false }) {
 export default function CompatModal({ peers, loading, myTypeReady, onClose, onDiagnose, onGoGroup }) {
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-end sm:items-center">
-            <div className="w-full max-w-sm bg-white text-stone-900 p-6 shadow-2xl rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col"
+            <div className="w-full max-w-sm bg-white text-stone-900 font-rounded p-6 shadow-2xl rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col"
                 style={{ paddingBottom: 'calc(var(--safe-bottom) + 1.5rem)' }}>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-black">友達との相性</h2>

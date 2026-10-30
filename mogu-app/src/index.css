@@ -6,6 +6,9 @@
 
   /* ロゴ専用：これまで通りBagel Fat Oneを維持するための独立した書体定義 */
   --font-logo: "Bagel Fat One", "Zen Maru Gothic", sans-serif;
+
+  /* マイページ・設定・診断画面用（Claude Design のデザイン案と同じ丸ゴシック） */
+  --font-rounded: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Zen Maru Gothic", sans-serif;
 }
 
 body {

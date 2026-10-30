@@ -21,7 +21,7 @@ export default function SettingsScreen({ onClose, onEditProfile, onRetakeDiagnos
             className="fixed inset-0 z-50 flex justify-center bg-stone-100"
         >
             <div
-                className="w-full sm:max-w-sm h-full flex flex-col bg-white text-stone-900"
+                className="w-full sm:max-w-sm h-full flex flex-col bg-white text-stone-900 font-rounded"
                 style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}
             >
                 <div className="flex-none px-4 pt-3">

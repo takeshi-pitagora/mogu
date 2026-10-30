@@ -69,7 +69,7 @@ export default function DiagnosisModal({ onClose, onResult }) {
 
   return (
     // 診断画面（デザイン案A：mogutype.com のダーク画面を再現）
-    <div className="fixed inset-0 z-[60] bg-[#2E2C2A] flex justify-center text-[#FFFBF2]">
+    <div className="fixed inset-0 z-[60] bg-[#2E2C2A] flex justify-center text-[#FFFBF2] font-rounded">
       <div
         className="relative w-full sm:max-w-sm h-full flex flex-col overflow-hidden"
         style={{ paddingTop: 'calc(var(--safe-top) + 0.75rem)', paddingBottom: 'calc(var(--safe-bottom) + 1rem)' }}
