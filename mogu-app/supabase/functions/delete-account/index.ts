@@ -7,12 +7,12 @@
 //   1. JWT から「呼び出した本人」を特定（他人のアカウントは絶対に消せない）
 //   2. 本人に紐づくデータを、外部キー制約に引っかからない順序で削除
 //        swipes / saved_restaurants / group_members（user_id = 本人）
-//        → 本人が作成したグループの invites / group_members / groups
+//        → 本人が作成したグループ：ほかのメンバーがいれば、いちばん早く入った人に引き継ぐ。いなければ invites / groups を削除
 //        → profiles（id = 本人）
 //   3. 最後に auth.users から削除（以後ログイン不可）
 //
-// 他メンバーが参加している「自分が作ったグループ」も削除対象にする。
-// （作成者がいなくなったグループが残ると、招待・管理ができなくなるため）
+// 他メンバーが参加している「自分が作ったグループ」は、残ったメンバーが使い続けられるよう、
+// いちばん早く入った人を新しい作成者にする（招待・管理ができなくならないように）
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -61,15 +61,31 @@ Deno.serve(async (req) => {
     await step('saved_restaurants', () => admin.from('saved_restaurants').delete().eq('user_id', userId));
     await step('group_members(self)', () => admin.from('group_members').delete().eq('user_id', userId));
 
-    // 本人が作成したグループ：招待 → 参加者 → グループ本体 の順に削除
+    // 本人が作成したグループ（確定版 Final-05「アカウントを削除しますか？」の説明のとおり）
+    //   ほかのメンバーがいれば、いちばん早く入った人に引き継ぐ。メンバーがいなければ、招待 → グループ本体 の順に削除
+    //   （本人の group_members の行は上で消してあるので、残っているのはほかのメンバーだけ）
     const { data: owned, error: ownedError } = await admin
       .from('groups').select('id').eq('created_by', userId);
     if (ownedError) throw new Error(`[groups(select)] ${ownedError.message}`);
     const ownedIds = (owned ?? []).map((g: { id: string }) => g.id);
-    if (ownedIds.length > 0) {
-      await step('invites', () => admin.from('invites').delete().in('group_id', ownedIds));
-      await step('group_members(owned)', () => admin.from('group_members').delete().in('group_id', ownedIds));
-      await step('groups', () => admin.from('groups').delete().in('id', ownedIds));
+    const emptyIds: string[] = [];
+    for (const gid of ownedIds) {
+      // 入った順（created_at があればその順。なければ取れた順）
+      let res = await admin.from('group_members').select('user_id, created_at').eq('group_id', gid).order('created_at', { ascending: true }).limit(1);
+      if (res.error && /created_at/.test(res.error.message)) {
+        res = await admin.from('group_members').select('user_id').eq('group_id', gid).limit(1);
+      }
+      if (res.error) throw new Error(`[group_members(next owner)] ${res.error.message}`);
+      const next = (res.data ?? [])[0] as { user_id?: string } | undefined;
+      if (next?.user_id) {
+        await step('groups(transfer)', () => admin.from('groups').update({ created_by: next.user_id }).eq('id', gid));
+      } else {
+        emptyIds.push(gid);
+      }
+    }
+    if (emptyIds.length > 0) {
+      await step('invites', () => admin.from('invites').delete().in('group_id', emptyIds));
+      await step('groups', () => admin.from('groups').delete().in('id', emptyIds));
     }
 
     await step('profiles', () => admin.from('profiles').delete().eq('id', userId));

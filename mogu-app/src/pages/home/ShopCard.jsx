@@ -5,7 +5,7 @@ import { budgetLabel, genreLabel, isOpenNow, nearestStation, ratingOf, shopPhoto
 // ホームのお店カード（確定版 Final-08 写真全面型の寸法のまま）
 //   角丸32・2ptの線・写真全面・下に向かって暗くなる重ね・上に写真の点（何枚目か）
 //   写真の下のほうに白い文字で：エリアとジャンルのラベル、店名、評価（数字と件数）、予算、最寄り駅と徒歩の分、営業中
-export function photoDots(count, index) {
+export function PhotoDots({ count, index }) {
   if (count <= 1) return null;
   return (
     <div aria-label={`写真 ${index + 1}枚目／${count}枚`} style={{ position: 'absolute', top: 14, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 5, zIndex: 2 }}>
@@ -24,10 +24,12 @@ export function Chip({ children }) {
   );
 }
 
-export function OpenNow() {
+// 営業中の印。写真の上は白、白い地の上（お店の詳細の営業時間）は黒
+export function OpenNow({ onLight = false }) {
+  const c = onLight ? color.ink : color.white;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, color: color.white, whiteSpace: 'nowrap' }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color.accent, boxShadow: `0 0 0 2px ${color.white}` }} />
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, color: c, whiteSpace: 'nowrap' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color.accent, boxShadow: `0 0 0 2px ${c}` }} />
       営業中
     </span>
   );
@@ -72,7 +74,7 @@ export default function ShopCard({ shop, photoIndex = 0, onPhotoIndex, onOpen, i
         {photos[idx] && <img src={photos[idx]} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />}
       </div>
       <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, ${alpha(color.ink, 0)} 34%, ${alpha(color.ink, 0.82)} 66%, ${alpha(color.ink, 0.94)} 100%)`, zIndex: 1 }} />
-      {photoDots(photos.length, idx)}
+      <PhotoDots count={photos.length} index={idx} />
       <div style={{ position: 'absolute', left: 20, right: 20, bottom: 58, display: 'flex', flexDirection: 'column', gap: 10, color: color.white, zIndex: 2 }}>
         {(shop.area || genre) && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

@@ -3,14 +3,14 @@ import { color, font, layout } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { LOGO } from '../../lib/brand';
 import { fetchDeck, fetchMyGroups, recordSwipe, undoSwipe } from '../../lib/api';
-import { shopPhotos } from '../../lib/shop';
+import { shopPhotos, EMPTY_FILTERS, filterCount } from '../../lib/shop';
 import Icon from '../../components/ui/Icon';
 import AvatarStack from '../../components/ui/AvatarStack';
 import { HeaderIconButton } from '../../components/ui/ScreenHeader';
 import { ErrorState } from '../../components/ui/States';
 import ShopCard from './ShopCard';
 import { SwipeButtons, SwipeSticker, SwipeGlow, EndOfDeck, LoadingCard, FirstGuide } from './SwipeParts';
-import { FilterSheet, SearchModeSheet, EMPTY_FILTERS, filterCount } from './HomeSheets';
+import { FilterSheet, SearchModeSheet } from './HomeSheets';
 
 // ホーム（確定版 Final-08 写真全面型・ボタンは Final-01-02-Buttons の C）
 // 見本の画面（393×852）の位置：上部は時計の帯の下、カードは上から96・下から152、ボタンは下から114・高さ76

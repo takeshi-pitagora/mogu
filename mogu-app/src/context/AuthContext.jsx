@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { RESET_PASSWORD_URL } from '../lib/links';
 
 const AuthContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth は AuthProvider の内側で使用してください。');
@@ -24,7 +26,7 @@ export function AuthProvider({ children }) {
         id: authUser.id,
         email: null,
         name: 'ゲスト',
-        avatar: '🍓',
+        avatar: null,
         foodStyle: '未診断',
         foodAxes: null,
         isGuest: true,
@@ -46,7 +48,7 @@ export function AuthProvider({ children }) {
       id: authUser.id,
       email: authUser.email,
       name: profile?.display_name || authUser.email?.split('@')[0] || 'ユーザー',
-      avatar: profile?.avatar || '🍓',
+      avatar: profile?.avatar || null,
       foodStyle: profile?.food_style || '未診断',
       foodAxes: profile?.food_axes || null, // 診断の4軸スコア {VT,NF,BG,PL}（0〜3）
       isGuest: false,
@@ -80,9 +82,6 @@ export function AuthProvider({ children }) {
 
   // 新規登録（サインアップ）
   const signup = async (email, password, displayName) => {
-    if (password.length < 6) {
-      return { error: 'パスワードは6文字以上で入力してください。' };
-    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -93,16 +92,17 @@ export function AuthProvider({ children }) {
     });
 
     if (error) {
-      if (error.status === 429 || error.code === 'over_email_send_rate_limit') {
-        return {
-          error: '登録リクエストが多すぎます。しばらく時間をおいてから再度お試しください。',
-        };
-      }
-      return { error: translateAuthError(error) };
+      const text = translateAuthError(error);
+      return { error: text, code: text.startsWith('このメールアドレスはすでに') ? 'email_taken' : undefined };
     }
 
     const newUser = data?.user;
     const newSession = data?.session;
+
+    // メールの確認がオンのとき、登録済みのメールアドレスでもエラーにならず、identities が空で返る
+    if (newUser && Array.isArray(newUser.identities) && newUser.identities.length === 0) {
+      return { error: 'このメールアドレスはすでに登録されています', code: 'email_taken' };
+    }
 
     if (newUser) {
       // insert ではなく upsert にすることで、
@@ -123,6 +123,52 @@ export function AuthProvider({ children }) {
     }
 
     return { data, session: newSession };
+  };
+
+  // パスワードの再設定メール（メールのリンクは GitHub Pages の再設定ページを開く）
+  // 登録されていないメールアドレスでも、画面には同じ「メールを送りました」を出す
+  const resetPassword = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: RESET_PASSWORD_URL });
+    if (error && (error.status === 429 || /rate limit/i.test(error.message || ''))) {
+      return { error: '少したってから、もう一度お試しください' };
+    }
+    if (error && /fetch|network/i.test(error.message || '')) return { error: '通信できません' };
+    return { success: true };
+  };
+
+  // パスワードの変更：今のパスワードを確かめてから変える
+  const changePassword = async (current, next) => {
+    if (!user?.email) return { error: 'ログイン情報が見つかりません。' };
+    const { error: e1 } = await supabase.auth.signInWithPassword({ email: user.email, password: current });
+    if (e1) {
+      if (/Invalid login credentials/i.test(e1.message || '')) return { error: '今のパスワードが違います', field: 'current' };
+      return { error: translateAuthError(e1) };
+    }
+    const { error } = await supabase.auth.updateUser({ password: next });
+    if (error) {
+      if (/different from the old/i.test(error.message || '')) return { error: '今のパスワードと違うものにしてください', field: 'next' };
+      return { error: translateAuthError(error) };
+    }
+    return { success: true };
+  };
+
+  // ゲストのまま登録する（同じ利用者にメールとパスワードを付けるので、保存したお店は残る。引き渡し書 §7-8）
+  const convertGuest = async ({ email, password, displayName }) => {
+    if (!user?.isGuest) return { error: 'ゲストではありません。' };
+    const { data, error } = await supabase.auth.updateUser({ email, password, data: { display_name: displayName } });
+    if (error) {
+      const msg = error.message || '';
+      if (/already|registered|exists/i.test(msg)) return { error: 'このメールアドレスはすでに登録されています', code: 'email_taken' };
+      return { error: translateAuthError(error) };
+    }
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({ id: user.id, display_name: displayName }, { onConflict: 'id', ignoreDuplicates: false });
+    if (profileError) console.error('プロフィール作成エラー:', profileError.message);
+    // メールの確認がオンのときは、確認が終わるまでメールアドレスは new_email のまま
+    const pending = !!data?.user?.new_email;
+    await loadProfile(data?.user ?? null);
+    return { success: true, pendingEmail: pending };
   };
 
   const guestLogin = async () => {
@@ -218,30 +264,34 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const value = { user, loading, login, signup, guestLogin, logout, deleteAccount, updateProfile, saveDiagnosis };
+  const value = { user, loading, login, signup, guestLogin, logout, deleteAccount, updateProfile, saveDiagnosis, resetPassword, changePassword, convertGuest };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// 確定版 Final-07 の言葉に合わせる。field はどの欄のまちがいか（email / password / form）
 function translateAuthError(error) {
   const msg = error?.message || '';
   if (msg.includes('already registered') || msg.includes('User already registered')) {
-    return 'このメールアドレスは既に登録されています。';
+    return 'このメールアドレスはすでに登録されています';
   }
   if (msg.includes('Invalid login credentials')) {
-    return 'メールアドレスまたはパスワードが正しくありません。';
+    return 'メールアドレスかパスワードが違います';
   }
-  if (msg.includes('Password should be at least')) {
-    return 'パスワードは6文字以上で入力してください。';
+  if (msg.includes('Password should be at least') || /weak.?password/i.test(msg)) {
+    return 'パスワードの条件を満たしていません';
   }
   if (msg.toLowerCase().includes('email') && msg.toLowerCase().includes('invalid')) {
-    return 'メールアドレスの形式が正しくありません。';
+    return 'メールアドレスの形が違います';
   }
   if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-    return 'ネットワークエラーが発生しました。接続環境をご確認ください。';
+    return '通信できません。電波のよい場所で、もう一度お試しください';
   }
   if (msg.includes('Anonymous sign-ins are disabled')) {
-    return 'ゲストログインは現在利用できません。管理者にお問い合わせください。';
+    return 'いまはゲストで使えません。少したってから、もう一度お試しください';
   }
-  return `エラーが発生しました: ${msg}`;
+  if (error?.status === 429 || /rate limit/i.test(msg)) {
+    return '少したってから、もう一度お試しください';
+  }
+  return '読み込めませんでした。少したってから、もう一度お試しください';
 }

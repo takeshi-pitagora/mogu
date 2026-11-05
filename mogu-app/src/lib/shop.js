@@ -77,6 +77,31 @@ export function isOpenNow(hours, now = new Date()) {
 }
 
 // 営業時間と定休日（Google の weekdayDescriptions：「月曜日: 11時00分～22時00分」「日曜日: 定休日」）
+// 今日の営業時間（日本時間の曜日）。例「11:30〜15:00、17:30〜23:00」。24時間なら「24時間営業」
+const DAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+const hm = (t) => `${String(t?.hour ?? 0).padStart(2, '0')}:${String(t?.minute ?? 0).padStart(2, '0')}`;
+const jstDay = (now) => new Date(now.getTime() + 9 * 3600 * 1000).getUTCDay();
+const isAllDay = (periods) => periods.length === 1 && periods[0]?.open && !periods[0]?.close;
+
+export function todayHoursText(hours, now = new Date()) {
+  const periods = hours?.periods;
+  if (!Array.isArray(periods) || periods.length === 0) return null;
+  if (isAllDay(periods)) return '24時間営業';
+  const day = jstDay(now);
+  const today = periods.filter((p) => p?.open?.day === day);
+  if (today.length === 0) return null;
+  return today.map((p) => `${hm(p.open)}〜${p.close ? hm(p.close) : ''}`).join('、');
+}
+
+// 定休日（営業時間のデータに出てこない曜日）。例「月曜」「月曜・火曜」。データがなければ null
+export function closedDaysText(hours) {
+  const periods = hours?.periods;
+  if (!Array.isArray(periods) || periods.length === 0 || isAllDay(periods)) return null;
+  const open = new Set(periods.map((p) => p?.open?.day));
+  const closed = [1, 2, 3, 4, 5, 6, 0].filter((d) => !open.has(d));
+  return closed.length > 0 ? closed.map((d) => `${DAY_JA[d]}曜`).join('・') : null;
+}
+
 export function openingLines(hours) {
   const lines = hours?.weekdayDescriptions;
   return Array.isArray(lines) ? lines : [];
@@ -121,3 +146,7 @@ export function externalLinks(row) {
     tabelog: `https://tabelog.com/rst/rstlst/?vs=1&sa=&sk=${encodeURIComponent(name)}`,
   };
 }
+
+// ホームの絞り込み（並び順・エリア・ジャンル・予算）
+export const EMPTY_FILTERS = { sort: 'recommend', areas: [], genres: [], priceLevel: null };
+export const filterCount = (f) => (f.areas.length > 0 ? 1 : 0) + (f.genres.length > 0 ? 1 : 0) + (f.priceLevel != null ? 1 : 0);

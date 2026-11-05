@@ -3,8 +3,9 @@ import { color, font, stroke } from '../../theme/tokens';
 import BottomSheet from '../../components/ui/BottomSheet';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
-import AvatarStack from '../../components/ui/AvatarStack';
-import { AREAS, BUDGETS, GENRES } from '../../lib/shop';
+import { Radio, GroupRadioRow } from '../../components/ui/Radio';
+import { groupRowStyle as rowStyle } from '../../components/ui/styles';
+import { AREAS, BUDGETS, GENRES, EMPTY_FILTERS } from '../../lib/shop';
 
 // ---------------------------------------------------------------
 // 絞り込みのシート（確定版 Final-08 の 5・6）
@@ -12,8 +13,6 @@ import { AREAS, BUDGETS, GENRES } from '../../lib/shop';
 //   並び順（1つ）・エリア（複数）・ジャンル（複数）・予算（1つ）
 //   1回目の並び順は「おすすめ」だけ（ほかは3回目まで出さない）。年代別の評価順は Coming Soon（押せない）
 // ---------------------------------------------------------------
-export const EMPTY_FILTERS = { sort: 'recommend', areas: [], genres: [], priceLevel: null };
-export const filterCount = (f) => (f.areas.length > 0 ? 1 : 0) + (f.genres.length > 0 ? 1 : 0) + (f.priceLevel != null ? 1 : 0);
 
 function FilterChip({ selected, children, onClick }) {
   return (
@@ -116,16 +115,6 @@ export function FilterSheet({ open, value, onApply, onClose }) {
 // 探し方のシート（確定版 Final-08 の 4）：［ひとりで探す］と、参加中のグループ
 // ゲストのときは見本のグループ「mogu部」（見本の印・うすく表示・押しても開かない）と［アカウントを登録する］（Final-14）
 // ---------------------------------------------------------------
-function Radio({ on }) {
-  return (
-    <span aria-hidden="true" style={{ position: 'relative', flex: 'none', width: 24, height: 24, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: '50%' }}>
-      {on && <span style={{ position: 'absolute', left: 5, top: 5, width: 10, height: 10, borderRadius: '50%', background: color.ink }} />}
-    </span>
-  );
-}
-
-const rowStyle = { width: '100%', minHeight: 72, padding: 0, border: 0, borderBottom: `1px solid ${color.line}`, background: 'transparent', color: color.ink, fontFamily: font.plex, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 };
-
 export function SearchModeSheet({ open, groups = [], selectedGroupId, onSelect, onClose, guestSlot }) {
   return (
     <BottomSheet open={open} onClose={onClose} ariaLabel="探し方">
@@ -148,16 +137,7 @@ export function SearchModeSheet({ open, groups = [], selectedGroupId, onSelect, 
           <Radio on={!selectedGroupId} />
         </button>
         {groups.map((g) => (
-          <button key={g.id} type="button" role="radio" aria-checked={selectedGroupId === g.id} onClick={() => onSelect(g)} style={rowStyle}>
-            <span style={{ flex: 'none', width: 104, display: 'flex', alignItems: 'center' }}>
-              <AvatarStack members={g.members} size={34} />
-            </span>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</span>
-              {g.count != null && <span style={{ display: 'block', marginTop: 2, fontSize: 12, fontWeight: 500, color: color.sub }}>{g.count}人</span>}
-            </span>
-            <Radio on={selectedGroupId === g.id} />
-          </button>
+          <GroupRadioRow key={g.id} group={g} on={selectedGroupId === g.id} onClick={() => onSelect(g)} />
         ))}
         {guestSlot}
       </div>

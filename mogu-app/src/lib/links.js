@@ -8,6 +8,16 @@ export const SUPPORT_EMAIL = 'nha824620@gmail.com';
 export const PRIVACY_POLICY_URL = `${SITE_BASE_URL}/privacy-policy.html`;
 export const TERMS_URL = `${SITE_BASE_URL}/terms.html`;
 
+// ヘルプ（よくある質問）：今のサポートページ（よくある質問とお問い合わせ先）
+export const HELP_URL = `${SITE_BASE_URL}/support.html`;
+
+// パスワードの再設定メールのリンクの開き先（新しいパスワードを決めるページ）
+export const RESET_PASSWORD_URL = `${SITE_BASE_URL}/reset-password.html`;
+
+// 「お店の情報について」「運営者」のページ。文章を受け取ってページを置いたら URL を入れる（それまで設定の行は出さない）
+export const SHOP_INFO_URL = null;
+export const OPERATOR_URL = null;
+
 // 招待リンク。アプリ内（capacitor://localhost）のURLではなく、
 // 誰でも開ける公開ページを指す。コードは ?code= に入る。
 export const buildInviteLink = (token) => `${SITE_BASE_URL}/invite.html?code=${token}`;

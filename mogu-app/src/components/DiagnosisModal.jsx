@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAvatarSrc } from '../assets/avatars/avatars';
-import { AXES, QUESTIONS, calculateDiagnosis, getType, TYPE_DETAIL_URL } from '../lib/mogutype';
+import { chara } from '../lib/chara';
+import { AXES, QUESTIONS, calculateDiagnosis, getType, TYPES, TYPE_DETAIL_URL } from '../lib/mogutype';
+
+// キャラの画像は新しいモグキャラ16体（けんとから受け取った画像のまま）
+const CODES = Object.keys(TYPES);
 
 // Mogu Type 食スタイル診断（20問）。結果はプロフィールのタイプ・アイコンに反映する
 export default function DiagnosisModal({ onClose, onResult }) {
@@ -64,12 +67,12 @@ export default function DiagnosisModal({ onClose, onResult }) {
   const ring = (score) => (selected === score ? { outline: '3px solid #E9D08A', outlineOffset: '2px' } : {});
 
   // 質問ごとにキャラを入れ替える（16キャラを順番に）
-  const guideAvatar = getAvatarSrc(`avatar-${String((current % 16) + 1).padStart(2, '0')}`);
+  const guideAvatar = chara(CODES[current % CODES.length])?.framed;
   const remaining = total - answeredCount;
 
   return (
     // 診断画面（デザイン案A：mogutype.com のダーク画面を再現）
-    <div className="fixed inset-0 z-[60] bg-[#2E2C2A] flex justify-center text-[#FFFBF2] font-rounded">
+    <div className="fixed inset-0 z-[60] bg-[#2E2C2A] flex justify-center text-[#FFFBF2]">
       <div
         className="relative w-full sm:max-w-sm h-full flex flex-col overflow-hidden"
         style={{ paddingTop: 'calc(var(--safe-top) + 0.75rem)', paddingBottom: 'calc(var(--safe-bottom) + 1rem)' }}
@@ -153,7 +156,7 @@ export default function DiagnosisModal({ onClose, onResult }) {
               </div>
               <div className="flex flex-col items-center text-center px-4 pt-3 pb-4">
                 <p className="text-4xl font-black tracking-[0.06em] leading-none">{result.code}</p>
-                <img src={getAvatarSrc(result.type.avatarId)} alt={result.type.name} className="w-36 h-36 object-contain" />
+                <img src={chara(result.code)?.framed} alt={result.type.name} className="w-36 h-36 object-contain" />
                 <h3 className="text-2xl font-black mb-1">{result.type.name}</h3>
                 <p className="text-sm font-bold mb-3">{result.type.line}</p>
                 <div className="flex flex-wrap justify-center gap-1.5 mb-3">

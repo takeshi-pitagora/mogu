@@ -10,6 +10,7 @@
 .ui-btn--small:not(:disabled):active { background: var(--c-ink) !important; color: var(--c-bg) !important; }
 .ui-btn--text:not(:disabled):active { opacity: 0.6; }
 .ui-press:active { background: var(--c-surface) !important; }
+.ui-btn--tile:not(:disabled):active { background: var(--c-surface-pressed) !important; }
 
 /* 入力欄：入力中は線が 3pt（§4-2） */
 .ui-field { transition: box-shadow 0.12s; }
@@ -45,3 +46,7 @@
   .ui-sheet-enter, .ui-scrim-enter, .ui-toast-enter { animation: none; }
   .ui-tab-capsule, .ui-tab-item { transition: none; }
 }
+
+/* 中の画面・お店の詳細が開くとき（短いフェード。§4 に決まりがないので控えめに） */
+.ui-sub-enter { animation: ui-fade-in 0.16s ease-out; }
+@media (prefers-reduced-motion: reduce) { .ui-sub-enter { animation: none; } }

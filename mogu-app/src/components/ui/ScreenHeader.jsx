@@ -2,7 +2,7 @@ import { color, font, stroke } from '../../theme/tokens';
 import Icon from './Icon';
 
 // §4-11 画面の上部（確定版 Final-15 の見本のまま。見本の上の54は iPhone の時計の帯 → safe-area に置き換え）
-//   見出しの画面（グループ・保存など）：左に見出し（Dela 30）、右にアイコン（丸い枠なし24・押せる範囲44×44）、下を2ptの線で締める
+//   見出しの画面（グループ・保存など）：高さ54（＋下の線2）。左に見出し（Dela 30）、右にアイコン（丸い枠なし24・押せる範囲44×44）、下を2ptの線で締める
 //   中の画面（設定など）：左上に戻る、まん中に見出し（Dela 16）
 export function TitleHeader({ title, actions = [], bordered = true }) {
   return (
@@ -15,7 +15,7 @@ export function TitleHeader({ title, actions = [], bordered = true }) {
         borderBottom: bordered ? `${stroke.shape}px solid ${color.ink}` : 0,
       }}
     >
-      <div style={{ height: 56, boxSizing: 'border-box', padding: '0 8px 0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ height: 54, boxSizing: 'border-box', padding: '0 8px 0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0, fontFamily: font.dela, fontSize: 30, fontWeight: 400, lineHeight: 1, color: color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h1>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {actions.map((a) => (

@@ -10,6 +10,8 @@ import Button from './Button';
 //     → 左に［キャンセル］、まん中に見出し、右に黒い上の帯のボタン
 //   charaCode: シートの右上のふちに立たせるキャラ（右22・幅80×高さ122・下の端はシートの上のふちから10下）
 //   下に引っぱって閉じられる。変更があるシートは onRequestClose で確認を出す
+//   lifted: 幕とシートのあいだに置くもの（保存の長押しで浮き上がったカード）
+//   headerMargin: 上の段の左右のはみ出し（シートの左右の余白が0のときは '0'）
 export default function BottomSheet({
   open,
   onClose,
@@ -22,6 +24,8 @@ export default function BottomSheet({
   children,
   padding = sheet.padding,
   ariaLabel,
+  lifted,
+  headerMargin = '0 -20px',
 }) {
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -63,6 +67,8 @@ export default function BottomSheet({
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'flex', justifyContent: 'center' }}>
       <div aria-hidden="true" className="ui-scrim-enter" onClick={requestClose} style={{ position: 'absolute', inset: 0, background: color.scrim }} />
+      {/* 幕の上・シートの下に浮かせるもの（保存の長押しで浮き上がるカード） */}
+      {lifted}
       <div style={{ position: 'relative', width: '100%', maxWidth: 480, height: '100%', pointerEvents: 'none' }}>
         <section
           ref={sheetRef}
@@ -98,7 +104,7 @@ export default function BottomSheet({
               <span style={{ width: sheet.grip.width, height: sheet.grip.height, borderRadius: 3, background: color.ink }} />
             </div>
             {header && (
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 12px 0', margin: '0 -20px' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 12px 0', margin: headerMargin }}>
                 {header.left ? (
                   <Button variant="text" onClick={header.left.onClick}>{header.left.label}</Button>
                 ) : (

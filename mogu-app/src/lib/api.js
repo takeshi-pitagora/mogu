@@ -22,7 +22,7 @@ export async function fetchDeck({ user, filters, group }) {
     swipedIds = (swiped || []).map((s) => s.restaurant_id);
   }
 
-  let data = [];
+  let data;
   if (filters.areas.length > 0) {
     const results = await Promise.all(filters.areas.map((area) => supabase.functions.invoke('places-search', { body: { area } })));
     const merged = new Map();

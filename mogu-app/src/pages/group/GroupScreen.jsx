@@ -1,0 +1,1290 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../components/ui/Toast';
+import { TitleHeader } from '../../components/ui/ScreenHeader';
+import Icon from '../../components/ui/Icon';
+import Avatar from '../../components/ui/Avatar';
+import Button from '../../components/ui/Button';
+import TextField from '../../components/ui/TextField';
+import BottomSheet from '../../components/ui/BottomSheet';
+import ConfirmSheet from '../../components/ui/ConfirmSheet';
+import GroupAvatar from '../../components/ui/GroupAvatar';
+import { Radio } from '../../components/ui/Radio';
+import { LoadingState, ErrorState } from '../../components/ui/States';
+import { chara } from '../../lib/chara';
+import { getType } from '../../lib/mogutype';
+import { canShare, shareText } from '../../lib/open';
+import { createGroup, createInvite, groupMembers, joinByCode, leaveGroup, listGroups, previewInvite, reportGroupByMail } from '../../lib/groups';
+import { SubHeader } from '../settings/SettingsParts';
+
+// グループ（1回目：今の動き＝一覧・作る・招待コード・参加・抜ける・通報 のまま、確定版 Final-11 の部品と色に置き換える。実装計画 6章 #5）
+//   「目的」の選択とタグはなくす。ピン留め・新しいお店の数・お店のボード・QRコード・IDで招待・通知は3回目
+//   グループの詳細は「メンバー」「設定」だけ（「お店」のタブは3回目）。上の［ホームで使用中］で、ホームの探し方をこのグループにする
+const GROUP_NAME_MAX = 20;
+
+const page = {
+  position: 'relative',
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  background: color.bg,
+  fontFamily: font.plex,
+  color: color.ink,
+};
+const body = {
+  flex: '1 1 auto',
+  minHeight: 0,
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
+};
+
+// 一覧の行（確定版 Final-11 の 1）
+function GroupRow({ g, inUse, onOpen }) {
+  const names = (g.members || []).map((m) => m.display_name).filter(Boolean);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="ui-btn ui-press"
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 20px',
+        border: 0,
+        borderBottom: `1px solid ${color.line}`,
+        background: 'transparent',
+        color: color.ink,
+        fontFamily: 'inherit',
+        textAlign: 'left',
+      }}
+    >
+      <GroupAvatar members={g.members} size={56} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {g.name}
+          </span>
+          {g.count != null && <span style={{ marginLeft: 4, fontSize: 13, color: color.sub }}>（{g.count}）</span>}
+          {inUse && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+                marginLeft: 6,
+                fontSize: 11,
+                fontWeight: 700,
+                color: color.ink,
+              }}
+            >
+              <Icon name="check" size={13} />
+              使用中
+            </span>
+          )}
+        </div>
+        {names.length > 0 && (
+          <div
+            style={{
+              marginTop: 3,
+              fontSize: 13,
+              fontWeight: 700,
+              color: color.ink,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            メンバー：{names.join('・')}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// 右上の＋のメニュー（確定版 Final-11 の 4）
+function PlusMenu({ onCreate, onJoin, onClose }) {
+  const item = (icon, label, onClick, last) => (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="ui-btn ui-press"
+      style={{
+        width: '100%',
+        height: 56,
+        padding: '0 16px',
+        border: 0,
+        borderBottom: last ? 0 : `1px solid ${color.line}`,
+        background: 'transparent',
+        color: color.ink,
+        fontFamily: 'inherit',
+        fontSize: 15,
+        fontWeight: 700,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <Icon name={icon} size={22} />
+      {label}
+    </button>
+  );
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(46,44,42,0.16)',
+          zIndex: 6,
+        }}
+      />
+      <div
+        role="menu"
+        style={{
+          position: 'absolute',
+          right: 12,
+          top: 'calc(var(--safe-top) + 50px)',
+          width: 232,
+          boxSizing: 'border-box',
+          border: `${stroke.shape}px solid ${color.ink}`,
+          borderRadius: 20,
+          background: color.white,
+          overflow: 'hidden',
+          zIndex: 7,
+        }}
+      >
+        {item('plusLarge', 'グループを作る', onCreate)}
+        {item('key', 'コードで参加', onJoin, true)}
+      </div>
+    </>
+  );
+}
+
+function GroupList({ groups, status, selectedId, onRetry, onOpen, onCreate, onJoin }) {
+  const [query, setQuery] = useState('');
+  const [menu, setMenu] = useState(false);
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return groups;
+    return groups.filter((g) => [g.name, ...(g.members || []).map((m) => m.display_name)].filter(Boolean).some((t) => String(t).toLowerCase().includes(q)));
+  }, [groups, query]);
+  const empty = status === 'ready' && groups.length === 0;
+
+  return (
+    <div style={page}>
+      <TitleHeader title="グループ" actions={[]} />
+      {/* ＋（メニューを開いている間は黒い丸） */}
+      <button
+        type="button"
+        aria-label="グループを作る・コードで参加"
+        aria-expanded={menu}
+        onClick={() => setMenu((m) => !m)}
+        className="ui-btn"
+        style={{
+          position: 'absolute',
+          right: 8,
+          top: 'calc(var(--safe-top) + 5px)',
+          width: 44,
+          height: 44,
+          border: 0,
+          padding: 0,
+          borderRadius: '50%',
+          background: menu ? color.ink : 'transparent',
+          color: menu ? color.white : color.ink,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 8,
+        }}
+      >
+        <Icon name="plusLarge" size={24} />
+      </button>
+      {menu && (
+        <PlusMenu
+          onClose={() => setMenu(false)}
+          onCreate={() => {
+            setMenu(false);
+            onCreate();
+          }}
+          onJoin={() => {
+            setMenu(false);
+            onJoin();
+          }}
+        />
+      )}
+
+      {empty ? (
+        <GroupEmpty onCreate={onCreate} onJoin={onJoin} />
+      ) : (
+        <div style={body}>
+          <div
+            role="search"
+            style={{
+              margin: '12px 20px 4px',
+              height: 48,
+              boxSizing: 'border-box',
+              padding: '0 14px',
+              border: `${stroke.shape}px solid ${color.ink}`,
+              borderRadius: 18,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <Icon name="search" size={20} color={color.sub} />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="グループ名・メンバーで探す"
+              aria-label="グループ名・メンバーで探す"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                height: '100%',
+                border: 0,
+                outline: 'none',
+                background: 'transparent',
+                color: color.ink,
+                fontFamily: 'inherit',
+                fontSize: 15,
+                padding: 0,
+              }}
+            />
+          </div>
+          {status === 'loading' && <LoadingState style={{ paddingTop: 80 }} />}
+          {status === 'error' && <ErrorState kind="server" onRetry={onRetry} style={{ paddingTop: 60 }} />}
+          {status === 'ready' && (
+            <div style={{ paddingBottom: 130 }}>
+              {visible.map((g) => (
+                <GroupRow key={g.id} g={g} inUse={selectedId === g.id} onOpen={() => onOpen(g)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 0件（確定版 Final-11 の 20）：点線の吹き出し2つ、写真家ラビット、［グループを作る］［コードで参加］
+function GroupEmpty({ onCreate, onJoin }) {
+  const rabbit = chara('VNGL');
+  return (
+    <div
+      style={{
+        position: 'relative',
+        flex: '1 1 auto',
+        minHeight: 0,
+        overflowY: 'auto',
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: 40,
+          right: 40,
+          top: 18,
+          zIndex: 2,
+        }}
+      >
+        <div
+          style={{
+            width: 190,
+            height: 40,
+            boxSizing: 'border-box',
+            border: `${stroke.shape}px dashed ${color.lineStrong}`,
+            borderRadius: 20,
+          }}
+        />
+        <div
+          style={{
+            width: 150,
+            height: 40,
+            boxSizing: 'border-box',
+            margin: '10px 0 0 auto',
+            border: `${stroke.shape}px dashed ${color.lineStrong}`,
+            borderRadius: 20,
+          }}
+        />
+      </div>
+      <div
+        style={{
+          padding: '118px 28px 130px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+        }}
+      >
+        <img
+          src={rabbit?.framed}
+          alt=""
+          style={{
+            display: 'block',
+            width: 140,
+            height: 214,
+            objectFit: 'contain',
+            objectPosition: 'center bottom',
+          }}
+        />
+        <p
+          style={{
+            margin: '22px 0 0',
+            fontFamily: font.dela,
+            fontSize: 19,
+            lineHeight: 1.55,
+          }}
+        >
+          友達とグループを作ると、
+          <br />
+          みんなが行きたいお店が
+          <br />
+          見つかります
+        </p>
+        <div style={{ width: '100%', marginTop: 24 }}>
+          <Button variant="primary" onClick={onCreate}>
+            グループを作る
+          </Button>
+          <Button variant="secondary" onClick={onJoin} style={{ marginTop: 10 }}>
+            コードで参加
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 下に固定のボタン（左右20・下34）
+function BottomAction({ children }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        bottom: 34,
+        zIndex: 6,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// 作る・招待・コードで参加は、下のタブを出さない画面（確定版 Final-11 の 5・6・11・12）
+function FullScreen({ children }) {
+  return (
+    <div className="ui-sub-enter" style={{ position: 'fixed', inset: 0, zIndex: 45, background: color.bg }}>
+      {children}
+    </div>
+  );
+}
+
+// グループを作る（確定版 Final-11 の 5）
+function CreateGroup({ onBack, onCreated }) {
+  const { user } = useAuth();
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const submit = async (e) => {
+    e?.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const g = await createGroup({ userId: user.id, name: name.trim() });
+      onCreated(g);
+    } catch (err) {
+      console.error('グループ作成エラー:', err?.message || err);
+      setError('作れませんでした。少したってから、もう一度お試しください');
+      setBusy(false);
+    }
+  };
+  return (
+    <form style={page} onSubmit={submit} noValidate>
+      <SubHeader title="グループを作る" onBack={onBack} />
+      <div style={{ padding: '16px 20px 0' }}>
+        <TextField label="グループ名" value={name} onChange={(v) => setName(v.slice(0, GROUP_NAME_MAX))} maxLength={GROUP_NAME_MAX} showCount error={error} />
+      </div>
+      <BottomAction>
+        <Button type="submit" variant="primary" disabled={!name.trim() || busy}>
+          作成する
+        </Button>
+      </BottomAction>
+    </form>
+  );
+}
+
+// 招待する（確定版 Final-11 の 6）。1回目は［LINE などで送る］と招待コードだけ（QRコードとIDで招待は3回目）
+function InviteGroup({ group, onBack }) {
+  const toast = useToast();
+  const [invite, setInvite] = useState(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    createInvite(group.id)
+      .then((v) => alive && setInvite(v))
+      .catch((err) => {
+        console.error('招待作成エラー:', err?.message || err);
+        if (alive) setError(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [group.id]);
+
+  const copy = async () => {
+    if (!invite) return;
+    try {
+      await navigator.clipboard.writeText(invite.code);
+      toast?.show('招待コードをコピーしました');
+    } catch {
+      /* コピーできない端末 */
+    }
+  };
+  const send = () =>
+    invite &&
+    shareText({
+      title: `${group.name}への招待`,
+      text: `mogu のグループ「${group.name}」に参加しよう。招待コード：${invite.code}`,
+      url: invite.link,
+    });
+
+  return (
+    <div style={page}>
+      <header
+        style={{
+          flex: 'none',
+          paddingTop: 'var(--safe-top)',
+          background: color.bg,
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            height: 44,
+            padding: '0 8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <button
+            type="button"
+            aria-label="戻る"
+            onClick={onBack}
+            className="ui-btn ui-btn--text"
+            style={{
+              width: 44,
+              height: 44,
+              padding: 0,
+              border: 0,
+              background: 'transparent',
+              color: color.ink,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="back" size={24} />
+          </button>
+          <h1
+            style={{
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              margin: 0,
+              fontFamily: font.dela,
+              fontSize: 16,
+              fontWeight: 400,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            招待する
+          </h1>
+          <button
+            type="button"
+            onClick={onBack}
+            className="ui-btn ui-btn--text"
+            style={{
+              height: 44,
+              padding: '0 8px',
+              border: 0,
+              background: 'transparent',
+              color: color.ink,
+              fontFamily: 'inherit',
+              fontSize: 15,
+              fontWeight: 700,
+            }}
+          >
+            完了
+          </button>
+        </div>
+      </header>
+      <div style={body}>
+        <div style={{ padding: '4px 20px 40px' }}>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: font.dela,
+              fontSize: 22,
+              lineHeight: 1.35,
+            }}
+          >
+            {group.name}に
+            <br />
+            友達を呼ぼう
+          </p>
+          {canShare() && (
+            <button
+              type="button"
+              onClick={send}
+              disabled={!invite}
+              className="ui-btn ui-btn--primary"
+              style={{
+                width: '100%',
+                height: 56,
+                marginTop: 18,
+                border: 0,
+                borderRadius: 28,
+                background: invite ? color.ink : color.surface,
+                color: invite ? color.white : color.sub,
+                fontFamily: 'inherit',
+                fontSize: 16,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <Icon name="share" size={20} />
+              LINE などで送る
+            </button>
+          )}
+          <div
+            style={{
+              marginTop: 22,
+              padding: 16,
+              borderRadius: 24,
+              background: color.surface,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>招待コード</div>
+            <div style={{ marginTop: 6 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: font.dela,
+                    fontSize: 22,
+                    letterSpacing: '0.08em',
+                    minHeight: 30,
+                  }}
+                >
+                  {invite ? invite.code : error ? '' : '…'}
+                </span>
+                <button
+                  type="button"
+                  onClick={copy}
+                  disabled={!invite}
+                  className="ui-btn ui-btn--small"
+                  style={{
+                    flex: 'none',
+                    height: 44,
+                    padding: '0 14px',
+                    boxSizing: 'border-box',
+                    border: `${stroke.shape}px solid ${color.ink}`,
+                    borderRadius: 22,
+                    background: color.white,
+                    color: color.ink,
+                    fontFamily: 'inherit',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Icon name="copy" size={18} />
+                  コピー
+                </button>
+              </div>
+              {error && (
+                <p
+                  role="alert"
+                  style={{
+                    margin: '6px 0 0',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: color.red,
+                  }}
+                >
+                  招待コードを作れませんでした。少したってから、もう一度お試しください
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// コードで参加（確定版 Final-11 の 11・12）
+function JoinGroup({ onBack, onJoined }) {
+  const { user } = useAuth();
+  const [code, setCode] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const messages = {
+    notFound: '招待コードが見つかりません',
+    expired: 'この招待コードは期限が切れています',
+    guest: 'グループは、アカウントを登録すると使えます',
+    failed: '参加できませんでした。少したってから、もう一度お試しください',
+  };
+
+  const join = async () => {
+    setBusy(true);
+    setError('');
+    const res = await joinByCode(code, user.id);
+    setBusy(false);
+    if (res.error) {
+      setPreview(null);
+      setError(messages[res.error] || messages.failed);
+      return;
+    }
+    onJoined(res);
+  };
+
+  const next = async (e) => {
+    e?.preventDefault();
+    if (!code.trim() || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const p = await previewInvite(code);
+      setBusy(false);
+      if (p?.notFound) {
+        setError(messages.notFound);
+        return;
+      }
+      if (p) {
+        setPreview(p);
+        return;
+      }
+    } catch {
+      setBusy(false);
+    }
+    // 確認の関数がまだないDB：そのまま参加する
+    join();
+  };
+
+  if (preview) {
+    return (
+      <div style={page}>
+        <SubHeader title="コードで参加" onBack={() => setPreview(null)} />
+        <div style={body}>
+          <div style={{ padding: '16px 20px 260px' }}>
+            <div
+              style={{
+                padding: 20,
+                border: `${stroke.shape}px solid ${color.ink}`,
+                borderRadius: 32,
+              }}
+            >
+              <div style={{ display: 'flex' }}>
+                <GroupAvatar members={preview.members} size={64} />
+              </div>
+              <h2
+                style={{
+                  margin: '14px 0 0',
+                  fontFamily: font.dela,
+                  fontSize: 26,
+                  fontWeight: 400,
+                  lineHeight: 1.25,
+                }}
+              >
+                {preview.name}
+              </h2>
+              {preview.count != null && (
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: color.sub,
+                  }}
+                >
+                  {preview.count}人
+                </div>
+              )}
+              {preview.members.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    marginTop: 16,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {preview.members.map((m, i) => (
+                    <div
+                      key={m.id || i}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 6,
+                        width: 64,
+                      }}
+                    >
+                      <Avatar size={52} name={m.display_name} />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          maxWidth: 64,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {m.display_name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <BottomAction>
+          <Button variant="primary" onClick={join} disabled={busy}>
+            参加する
+          </Button>
+          <Button variant="secondary" onClick={onBack} style={{ marginTop: 10 }}>
+            やめる
+          </Button>
+        </BottomAction>
+      </div>
+    );
+  }
+
+  return (
+    <form style={page} onSubmit={next} noValidate>
+      <SubHeader title="コードで参加" onBack={onBack} />
+      <div style={{ padding: 20, paddingTop: 16 }}>
+        <TextField
+          label="招待コード"
+          value={code}
+          onChange={(v) => {
+            setCode(v);
+            setError('');
+          }}
+          error={error}
+        />
+        <Button type="submit" variant="primary" disabled={!code.trim() || busy} style={{ marginTop: 20 }}>
+          次へ
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// グループの通報（確定版 Final-13 の 10）。1回目は今の仕組み（運営の窓口へメール）
+const REPORT_REASONS = ['不適切なグループ名', 'グループでのいやがらせ', 'その他'];
+function ReportGroupSheet({ group, onClose, onSent }) {
+  const { user } = useAuth();
+  const [reason, setReason] = useState(null);
+  return (
+    <BottomSheet open onClose={onClose} ariaLabel="このグループを通報する">
+      <div style={{ marginTop: 12, textAlign: 'center' }}>
+        <div style={{ fontFamily: font.dela, fontSize: 18 }}>このグループを通報する</div>
+        <div style={{ marginTop: 2, fontSize: 13, color: color.sub }}>{group.name}</div>
+      </div>
+      <p
+        style={{
+          margin: '14px 0 10px',
+          fontSize: 13,
+          fontWeight: 700,
+          color: color.sub,
+        }}
+      >
+        あてはまるものを1つ選んでください
+      </p>
+      <div role="radiogroup" aria-label="通報の理由" style={{ borderBottom: `1px solid ${color.line}` }}>
+        {REPORT_REASONS.map((r) => (
+          <button
+            key={r}
+            type="button"
+            role="radio"
+            aria-checked={reason === r}
+            onClick={() => setReason(r)}
+            style={{
+              width: '100%',
+              minHeight: 56,
+              padding: '0 2px',
+              border: 0,
+              borderTop: `1px solid ${color.line}`,
+              background: 'transparent',
+              color: color.ink,
+              fontFamily: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <span
+              style={{
+                flex: '1 1 0%',
+                textAlign: 'left',
+                fontSize: 16,
+                fontWeight: reason === r ? 700 : 500,
+              }}
+            >
+              {r}
+            </span>
+            <Radio on={reason === r} />
+          </button>
+        ))}
+      </div>
+      <Button
+        variant="primary"
+        disabled={!reason}
+        onClick={() => {
+          reportGroupByMail({ group, reason, reporterId: user?.id });
+          onSent();
+        }}
+        style={{ marginTop: 20 }}
+      >
+        送信する
+      </Button>
+    </BottomSheet>
+  );
+}
+
+// グループの詳細（確定版 Final-11 の 16〜19 の「メンバー」「設定」）
+function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
+  const { user } = useAuth();
+  const [tab, setTab] = useState('members');
+  const [members, setMembers] = useState(group.members || []);
+  const [report, setReport] = useState(false);
+  const [leave, setLeave] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    groupMembers(group.id)
+      .then((m) => alive && setMembers(m))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [group.id]);
+
+  const doLeave = async () => {
+    setBusy(true);
+    try {
+      await leaveGroup({ groupId: group.id, userId: user.id });
+      setLeave(false);
+      onLeft(group);
+    } catch (err) {
+      console.error('退出エラー:', err?.message || err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const tabBtn = (key, label) => {
+    const on = tab === key;
+    return (
+      <button
+        key={key}
+        type="button"
+        role="tab"
+        aria-selected={on}
+        onClick={() => setTab(key)}
+        style={{
+          flex: '1 1 0px',
+          height: 48,
+          padding: 0,
+          border: 0,
+          borderBottom: `4px solid ${on ? color.ink : 'transparent'}`,
+          background: 'transparent',
+          color: on ? color.ink : color.sub,
+          fontFamily: on ? font.dela : 'inherit',
+          fontSize: 15,
+          fontWeight: on ? 400 : 700,
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+  const setRow = (icon, label, onClick, danger) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ui-btn ui-btn--text"
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        minHeight: 60,
+        padding: 0,
+        border: 0,
+        borderBottom: `1px solid ${color.line}`,
+        background: 'transparent',
+        color: danger ? color.red : color.ink,
+        fontFamily: 'inherit',
+        textAlign: 'left',
+      }}
+    >
+      <Icon name={icon} size={22} color={danger ? color.red : color.ink} />
+      <span style={{ flex: 1, fontSize: 15, fontWeight: 700 }}>{label}</span>
+    </button>
+  );
+
+  return (
+    <div style={page}>
+      <SubHeader title="" onBack={onBack} />
+      <div style={body}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '0 20px',
+          }}
+        >
+          <GroupAvatar members={members} size={52} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: font.dela,
+                fontSize: 21,
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {group.name}
+            </div>
+            <div
+              style={{
+                marginTop: 2,
+                fontSize: 12,
+                fontWeight: 700,
+                color: color.sub,
+              }}
+            >
+              {members.length || group.count || ''}人
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-pressed={inUse}
+            onClick={onToggleUse}
+            className="ui-btn ui-btn--small"
+            style={{
+              flex: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 36,
+              padding: '0 12px',
+              boxSizing: 'border-box',
+              border: `${stroke.shape}px solid ${color.ink}`,
+              borderRadius: 18,
+              background: inUse ? color.surface : color.white,
+              color: color.ink,
+              fontFamily: 'inherit',
+              fontSize: 12,
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {inUse && <Icon name="check" size={16} />}
+            {inUse ? 'ホームで使用中' : 'ホームで使う'}
+          </button>
+        </div>
+        <div
+          role="tablist"
+          style={{
+            display: 'flex',
+            marginTop: 12,
+            borderBottom: `${stroke.shape}px solid ${color.ink}`,
+          }}
+        >
+          {tabBtn('members', 'メンバー')}
+          {tabBtn('settings', '設定')}
+        </div>
+        <div style={{ padding: '6px 20px 150px' }}>
+          {tab === 'members' ? (
+            <>
+              <button
+                type="button"
+                onClick={onInvite}
+                className="ui-btn ui-btn--text"
+                style={{
+                  width: '100%',
+                  height: 60,
+                  padding: '0 4px',
+                  border: 0,
+                  borderBottom: `1px solid ${color.line}`,
+                  background: 'transparent',
+                  color: color.ink,
+                  fontFamily: 'inherit',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <span
+                  style={{
+                    width: 44,
+                    height: 44,
+                    boxSizing: 'border-box',
+                    border: `${stroke.shape}px dashed ${color.ink}`,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name="plusLarge" size={22} />
+                </span>
+                友達を招待する
+                <span style={{ marginLeft: 'auto', display: 'flex' }}>
+                  <Icon name="chevronRightLarge" size={20} />
+                </span>
+              </button>
+              {members.map((m, i) => {
+                const t = getType(m.food_style);
+                const g = t ? groupColor[groupOf(t.code)] : null;
+                return (
+                  <div
+                    key={m.id || i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '10px 0',
+                      borderBottom: i === members.length - 1 ? 0 : `1px solid ${color.line}`,
+                    }}
+                  >
+                    <Avatar size={44} name={m.display_name} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {m.display_name}
+                        {m.id === user?.id && (
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: color.sub,
+                            }}
+                          >
+                            あなた
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {t && (
+                      <span
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: font.dela,
+                            fontSize: 11,
+                            lineHeight: '15px',
+                            color: g ? g.dark : color.ink,
+                          }}
+                        >
+                          {t.code}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            lineHeight: '17px',
+                            color: color.ink,
+                          }}
+                        >
+                          {t.name}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              {setRow('flag', 'このグループを通報する', () => setReport(true))}
+              {setRow('leave', 'グループから抜ける', () => setLeave(true), true)}
+            </>
+          )}
+        </div>
+      </div>
+      {report && <ReportGroupSheet group={group} onClose={() => setReport(false)} onSent={() => setReport(false)} />}
+      <ConfirmSheet open={leave} title="グループから抜けますか？" actionLabel="グループから抜ける" danger busy={busy} onConfirm={doLeave} onCancel={() => setLeave(false)} />
+    </div>
+  );
+}
+
+export default function GroupScreen({ selectedGroup, onSelectGroup }) {
+  const { user } = useAuth();
+  const toast = useToast();
+  const [groups, setGroups] = useState([]);
+  const [status, setStatus] = useState('loading');
+  const [view, setView] = useState({ name: 'list' }); // list | create | join | detail | invite
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let alive = true;
+    listGroups(user.id)
+      .then((g) => {
+        if (!alive) return;
+        setGroups(g);
+        setStatus('ready');
+      })
+      .catch((err) => {
+        console.error('グループ取得エラー:', err?.message || err);
+        if (alive) setStatus('error');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user?.id, reloadKey]);
+
+  const toList = () => setView({ name: 'list' });
+
+  if (view.name === 'create') {
+    return (
+      <FullScreen>
+        <CreateGroup
+          onBack={toList}
+          onCreated={(g) => {
+            reload();
+            setView({
+              name: 'invite',
+              group: g,
+              back: { name: 'detail', group: g },
+            });
+          }}
+        />
+      </FullScreen>
+    );
+  }
+  if (view.name === 'join') {
+    return (
+      <FullScreen>
+        <JoinGroup
+          onBack={toList}
+          onJoined={(res) => {
+            reload();
+            toList();
+            toast?.show(res.name ? `${res.name}に参加しました` : 'グループに参加しました', { withTabBar: true });
+          }}
+        />
+      </FullScreen>
+    );
+  }
+  if (view.name === 'invite') {
+    return (
+      <FullScreen>
+        <InviteGroup group={view.group} onBack={() => setView(view.back || { name: 'list' })} />
+      </FullScreen>
+    );
+  }
+  if (view.name === 'detail') {
+    const g = groups.find((x) => x.id === view.group.id) || view.group;
+    const inUse = selectedGroup?.id === g.id;
+    return (
+      <GroupDetail
+        group={g}
+        inUse={inUse}
+        onBack={toList}
+        onToggleUse={() => onSelectGroup?.(inUse ? null : { id: g.id, name: g.name, members: g.members, count: g.count })}
+        onInvite={() =>
+          setView({
+            name: 'invite',
+            group: g,
+            back: { name: 'detail', group: g },
+          })
+        }
+        onLeft={(left) => {
+          if (selectedGroup?.id === left.id) onSelectGroup?.(null);
+          setGroups((list) => list.filter((x) => x.id !== left.id));
+          toList();
+        }}
+      />
+    );
+  }
+  return (
+    <GroupList
+      groups={groups}
+      status={status}
+      selectedId={selectedGroup?.id}
+      onRetry={() => {
+        setStatus('loading');
+        reload();
+      }}
+      onOpen={(g) => setView({ name: 'detail', group: g })}
+      onCreate={() => setView({ name: 'create' })}
+      onJoin={() => setView({ name: 'join' })}
+    />
+  );
+}
