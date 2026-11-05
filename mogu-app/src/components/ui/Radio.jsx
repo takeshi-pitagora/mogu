@@ -22,7 +22,7 @@ export function GroupRadioRow({ group, on, onClick }) {
   return (
     <button type="button" role="radio" aria-checked={on} onClick={onClick} style={groupRowStyle}>
       <span style={{ flex: 'none', width: 104, display: 'flex', alignItems: 'center' }}>
-        <AvatarStack members={group.members} size={34} />
+        <AvatarStack members={group.members} size={34} total={group.count} />
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.name}</span>

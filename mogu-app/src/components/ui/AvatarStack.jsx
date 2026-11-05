@@ -3,10 +3,12 @@ import Avatar from './Avatar';
 
 // メンバーの写真を重ねて並べる（確定版 Final-08：上部は26・重なり8、シートの行は34・重なり11。白いふち2）
 // 4人を超えるときは「+3」の丸（確定版 Final-08 の探し方のシート）
-export default function AvatarStack({ members = [], size = 26, max = 4 }) {
+// total：グループの人数（members が4人までしか届かないときも「+3」を正しく出す）
+export default function AvatarStack({ members = [], size = 26, max = 4, total }) {
   const overlap = size >= 34 ? 11 : 8;
-  const shown = members.length > max ? members.slice(0, max - 1) : members.slice(0, max);
-  const rest = members.length - shown.length;
+  const count = Math.max(total ?? 0, members.length);
+  const shown = count > max ? members.slice(0, max - 1) : members.slice(0, max);
+  const rest = count - shown.length;
   return (
     <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center' }}>
       {shown.map((m, i) => (

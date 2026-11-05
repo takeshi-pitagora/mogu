@@ -203,7 +203,7 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
       {/* 探し方の切り替え */}
       <div style={{ position: 'absolute', left: 0, right: 0, top: 'calc(var(--safe-top) + 45px)', display: 'flex', justifyContent: 'center', zIndex: 3 }}>
         <button type="button" aria-label="探し方を切り替える" className="ui-btn ui-btn--text" onClick={() => setSheet('mode')} style={{ height: 44, padding: '0 8px', border: 0, background: 'transparent', color: color.ink, fontFamily: font.plex, display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
-          {selectedGroup?.members?.length > 0 && <AvatarStack members={selectedGroup.members} size={26} />}
+          {selectedGroup?.members?.length > 0 && <AvatarStack members={selectedGroup.members} size={26} total={selectedGroup.count} />}
           <span style={{ fontFamily: font.dela, fontSize: 18, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{modeTitle}</span>
           <Icon name="chevronDown" size={18} />
         </button>
