@@ -142,3 +142,12 @@ export const avatarSize = { edit: 96, large: 56, row: 40, stack: 32, tab: 26 };
 
 // 押せるものの最小の大きさ
 export const hitSize = 44;
+
+// 色に透明度を付ける（確定版の rgba(46,44,42,0.82) などを、色の定数から作るため）
+export function alpha(hex, a) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
