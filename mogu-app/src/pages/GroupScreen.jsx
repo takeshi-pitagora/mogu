@@ -204,26 +204,23 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
 
         setJoinLoading(true);
         try {
-            const { data: invite, error: inviteError } = await supabase
-                .from('invites')
-                .select('*')
-                .eq('token', token)
-                .maybeSingle();
-            if (inviteError) throw inviteError;
-
-            if (!invite) {
-                setJoinError('招待リンクが見つかりません。');
+            // 招待コードの確認と参加は、RLSを経由しないサーバー側の関数（join_group_by_code）で行う。
+            // group_members / invites を直接読み書きすると、まだメンバーでない自分からは
+            // 招待が見えず（RLS）、常に「見つかりません」になってしまうため
+            const { error: joinErr } = await supabase.rpc('join_group_by_code', { p_code: token });
+            if (joinErr) {
+                const msg = joinErr.message || '';
+                if (/not.?found|invalid/i.test(msg)) {
+                    setJoinError('招待リンクが見つかりません。');
+                } else if (/expired/i.test(msg)) {
+                    setJoinError('この招待リンクは有効期限が切れています。');
+                } else if (/guest|anonymous/i.test(msg)) {
+                    setJoinError('ゲストアカウントでは参加できません。登録してからお試しください。');
+                } else {
+                    throw joinErr;
+                }
                 return;
             }
-            if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-                setJoinError('この招待リンクは有効期限が切れています。');
-                return;
-            }
-
-            const { error: joinErr } = await supabase
-                .from('group_members')
-                .upsert({ group_id: invite.group_id, user_id: user.id });
-            if (joinErr) throw joinErr;
 
             setJoinToken('');
             fetchGroups();
