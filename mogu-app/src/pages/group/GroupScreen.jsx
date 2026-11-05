@@ -23,21 +23,8 @@ import { SubHeader } from '../settings/SettingsParts';
 //   グループの詳細は「メンバー」「設定」だけ（「お店」のタブは3回目）。上の［ホームで使用中］で、ホームの探し方をこのグループにする
 const GROUP_NAME_MAX = 20;
 
-const page = {
-  position: 'relative',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  background: color.bg,
-  fontFamily: font.plex,
-  color: color.ink,
-};
-const body = {
-  flex: '1 1 auto',
-  minHeight: 0,
-  overflowY: 'auto',
-  WebkitOverflowScrolling: 'touch',
-};
+const page = { position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', background: color.bg, fontFamily: font.plex, color: color.ink };
+const body = { flex: '1 1 auto', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' };
 
 // 一覧の行（確定版 Final-11 の 1）
 function GroupRow({ g, inUse, onOpen }) {
@@ -63,55 +50,18 @@ function GroupRow({ g, inUse, onOpen }) {
     >
       <GroupAvatar members={g.members} size={56} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {g.name}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 16, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</span>
           {g.count != null && <span style={{ marginLeft: 4, fontSize: 13, color: color.sub }}>（{g.count}）</span>}
           {inUse && (
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                marginLeft: 6,
-                fontSize: 11,
-                fontWeight: 700,
-                color: color.ink,
-              }}
-            >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 6, fontSize: 11, fontWeight: 700, color: color.ink }}>
               <Icon name="check" size={13} />
               使用中
             </span>
           )}
         </div>
         {names.length > 0 && (
-          <div
-            style={{
-              marginTop: 3,
-              fontSize: 13,
-              fontWeight: 700,
-              color: color.ink,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            メンバー：{names.join('・')}
-          </div>
+          <div style={{ marginTop: 3, fontSize: 13, fontWeight: 700, color: color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>メンバー：{names.join('・')}</div>
         )}
       </div>
     </button>
@@ -148,16 +98,7 @@ function PlusMenu({ onCreate, onJoin, onClose }) {
   );
   return (
     <>
-      <div
-        aria-hidden="true"
-        onClick={onClose}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(46,44,42,0.16)',
-          zIndex: 6,
-        }}
-      />
+      <div aria-hidden="true" onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(46,44,42,0.16)', zIndex: 6 }} />
       <div
         role="menu"
         style={{
@@ -258,18 +199,7 @@ function GroupList({ groups, status, selectedId, onRetry, onOpen, onCreate, onJo
               onChange={(e) => setQuery(e.target.value)}
               placeholder="グループ名・メンバーで探す"
               aria-label="グループ名・メンバーで探す"
-              style={{
-                flex: 1,
-                minWidth: 0,
-                height: '100%',
-                border: 0,
-                outline: 'none',
-                background: 'transparent',
-                color: color.ink,
-                fontFamily: 'inherit',
-                fontSize: 15,
-                padding: 0,
-              }}
+              style={{ flex: 1, minWidth: 0, height: '100%', border: 0, outline: 'none', background: 'transparent', color: color.ink, fontFamily: 'inherit', fontSize: 15, padding: 0 }}
             />
           </div>
           {status === 'loading' && <LoadingState style={{ paddingTop: 80 }} />}
@@ -291,72 +221,14 @@ function GroupList({ groups, status, selectedId, onRetry, onOpen, onCreate, onJo
 function GroupEmpty({ onCreate, onJoin }) {
   const rabbit = chara('VNGL');
   return (
-    <div
-      style={{
-        position: 'relative',
-        flex: '1 1 auto',
-        minHeight: 0,
-        overflowY: 'auto',
-      }}
-    >
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          left: 40,
-          right: 40,
-          top: 18,
-          zIndex: 2,
-        }}
-      >
-        <div
-          style={{
-            width: 190,
-            height: 40,
-            boxSizing: 'border-box',
-            border: `${stroke.shape}px dashed ${color.lineStrong}`,
-            borderRadius: 20,
-          }}
-        />
-        <div
-          style={{
-            width: 150,
-            height: 40,
-            boxSizing: 'border-box',
-            margin: '10px 0 0 auto',
-            border: `${stroke.shape}px dashed ${color.lineStrong}`,
-            borderRadius: 20,
-          }}
-        />
+    <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
+      <div aria-hidden="true" style={{ position: 'absolute', left: 40, right: 40, top: 18, zIndex: 2 }}>
+        <div style={{ width: 190, height: 40, boxSizing: 'border-box', border: `${stroke.shape}px dashed ${color.lineStrong}`, borderRadius: 20 }} />
+        <div style={{ width: 150, height: 40, boxSizing: 'border-box', margin: '10px 0 0 auto', border: `${stroke.shape}px dashed ${color.lineStrong}`, borderRadius: 20 }} />
       </div>
-      <div
-        style={{
-          padding: '118px 28px 130px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-        }}
-      >
-        <img
-          src={rabbit?.framed}
-          alt=""
-          style={{
-            display: 'block',
-            width: 140,
-            height: 214,
-            objectFit: 'contain',
-            objectPosition: 'center bottom',
-          }}
-        />
-        <p
-          style={{
-            margin: '22px 0 0',
-            fontFamily: font.dela,
-            fontSize: 19,
-            lineHeight: 1.55,
-          }}
-        >
+      <div style={{ padding: '118px 28px 130px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        <img src={rabbit?.framed} alt="" style={{ display: 'block', width: 140, height: 214, objectFit: 'contain', objectPosition: 'center bottom' }} />
+        <p style={{ margin: '22px 0 0', fontFamily: font.dela, fontSize: 19, lineHeight: 1.55 }}>
           友達とグループを作ると、
           <br />
           みんなが行きたいお店が
@@ -378,19 +250,7 @@ function GroupEmpty({ onCreate, onJoin }) {
 
 // 下に固定のボタン（左右20・下34）
 function BottomAction({ children }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        bottom: 34,
-        zIndex: 6,
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div style={{ position: 'absolute', left: 20, right: 20, bottom: 34, zIndex: 6 }}>{children}</div>;
 }
 
 // 作る・招待・コードで参加は、下のタブを出さない画面（確定版 Final-11 の 5・6・11・12）
@@ -464,80 +324,27 @@ function InviteGroup({ group, onBack }) {
       /* コピーできない端末 */
     }
   };
-  const send = () =>
-    invite &&
-    shareText({
-      title: `${group.name}への招待`,
-      text: `mogu のグループ「${group.name}」に参加しよう。招待コード：${invite.code}`,
-      url: invite.link,
-    });
+  const send = () => invite && shareText({ title: `${group.name}への招待`, text: `mogu のグループ「${group.name}」に参加しよう。招待コード：${invite.code}`, url: invite.link });
 
   return (
     <div style={page}>
-      <header
-        style={{
-          flex: 'none',
-          paddingTop: 'var(--safe-top)',
-          background: color.bg,
-        }}
-      >
-        <div
-          style={{
-            position: 'relative',
-            height: 44,
-            padding: '0 8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+      <header style={{ flex: 'none', paddingTop: 'var(--safe-top)', background: color.bg }}>
+        <div style={{ position: 'relative', height: 44, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
             type="button"
             aria-label="戻る"
             onClick={onBack}
             className="ui-btn ui-btn--text"
-            style={{
-              width: 44,
-              height: 44,
-              padding: 0,
-              border: 0,
-              background: 'transparent',
-              color: color.ink,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            style={{ width: 44, height: 44, padding: 0, border: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <Icon name="back" size={24} />
           </button>
-          <h1
-            style={{
-              position: 'absolute',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              margin: 0,
-              fontFamily: font.dela,
-              fontSize: 16,
-              fontWeight: 400,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            招待する
-          </h1>
+          <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', margin: 0, fontFamily: font.dela, fontSize: 16, fontWeight: 400, whiteSpace: 'nowrap' }}>招待する</h1>
           <button
             type="button"
             onClick={onBack}
             className="ui-btn ui-btn--text"
-            style={{
-              height: 44,
-              padding: '0 8px',
-              border: 0,
-              background: 'transparent',
-              color: color.ink,
-              fontFamily: 'inherit',
-              fontSize: 15,
-              fontWeight: 700,
-            }}
+            style={{ height: 44, padding: '0 8px', border: 0, background: 'transparent', color: color.ink, fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}
           >
             完了
           </button>
@@ -545,14 +352,7 @@ function InviteGroup({ group, onBack }) {
       </header>
       <div style={body}>
         <div style={{ padding: '4px 20px 40px' }}>
-          <p
-            style={{
-              margin: 0,
-              fontFamily: font.dela,
-              fontSize: 22,
-              lineHeight: 1.35,
-            }}
-          >
+          <p style={{ margin: 0, fontFamily: font.dela, fontSize: 22, lineHeight: 1.35 }}>
             {group.name}に
             <br />
             友達を呼ぼう
@@ -584,34 +384,11 @@ function InviteGroup({ group, onBack }) {
               LINE などで送る
             </button>
           )}
-          <div
-            style={{
-              marginTop: 22,
-              padding: 16,
-              borderRadius: 24,
-              background: color.surface,
-            }}
-          >
+          <div style={{ marginTop: 22, padding: 16, borderRadius: 24, background: color.surface }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>招待コード</div>
             <div style={{ marginTop: 6 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: font.dela,
-                    fontSize: 22,
-                    letterSpacing: '0.08em',
-                    minHeight: 30,
-                  }}
-                >
-                  {invite ? invite.code : error ? '' : '…'}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontFamily: font.dela, fontSize: 22, letterSpacing: '0.08em', minHeight: 30 }}>{invite ? invite.code : error ? '' : '…'}</span>
                 <button
                   type="button"
                   onClick={copy}
@@ -639,15 +416,7 @@ function InviteGroup({ group, onBack }) {
                 </button>
               </div>
               {error && (
-                <p
-                  role="alert"
-                  style={{
-                    margin: '6px 0 0',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: color.red,
-                  }}
-                >
+                <p role="alert" style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 700, color: color.red }}>
                   招待コードを作れませんでした。少したってから、もう一度お試しください
                 </p>
               )}
@@ -715,72 +484,20 @@ function JoinGroup({ onBack, onJoined }) {
         <SubHeader title="コードで参加" onBack={() => setPreview(null)} />
         <div style={body}>
           <div style={{ padding: '16px 20px 260px' }}>
-            <div
-              style={{
-                padding: 20,
-                border: `${stroke.shape}px solid ${color.ink}`,
-                borderRadius: 32,
-              }}
-            >
+            <div style={{ padding: 20, border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 32 }}>
               <div style={{ display: 'flex' }}>
                 <GroupAvatar members={preview.members} size={64} />
               </div>
-              <h2
-                style={{
-                  margin: '14px 0 0',
-                  fontFamily: font.dela,
-                  fontSize: 26,
-                  fontWeight: 400,
-                  lineHeight: 1.25,
-                }}
-              >
+              <h2 className="no-zoom" style={{ margin: '14px 0 0', fontFamily: font.dela, fontSize: 26, fontWeight: 400, lineHeight: 1.25 }}>
                 {preview.name}
               </h2>
-              {preview.count != null && (
-                <div
-                  style={{
-                    marginTop: 4,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: color.sub,
-                  }}
-                >
-                  {preview.count}人
-                </div>
-              )}
+              {preview.count != null && <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, color: color.sub }}>{preview.count}人</div>}
               {preview.members.length > 0 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    marginTop: 16,
-                    flexWrap: 'wrap',
-                  }}
-                >
+                <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
                   {preview.members.map((m, i) => (
-                    <div
-                      key={m.id || i}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 6,
-                        width: 64,
-                      }}
-                    >
+                    <div key={m.id || i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 64 }}>
                       <Avatar size={52} name={m.display_name} />
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          whiteSpace: 'nowrap',
-                          maxWidth: 64,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {m.display_name}
-                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.display_name}</span>
                     </div>
                   ))}
                 </div>
@@ -832,16 +549,7 @@ function ReportGroupSheet({ group, onClose, onSent }) {
         <div style={{ fontFamily: font.dela, fontSize: 18 }}>このグループを通報する</div>
         <div style={{ marginTop: 2, fontSize: 13, color: color.sub }}>{group.name}</div>
       </div>
-      <p
-        style={{
-          margin: '14px 0 10px',
-          fontSize: 13,
-          fontWeight: 700,
-          color: color.sub,
-        }}
-      >
-        あてはまるものを1つ選んでください
-      </p>
+      <p style={{ margin: '14px 0 10px', fontSize: 13, fontWeight: 700, color: color.sub }}>あてはまるものを1つ選んでください</p>
       <div role="radiogroup" aria-label="通報の理由" style={{ borderBottom: `1px solid ${color.line}` }}>
         {REPORT_REASONS.map((r) => (
           <button
@@ -864,16 +572,7 @@ function ReportGroupSheet({ group, onClose, onSent }) {
               gap: 12,
             }}
           >
-            <span
-              style={{
-                flex: '1 1 0%',
-                textAlign: 'left',
-                fontSize: 16,
-                fontWeight: reason === r ? 700 : 500,
-              }}
-            >
-              {r}
-            </span>
+            <span style={{ flex: '1 1 0%', textAlign: 'left', fontSize: 16, fontWeight: reason === r ? 700 : 500 }}>{r}</span>
             <Radio on={reason === r} />
           </button>
         ))}
@@ -980,38 +679,11 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
     <div style={page}>
       <SubHeader title="" onBack={onBack} />
       <div style={body}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            padding: '0 20px',
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 20px' }}>
           <GroupAvatar members={members} size={52} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontFamily: font.dela,
-                fontSize: 21,
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {group.name}
-            </div>
-            <div
-              style={{
-                marginTop: 2,
-                fontSize: 12,
-                fontWeight: 700,
-                color: color.sub,
-              }}
-            >
-              {members.length || group.count || ''}人
-            </div>
+            <div style={{ fontFamily: font.dela, fontSize: 21, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.name}</div>
+            <div style={{ marginTop: 2, fontSize: 12, fontWeight: 700, color: color.sub }}>{members.length || group.count || ''}人</div>
           </div>
           <button
             type="button"
@@ -1040,14 +712,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
             {inUse ? 'ホームで使用中' : 'ホームで使う'}
           </button>
         </div>
-        <div
-          role="tablist"
-          style={{
-            display: 'flex',
-            marginTop: 12,
-            borderBottom: `${stroke.shape}px solid ${color.ink}`,
-          }}
-        >
+        <div role="tablist" style={{ display: 'flex', marginTop: 12, borderBottom: `${stroke.shape}px solid ${color.ink}` }}>
           {tabBtn('members', 'メンバー')}
           {tabBtn('settings', '設定')}
         </div>
@@ -1097,71 +762,18 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
                 const t = getType(m.food_style);
                 const g = t ? groupColor[groupOf(t.code)] : null;
                 return (
-                  <div
-                    key={m.id || i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '10px 0',
-                      borderBottom: i === members.length - 1 ? 0 : `1px solid ${color.line}`,
-                    }}
-                  >
+                  <div key={m.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i === members.length - 1 ? 0 : `1px solid ${color.line}` }}>
                     <Avatar size={44} name={m.display_name} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 700,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
+                      <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {m.display_name}
-                        {m.id === user?.id && (
-                          <span
-                            style={{
-                              marginLeft: 6,
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: color.sub,
-                            }}
-                          >
-                            あなた
-                          </span>
-                        )}
+                        {m.id === user?.id && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: color.sub }}>あなた</span>}
                       </div>
                     </div>
                     {t && (
-                      <span
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'flex-end',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontFamily: font.dela,
-                            fontSize: 11,
-                            lineHeight: '15px',
-                            color: g ? g.dark : color.ink,
-                          }}
-                        >
-                          {t.code}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            lineHeight: '17px',
-                            color: color.ink,
-                          }}
-                        >
-                          {t.name}
-                        </span>
+                      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontFamily: font.dela, fontSize: 11, lineHeight: '15px', color: g ? g.dark : color.ink }}>{t.code}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, lineHeight: '17px', color: color.ink }}>{t.name}</span>
                       </span>
                     )}
                   </div>
@@ -1218,11 +830,7 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
           onBack={toList}
           onCreated={(g) => {
             reload();
-            setView({
-              name: 'invite',
-              group: g,
-              back: { name: 'detail', group: g },
-            });
+            setView({ name: 'invite', group: g, back: { name: 'detail', group: g } });
           }}
         />
       </FullScreen>
@@ -1258,13 +866,7 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
         inUse={inUse}
         onBack={toList}
         onToggleUse={() => onSelectGroup?.(inUse ? null : { id: g.id, name: g.name, members: g.members, count: g.count })}
-        onInvite={() =>
-          setView({
-            name: 'invite',
-            group: g,
-            back: { name: 'detail', group: g },
-          })
-        }
+        onInvite={() => setView({ name: 'invite', group: g, back: { name: 'detail', group: g } })}
         onLeft={(left) => {
           if (selectedGroup?.id === left.id) onSelectGroup?.(null);
           setGroups((list) => list.filter((x) => x.id !== left.id));

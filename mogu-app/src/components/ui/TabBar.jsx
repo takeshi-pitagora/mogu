@@ -40,6 +40,7 @@ export default function TabBar({ active, onChange, profile = {}, guest = false }
     <nav
       ref={navRef}
       aria-label="下のタブ"
+      className="no-zoom"
       style={{
         position: 'fixed',
         left: T.sideInset,

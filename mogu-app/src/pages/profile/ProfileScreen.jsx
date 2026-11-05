@@ -151,7 +151,7 @@ export default function ProfileScreen({ onOpenSettings }) {
               {type && <TypeLabel code={type.code} />}
             </button>
             <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-              <h1 style={{ margin: 0, fontFamily: font.dela, fontSize: 24, fontWeight: 400, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</h1>
+              <h1 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 24, fontWeight: 400, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</h1>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>

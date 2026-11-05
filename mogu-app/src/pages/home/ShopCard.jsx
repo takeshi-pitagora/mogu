@@ -82,14 +82,14 @@ export default function ShopCard({ shop, photoIndex = 0, onPhotoIndex, onOpen, i
             {genre && <Chip>{genre}</Chip>}
           </div>
         )}
-        <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 26, fontWeight: 400, lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{shop.name}</h2>
+        <h2 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 26, fontWeight: 400, lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{shop.name}</h2>
         {(rating || budget) && (
           <dl style={{ margin: 0, display: 'flex', alignItems: 'flex-end', gap: 20 }}>
             {rating && (
               <div>
                 <dt style={{ fontSize: 12, fontWeight: 500, color: color.line }}>評価</dt>
                 <dd style={{ margin: '2px 0 0', display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
-                  <span style={{ fontFamily: font.dela, fontSize: 34, lineHeight: 1 }}>{rating.value}</span>
+                  <span className="no-zoom" style={{ fontFamily: font.dela, fontSize: 34, lineHeight: 1 }}>{rating.value}</span>
                   {rating.count && <span style={{ fontSize: 12, color: color.line }}>{rating.count}</span>}
                 </dd>
               </div>

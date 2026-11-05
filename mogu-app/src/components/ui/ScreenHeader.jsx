@@ -16,7 +16,7 @@ export function TitleHeader({ title, actions = [], bordered = true }) {
       }}
     >
       <div style={{ height: 54, boxSizing: 'border-box', padding: '0 8px 0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ margin: 0, fontFamily: font.dela, fontSize: 30, fontWeight: 400, lineHeight: 1, color: color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h1>
+        <h1 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 30, fontWeight: 400, lineHeight: 1, color: color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h1>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {actions.map((a) => (
             <HeaderIconButton key={a.label} {...a} />

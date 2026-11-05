@@ -226,12 +226,12 @@ function ResetForm({ initialEmail = '', onBack }) {
       <div style={page}>
         <div style={inner}>
           <BackRow onBack={onBack} />
-          <h1 style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400 }}>パスワードの再設定</h1>
+          <h1 className="no-zoom" style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400 }}>パスワードの再設定</h1>
           <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 90 }}>
             <span style={{ width: 96, height: 96, borderRadius: '50%', background: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="mail" size={44} />
             </span>
-            <h2 style={{ margin: '22px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400 }}>メールを送りました</h2>
+            <h2 className="no-zoom" style={{ margin: '22px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400 }}>メールを送りました</h2>
             <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.7 }}>メールのリンクから新しいパスワードを決めてください</p>
           </div>
           <Button variant="primary" onClick={onBack} style={{ marginTop: 32 }}>
@@ -249,7 +249,7 @@ function ResetForm({ initialEmail = '', onBack }) {
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
           <img src={harry?.framed} alt="" style={{ display: 'block', width: 84, height: 128, objectFit: 'contain', objectPosition: 'center bottom' }} />
         </div>
-        <h1 style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400, textAlign: 'center' }}>パスワードの再設定</h1>
+        <h1 className="no-zoom" style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400, textAlign: 'center' }}>パスワードの再設定</h1>
         <p style={{ margin: '8px 0 18px', fontSize: 14, lineHeight: 1.7 }}>登録したメールアドレスを入れてください</p>
         {banner && (
           <div style={{ marginBottom: 16 }}>

@@ -152,11 +152,11 @@ export default function ShopDetail({ shop, from = 'saved', onClose, onSavedChang
                 {genre && <Chip>{genre}</Chip>}
               </div>
             )}
-            <h1 style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 30, fontWeight: 400, lineHeight: 1.2 }}>{shop.name}</h1>
+            <h1 className="no-zoom" style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 30, fontWeight: 400, lineHeight: 1.2 }}>{shop.name}</h1>
             {rating && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, color: color.white }}>
-                  <span style={{ fontFamily: font.dela, fontSize: 48, lineHeight: 1 }}>{rating.value}</span>
+                  <span className="no-zoom" style={{ fontFamily: font.dela, fontSize: 48, lineHeight: 1 }}>{rating.value}</span>
                   <span style={{ paddingBottom: 4 }}>
                     {rating.count && <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: color.line }}>{rating.count}</span>}
                     <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: color.line }}>評価：{RATING_SOURCE}</span>

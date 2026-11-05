@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': GOOGLE_API_KEY,
         'X-Goog-FieldMask':
-          'places.id,places.displayName,places.formattedAddress,places.priceLevel,places.rating,places.userRatingCount,places.primaryTypeDisplayName,places.photos,places.location,places.regularOpeningHours,places.websiteUri',
+          'places.id,places.displayName,places.formattedAddress,places.priceLevel,places.rating,places.userRatingCount,places.primaryTypeDisplayName,places.photos,places.location,places.regularOpeningHours,places.websiteUri,places.nationalPhoneNumber',
       },
       body: JSON.stringify({
         textQuery: `${trimmedArea} レストラン`,
@@ -114,6 +114,9 @@ Deno.serve(async (req) => {
       photo_food: buildPhotoProxyUrl(p.photos?.[0]?.name),
       photo_interior: buildPhotoProxyUrl(p.photos?.[1]?.name),
       photo_exterior: buildPhotoProxyUrl(p.photos?.[2]?.name),
+      // 1回目（デザイン更新）：お店の詳細で横に送る写真（Google は1店最大10枚）と電話番号。料金区分は今と同じ（Text Search Enterprise）
+      photos: (p.photos || []).slice(0, 10).map((ph) => buildPhotoProxyUrl(ph?.name)).filter(Boolean),
+      phone: p.nationalPhoneNumber ?? null,
       opening_hours: p.regularOpeningHours ?? null,
       website: p.websiteUri ?? null,
       is_excluded: false,
@@ -124,10 +127,15 @@ Deno.serve(async (req) => {
 
     let upserted = [];
     if (rows.length > 0) {
-      const { data, error: upsertError } = await supabase
+      let { data, error: upsertError } = await supabase
         .from('restaurants')
         .upsert(rows, { onConflict: 'place_id' })
         .select();
+      // photos・phone の列をまだ足していないDB（20261106_round1.sql の前）：今までの列だけで保存する
+      if (upsertError && /photos|phone/.test(upsertError.message || '')) {
+        const legacy = rows.map(({ photos: _photos, phone: _phone, ...rest }) => rest);
+        ({ data, error: upsertError } = await supabase.from('restaurants').upsert(legacy, { onConflict: 'place_id' }).select());
+      }
       if (upsertError) throw upsertError;
       upserted = data;
     }

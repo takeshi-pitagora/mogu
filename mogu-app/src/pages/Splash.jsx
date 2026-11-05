@@ -34,7 +34,7 @@ export default function Splash({ ready, onDone }) {
   }, [out, onDone]);
 
   const peek = phase !== 'rest';
-  const img = <img src={NOZOKU_LOGO.black} alt="" draggable={false} style={{ display: 'block', width: W, height: H }} />;
+  const img = <img src={NOZOKU_LOGO.black} alt="" draggable={false} style={{ display: 'block', width: W, height: H, maxWidth: 'none' }} />;
 
   return (
     <div

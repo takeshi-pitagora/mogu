@@ -104,7 +104,7 @@ export function GuestProfile({ onRegister, onOpenSettings }) {
           <span role="img" aria-label="ゲスト" style={{ flex: 'none', display: 'flex', width: 56, height: 56, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: '50%', background: color.surface, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="personGuest" size={35} />
           </span>
-          <h1 style={{ margin: 0, fontFamily: font.dela, fontSize: 26, fontWeight: 400, lineHeight: 1.2 }}>ゲスト</h1>
+          <h1 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 26, fontWeight: 400, lineHeight: 1.2 }}>ゲスト</h1>
         </div>
         <Button variant="primary" onClick={onRegister} style={{ marginTop: 24 }}>
           アカウントを登録する
@@ -183,7 +183,7 @@ export function GuestWelcome({ onClose, pendingEmail = false }) {
   return (
     <div role="dialog" aria-label="mogu へようこそ！" style={{ position: 'fixed', inset: 0, zIndex: 70, background: color.bg, fontFamily: font.plex, color: color.ink }}>
       <div style={{ padding: 'calc(var(--safe-top) + 146px) 24px 0' }}>
-        <h1 aria-label="mogu へようこそ！" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: font.dela, fontSize: 28, fontWeight: 400 }}>
+        <h1 aria-label="mogu へようこそ！" className="no-zoom" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: font.dela, fontSize: 28, fontWeight: 400 }}>
           <img src={LOGO.black} alt="" style={{ display: 'block', width: 98, height: 34, objectFit: 'contain' }} />
           <span>へようこそ！</span>
         </h1>

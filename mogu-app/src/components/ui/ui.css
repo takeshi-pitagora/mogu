@@ -50,3 +50,6 @@
 /* 中の画面・お店の詳細が開くとき（短いフェード。§4 に決まりがないので控えめに） */
 .ui-sub-enter { animation: ui-fade-in 0.16s ease-out; }
 @media (prefers-reduced-motion: reduce) { .ui-sub-enter { animation: none; } }
+
+/* 文字の大きさを大きくしない所（下のタブ・Dela 24pt 以上の見出し）。iPhone の文字の大きさは body に入る */
+.no-zoom { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }

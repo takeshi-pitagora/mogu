@@ -101,7 +101,7 @@ export default function LoginStart({ onSignup, onLogin, onGuest, guestBusy }) {
         <img src={LOGO.black} alt="mogu" style={{ display: 'block', width: 115, height: 40, objectFit: 'contain', margin: '0 auto' }} />
         <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 14, fontWeight: 700, color: color.sub }}>好みが合うお店を、みんなで見つける（仮）</p>
 
-        <div aria-label="お店を左右にスワイプして選ぶ見本" role="img" style={{ position: 'relative', height: 392, marginTop: 14 }}>
+        <div aria-label="お店を左右にスワイプして選ぶ見本" role="img" className="no-zoom" style={{ position: 'relative', height: 392, marginTop: 14 }}>
           <div style={{ position: 'absolute', left: '50%', top: 12, width: 361, marginLeft: -180.5, transformOrigin: 'top center', transform: P.back, transition: move, zIndex: 1 }}>
             <SampleCard c={CARDS[1]} />
           </div>
