@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { color, font, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
+import { listBlocked, photoUrlOf } from '../../lib/profile';
 import Avatar from '../../components/ui/Avatar';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
 import ConfirmSheet from '../../components/ui/ConfirmSheet';
-import DiagnosisModal from '../../components/DiagnosisModal';
+import ReportGeneralSheet from './ReportGeneralSheet';
 import { getType } from '../../lib/mogutype';
 import { HELP_URL, OPERATOR_URL, PRIVACY_POLICY_URL, SHOP_INFO_URL, SUPPORT_EMAIL, TERMS_URL } from '../../lib/links';
 import { openExternal } from '../../lib/open';
@@ -14,8 +15,8 @@ import { GroupTitle, Row, RowGroup, SubPage, Tile } from './SettingsParts';
 
 // 設定（確定版 Final-05 ひと目型）。プロフィール右上の歯車から開く
 //   いちばん上のカード（写真・ニックネーム・メールアドレス → アカウント）、タイル、サポート、このアプリについて、［ログアウト］、バージョン
-//   1回目：タイルは「食スタイル診断」だけ（今の20問の診断を開く）。通知・招待を受け取る範囲は3回目・2回目、ブロックしたユーザーと
-//   「通報したい内容がある」は2回目まで出さない。押しても何も起きない行は置かない
+//   2回目：タイルに「招待を受け取る範囲」「ブロックしたユーザー」を追加（f05-1）。サポートに「通報したい内容がある」を追加（f13-13）
+//   通知のタイルは3回目（まだ出さない）。押しても何も起きない行は置かない
 //   ゲストのとき：いちばん上のカードの代わりに［アカウントを登録する］（Final-05 の 4）。ログアウトは出さない
 function AccountCard({ user, onClick }) {
   return (
@@ -25,7 +26,7 @@ function AccountCard({ user, onClick }) {
       className="ui-btn ui-press"
       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: 16, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 24, background: color.white, color: color.ink, fontFamily: 'inherit', textAlign: 'left' }}
     >
-      <Avatar size={56} name={user.name} />
+      <Avatar size={56} photoUrl={photoUrlOf(user.avatarPath)} name={user.name} />
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontFamily: font.dela, fontSize: 18, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</span>
         {user.email && <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</span>}
@@ -56,13 +57,20 @@ function RegisterCard({ onClick }) {
   );
 }
 
-export default function SettingsScreen({ onBack, onOpenAccount, onShowGuide, onRegister }) {
+export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScope, onOpenBlocked, onOpenDiagnosis, onShowGuide, onRegister }) {
   const { user, logout } = useAuth();
   const guest = !!user?.isGuest;
   const [confirm, setConfirm] = useState(false);
-  const [diagnosis, setDiagnosis] = useState(false);
+  const [report, setReport] = useState(false);
+  const [blockedCount, setBlockedCount] = useState(null);
+
+  useEffect(() => {
+    if (guest) return;
+    listBlocked().then((r) => setBlockedCount((r.data || []).length));
+  }, [guest]);
+
   if (!user) return null;
-  const diagnosed = !!getType(user.foodStyle);
+  const diagnosed = !!getType(user.moguType?.code);
 
   const about = [
     { label: '利用規約', url: TERMS_URL, external: true },
@@ -76,7 +84,9 @@ export default function SettingsScreen({ onBack, onOpenAccount, onShowGuide, onR
       {guest ? <RegisterCard onClick={onRegister} /> : <AccountCard user={user} onClick={onOpenAccount} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 16 }}>
-        <Tile icon="link" label="食スタイル診断" value={diagnosed ? '診断済み' : '未診断'} onClick={() => setDiagnosis(true)} />
+        {!guest && <Tile icon="tray" label="招待を受け取る範囲" value={user.inviteScope === 'none' ? '受け取らない' : '誰からでも'} onClick={onOpenInviteScope} />}
+        {!guest && <Tile icon="block" label="ブロックしたユーザー" value={blockedCount == null ? '…' : `${blockedCount}人`} onClick={onOpenBlocked} />}
+        <Tile icon="link" label="食スタイル診断" value={diagnosed ? '診断済み' : '未診断'} onClick={() => onOpenDiagnosis?.()} />
       </div>
 
       <GroupTitle>サポート</GroupTitle>
@@ -84,6 +94,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onShowGuide, onR
         <Row first label="ヘルプ（よくある質問）" external onClick={() => openExternal(HELP_URL)} />
         <Row label="使い方をもう一度見る" onClick={onShowGuide} />
         <Row label="お問い合わせ・不具合の報告" onClick={() => window.open(`mailto:${SUPPORT_EMAIL}`, '_self')} />
+        <Row label="通報したい内容がある" onClick={() => setReport(true)} />
       </RowGroup>
 
       <GroupTitle>このアプリについて</GroupTitle>
@@ -105,7 +116,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onShowGuide, onR
       )}
 
       <ConfirmSheet open={confirm} title="ログアウトしますか？" actionLabel="ログアウト" onConfirm={() => logout()} onCancel={() => setConfirm(false)} />
-      {diagnosis && <DiagnosisModal onClose={() => setDiagnosis(false)} />}
+      <ReportGeneralSheet open={report} onClose={() => setReport(false)} />
     </SubPage>
   );
 }

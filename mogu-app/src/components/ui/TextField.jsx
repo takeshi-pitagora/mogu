@@ -20,6 +20,9 @@ export default function TextField({
   rows = 4,
   disabled = false,
   prefix,
+  success = false, // ID欄などの「使えます」（線・アイコンを黒のまま、下に黒い文字で知らせる）
+  hint, // エラーが無いときに出す、黒い補足の文字（「使えます」など）
+  loading = false, // 確認中（線は黒のまま、右にくるくるのアイコン）
   style,
 }) {
   const id = useId();
@@ -82,6 +85,8 @@ export default function TextField({
           />
         )}
         {error && !isPassword && !multiline && <Icon name="warning" size={20} color={color.red} />}
+        {!error && loading && !isPassword && !multiline && <Icon name="refresh" size={18} color={color.sub} />}
+        {!error && !loading && success && !isPassword && !multiline && <Icon name="check" size={20} color={color.ink} />}
         {isPassword && (
           <button
             type="button"
@@ -93,10 +98,10 @@ export default function TextField({
           </button>
         )}
       </div>
-      {(error || (showCount && maxLength != null)) && (
+      {(error || hint || (showCount && maxLength != null)) && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6 }}>
-          <span role={error ? 'alert' : undefined} style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, lineHeight: 1.5, color: color.red }}>
-            {error}
+          <span role={error ? 'alert' : undefined} style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, lineHeight: 1.5, color: error ? color.red : color.ink }}>
+            {error || hint}
           </span>
           {showCount && maxLength != null && (
             <span style={{ flex: 'none', fontSize: 12, fontWeight: 700, color: atLimit ? color.red : color.sub }}>

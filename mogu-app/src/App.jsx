@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './components/ui/Toast';
 import TabBar from './components/ui/TabBar';
@@ -14,7 +15,13 @@ import NotificationsScreen from './pages/notifications/NotificationsScreen';
 import SettingsScreen from './pages/settings/SettingsScreen';
 import AccountScreen from './pages/settings/AccountScreen';
 import PasswordScreen from './pages/settings/PasswordScreen';
+import InviteScopeScreen from './pages/settings/InviteScopeScreen';
+import BlockedUsersScreen from './pages/settings/BlockedUsersScreen';
+import { photoUrlOf } from './lib/profile';
 import { GuestGroupLocked, GuestProfile, GuestRegisterSheet, GuestSampleGroupRow, GuestSignupScreen, GuestWelcome } from './pages/guest/GuestParts';
+import HandlePromptScreen from './pages/login/HandlePromptScreen';
+import DiagnosisScreen from './pages/profile/DiagnosisScreen';
+import { parseFriendCodeFromUrl } from './lib/mogutypeApi';
 
 // アプリの外側（引き渡し書 §4-10・§4-11）
 //   浮いた下のタブ「ホーム／グループ／保存／プロフィール」と、各タブの中の画面（設定・お知らせなど）。
@@ -30,6 +37,8 @@ function Shell() {
   const [savedVersion, setSavedVersion] = useState(0);
   const [guestSheet, setGuestSheet] = useState(false);
   const [guestFlow, setGuestFlow] = useState(null); // null | 'signup' | { welcome: true, pendingEmail }
+  const [diagnosis, setDiagnosis] = useState(null); // null | { intent } … マイページの［診断］／設定の「食スタイル診断」の画面
+  const [pendingFriendCode, setPendingFriendCode] = useState(null); // mogu://mogu-type/link で受け取ったフレンドコード
 
   const push = useCallback((name, props = {}) => setStack((s) => [...s, { name, props }]), []);
   const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
@@ -40,6 +49,20 @@ function Shell() {
   };
   const openShop = useCallback((s, opts = {}) => setShop({ shop: s, from: opts.from || 'saved' }), []);
   const openGuestSheet = useCallback(() => setGuestSheet(true), []);
+  const openDiagnosis = useCallback((intent) => setDiagnosis({ intent }), []);
+
+  // Mogu Type連携（§4-3・§4-4）：Safariから mogu://mogu-type/link?friendCode=... で戻ってきたとき
+  useEffect(() => {
+    const sub = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      const code = parseFriendCodeFromUrl(url);
+      if (!code) return;
+      setPendingFriendCode(code);
+      setDiagnosis((d) => d || {});
+    });
+    return () => {
+      sub.then((s) => s.remove()).catch(() => {});
+    };
+  }, []);
 
   const top = stack[stack.length - 1];
 
@@ -52,6 +75,9 @@ function Shell() {
           <SettingsScreen
             onBack={pop}
             onOpenAccount={() => push('account')}
+            onOpenInviteScope={() => push('inviteScope')}
+            onOpenBlocked={() => push('blockedUsers')}
+            onOpenDiagnosis={openDiagnosis}
             onShowGuide={() => {
               setStack([]);
               setTab('home');
@@ -64,6 +90,10 @@ function Shell() {
         return <AccountScreen onBack={pop} onOpenPassword={() => push('password')} />;
       case 'password':
         return <PasswordScreen onBack={pop} />;
+      case 'inviteScope':
+        return <InviteScopeScreen onBack={pop} />;
+      case 'blockedUsers':
+        return <BlockedUsersScreen onBack={pop} />;
       default:
         return null;
     }
@@ -100,7 +130,7 @@ function Shell() {
       )}
       {!top && tab === 'profile' && (
         <div style={{ position: 'absolute', inset: 0 }}>
-          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen onOpenSettings={() => push('settings')} />}
+          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen onOpenSettings={() => push('settings')} onOpenDiagnosis={openDiagnosis} />}
         </div>
       )}
       {top && (
@@ -115,7 +145,7 @@ function Shell() {
         </div>
       )}
 
-      <TabBar active={tab} onChange={changeTab} profile={{ name: user?.name }} guest={guest} />
+      <TabBar active={tab} onChange={changeTab} profile={{ name: user?.name, photoUrl: photoUrlOf(user?.avatarPath) }} guest={guest} />
 
       {shop && (
         <ShopDetail
@@ -138,6 +168,15 @@ function Shell() {
         />
       )}
       {guestFlow?.welcome && <GuestWelcome pendingEmail={guestFlow.pendingEmail} onClose={() => setGuestFlow(null)} />}
+
+      {diagnosis && (
+        <DiagnosisScreen
+          initialIntent={diagnosis.intent}
+          pendingFriendCode={pendingFriendCode}
+          onConsumedPendingCode={() => setPendingFriendCode(null)}
+          onClose={() => setDiagnosis(null)}
+        />
+      )}
     </div>
   );
 }
@@ -145,10 +184,13 @@ function Shell() {
 function Root() {
   const { user, loading } = useAuth();
   const [splash, setSplash] = useState(true);
+  const [handleDone, setHandleDone] = useState(false);
   const endSplash = useCallback(() => setSplash(false), []);
+  // 今までの利用者に、次に開いたとき1度だけ「IDを決めよう」を出す（引き渡し書 §7-1）
+  const needsHandlePrompt = !!user && !user.isGuest && !user.handleConfirmed && !user.handlePromptedAt && !handleDone;
   return (
     <>
-      {!loading && (user ? <Shell /> : <LoginFlow />)}
+      {!loading && (user ? (needsHandlePrompt ? <HandlePromptScreen onDone={() => setHandleDone(true)} /> : <Shell />) : <LoginFlow />)}
       {splash && <Splash ready={!loading} onDone={endSplash} />}
     </>
   );

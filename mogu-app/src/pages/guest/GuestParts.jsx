@@ -118,7 +118,7 @@ export function GuestProfile({ onRegister, onOpenSettings }) {
 //   ［登録せずにお試し（ゲスト）］は登録をやめてゲストのまま戻る。「ログイン」は今あるアカウントでログインし直す
 export function GuestSignupScreen({ onClose, onDone }) {
   const { convertGuest } = useAuth();
-  const [v, setV] = useState({ nickname: '', email: '', password: '' });
+  const [v, setV] = useState({ nickname: '', handle: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState('');
   const [busy, setBusy] = useState(false);
@@ -144,13 +144,14 @@ export function GuestSignupScreen({ onClose, onDone }) {
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setBusy(true);
-    const res = await convertGuest({ email: v.email.trim(), password: v.password, displayName: v.nickname.trim() });
+    const res = await convertGuest({ email: v.email.trim(), password: v.password, displayName: v.nickname.trim(), handle: v.handle.trim().toLowerCase() });
     setBusy(false);
     if (res.error) {
       if (res.code === 'email_taken') setErrors({ email: res.error, emailTaken: true });
       else setBanner(res.error);
       return;
     }
+    if (res.handleError) setBanner(`${res.handleError}（あとでプロフィールの編集から決められます）`);
     onDone?.(res);
   };
 

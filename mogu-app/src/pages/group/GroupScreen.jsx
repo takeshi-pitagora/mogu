@@ -15,7 +15,9 @@ import { LoadingState, ErrorState } from '../../components/ui/States';
 import { chara } from '../../lib/chara';
 import { getType } from '../../lib/mogutype';
 import { canShare, shareText } from '../../lib/open';
-import { createGroup, createInvite, groupMembers, joinByCode, leaveGroup, listGroups, previewInvite, reportGroupByMail } from '../../lib/groups';
+import { createGroup, createInvite, groupMembers, joinByCode, leaveGroup, listGroups, previewInvite } from '../../lib/groups';
+import { submitReport } from '../../lib/profile';
+import OtherProfileScreen from '../profile/OtherProfileScreen';
 import { SubHeader } from '../settings/SettingsParts';
 
 // グループ（1回目：今の動き＝一覧・作る・招待コード・参加・抜ける・通報 のまま、確定版 Final-11 の部品と色に置き換える。実装計画 6章 #5）
@@ -538,11 +540,35 @@ function JoinGroup({ onBack, onJoined }) {
   );
 }
 
-// グループの通報（確定版 Final-13 の 10）。1回目は今の仕組み（運営の窓口へメール）
-const REPORT_REASONS = ['不適切なグループ名', 'グループでのいやがらせ', 'その他'];
+// グループの通報（確定版 Final-13 の 10・f13-10）。2回目：submit_report（kind='group'）へ送る
+const REPORT_REASONS = [
+  { id: 'group_name', label: '不適切なグループ名' },
+  { id: 'harassment', label: 'グループでのいやがらせ' },
+  { id: 'other', label: 'その他' },
+];
 function ReportGroupSheet({ group, onClose, onSent }) {
-  const { user } = useAuth();
   const [reason, setReason] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+
+  if (sent) {
+    return (
+      <BottomSheet open onClose={onSent} ariaLabel="送信しました" minHeight={230}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 22 }}>
+          <span style={{ display: 'flex', width: 64, height: 64, borderRadius: '50%', background: color.ink, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="check" size={32} color={color.white} />
+          </span>
+        </div>
+        <h2 style={{ margin: '16px 0 0', fontFamily: font.dela, fontSize: 22, fontWeight: 400, lineHeight: 1.35, textAlign: 'center' }}>送信しました</h2>
+        <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: 1.6, textAlign: 'center' }}>内容を確認して対応します</p>
+        <Button variant="secondary" onClick={onSent} style={{ marginTop: 22 }}>
+          閉じる
+        </Button>
+      </BottomSheet>
+    );
+  }
+
   return (
     <BottomSheet open onClose={onClose} ariaLabel="このグループを通報する">
       <div style={{ marginTop: 12, textAlign: 'center' }}>
@@ -553,11 +579,11 @@ function ReportGroupSheet({ group, onClose, onSent }) {
       <div role="radiogroup" aria-label="通報の理由" style={{ borderBottom: `1px solid ${color.line}` }}>
         {REPORT_REASONS.map((r) => (
           <button
-            key={r}
+            key={r.id}
             type="button"
             role="radio"
-            aria-checked={reason === r}
-            onClick={() => setReason(r)}
+            aria-checked={reason === r.id}
+            onClick={() => setReason(r.id)}
             style={{
               width: '100%',
               minHeight: 56,
@@ -572,17 +598,25 @@ function ReportGroupSheet({ group, onClose, onSent }) {
               gap: 12,
             }}
           >
-            <span style={{ flex: '1 1 0%', textAlign: 'left', fontSize: 16, fontWeight: reason === r ? 700 : 500 }}>{r}</span>
-            <Radio on={reason === r} />
+            <span style={{ flex: '1 1 0%', textAlign: 'left', fontSize: 16, fontWeight: reason === r.id ? 700 : 500 }}>{r.label}</span>
+            <Radio on={reason === r.id} />
           </button>
         ))}
       </div>
+      {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 700, color: color.red }}>{error}</p>}
       <Button
         variant="primary"
-        disabled={!reason}
-        onClick={() => {
-          reportGroupByMail({ group, reason, reporterId: user?.id });
-          onSent();
+        disabled={busy || !reason}
+        onClick={async () => {
+          setBusy(true);
+          setError('');
+          const res = await submitReport({ kind: 'group', reason, targetGroup: group.id });
+          setBusy(false);
+          if (res.error) {
+            setError(res.error);
+            return;
+          }
+          setSent(true);
         }}
         style={{ marginTop: 20 }}
       >
@@ -600,6 +634,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
   const [report, setReport] = useState(false);
   const [leave, setLeave] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [viewProfile, setViewProfile] = useState(null); // メンバーの行を押したとき開く他の人のプロフィール（userId）
 
   useEffect(() => {
     let alive = true;
@@ -761,13 +796,14 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
               {members.map((m, i) => {
                 const t = getType(m.food_style);
                 const g = t ? groupColor[groupOf(t.code)] : null;
-                return (
-                  <div key={m.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i === members.length - 1 ? 0 : `1px solid ${color.line}` }}>
+                const self = m.id === user?.id;
+                const row = (
+                  <>
                     <Avatar size={44} name={m.display_name} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {m.display_name}
-                        {m.id === user?.id && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: color.sub }}>あなた</span>}
+                        {self && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: color.sub }}>あなた</span>}
                       </div>
                     </div>
                     {t && (
@@ -776,7 +812,16 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
                         <span style={{ fontSize: 12, fontWeight: 700, lineHeight: '17px', color: color.ink }}>{t.name}</span>
                       </span>
                     )}
-                  </div>
+                  </>
+                );
+                const rowStyle = { width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i === members.length - 1 ? 0 : `1px solid ${color.line}` };
+                if (self) {
+                  return <div key={m.id || i} style={rowStyle}>{row}</div>;
+                }
+                return (
+                  <button key={m.id || i} type="button" onClick={() => setViewProfile(m.id)} className="ui-btn ui-btn--text" style={{ ...rowStyle, border: 0, background: 'transparent', color: color.ink, fontFamily: 'inherit', textAlign: 'left' }}>
+                    {row}
+                  </button>
                 );
               })}
             </>
@@ -790,6 +835,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
       </div>
       {report && <ReportGroupSheet group={group} onClose={() => setReport(false)} onSent={() => setReport(false)} />}
       <ConfirmSheet open={leave} title="グループから抜けますか？" actionLabel="グループから抜ける" danger busy={busy} onConfirm={doLeave} onCancel={() => setLeave(false)} />
+      {viewProfile && <OtherProfileScreen userId={viewProfile} onBack={() => setViewProfile(null)} />}
     </div>
   );
 }

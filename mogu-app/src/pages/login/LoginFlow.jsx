@@ -8,6 +8,7 @@ import TextField from '../../components/ui/TextField';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
 import LoginStart from './LoginStart';
+import HandleField from './HandleField';
 import { BackRow, Consent, ErrorBanner, PasswordChecks, TextLink } from './LoginParts';
 
 // ログイン・新規登録（確定版 Final-07 合体案）
@@ -114,6 +115,8 @@ export function SignupFields({ v, set, errors, onLoginWithEmail }) {
     <>
       <TextField label="ニックネーム" value={v.nickname} onChange={(x) => set({ nickname: x.slice(0, NICKNAME_MAX) })} maxLength={NICKNAME_MAX} showCount autoComplete="nickname" error={errors.nickname} />
       <div style={{ height: 16 }} />
+      <HandleField value={v.handle} onChange={(x) => set({ handle: x })} externalError={errors.handle} />
+      <div style={{ height: 16 }} />
       <TextField label="メールアドレス" type="email" inputMode="email" autoComplete="email" value={v.email} onChange={(x) => set({ email: x })} error={errors.email} />
       {errors.emailTaken && onLoginWithEmail && (
         <TextLink align="left" onClick={onLoginWithEmail}>
@@ -132,7 +135,7 @@ export function SignupFields({ v, set, errors, onLoginWithEmail }) {
 // 新規登録（確定版 Final-07 の 5・6・12）
 function SignupForm({ onLogin, onGuest, guestBusy }) {
   const { signup } = useAuth();
-  const [v, setV] = useState({ nickname: '', email: '', password: '' });
+  const [v, setV] = useState({ nickname: '', handle: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState('');
   const [notice, setNotice] = useState('');
@@ -154,13 +157,14 @@ function SignupForm({ onLogin, onGuest, guestBusy }) {
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setBusy(true);
-    const res = await signup(v.email.trim(), v.password, v.nickname.trim());
+    const res = await signup(v.email.trim(), v.password, v.nickname.trim(), v.handle.trim().toLowerCase());
     setBusy(false);
     if (res.error) {
       if (res.code === 'email_taken') setErrors({ email: res.error, emailTaken: true });
       else setBanner(res.error);
       return;
     }
+    if (res.handleError) setBanner(`${res.handleError}（あとでプロフィールの編集から決められます）`);
     // メールの確認がオンのとき（すぐにはログインしない）
     if (!res.session) setNotice('確認のメールを送りました。メールのリンクを開いてから、ログインしてください');
   };

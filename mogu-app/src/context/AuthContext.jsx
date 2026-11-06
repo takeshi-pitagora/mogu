@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { RESET_PASSWORD_URL } from '../lib/links';
+import { translatePgError } from '../lib/profile';
 
 const AuthContext = createContext(null);
 
@@ -52,6 +53,24 @@ export function AuthProvider({ children }) {
       foodStyle: profile?.food_style || '未診断',
       foodAxes: profile?.food_axes || null, // 診断の4軸スコア {VT,NF,BG,PL}（0〜3）
       isGuest: false,
+      // 2回目（プロフィールと安全）で足した列
+      handle: profile?.handle || null,
+      handleConfirmed: !!profile?.handle_confirmed,
+      handlePromptedAt: profile?.handle_prompted_at || null,
+      bio: profile?.bio || '',
+      avatarPath: profile?.avatar_path || null,
+      inviteScope: profile?.invite_scope || 'anyone',
+      moguType: profile?.mogu_type_code
+        ? {
+            code: profile.mogu_type_code,
+            characterName: profile.mogu_type_character_name,
+            axisValues: profile.mogu_type_axis_values,
+            friendCode: profile.mogu_type_friend_code,
+            nickname: profile.mogu_type_nickname,
+            completedAt: profile.mogu_type_completed_at,
+            linkedAt: profile.mogu_type_linked_at,
+          }
+        : null,
     });
   };
 
@@ -80,8 +99,8 @@ export function AuthProvider({ children }) {
   };
 
 
-  // 新規登録（サインアップ）
-  const signup = async (email, password, displayName) => {
+  // 新規登録（サインアップ）。handle：新規登録のユーザーID欄（2回目）。渡さなければ仮のIDが自動で付く
+  const signup = async (email, password, displayName, handle) => {
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -113,12 +132,20 @@ export function AuthProvider({ children }) {
           {
             id: newUser.id,
             display_name: displayName || email.split('@')[0],
+            ...(handle ? { handle } : {}),
           },
           { onConflict: 'id', ignoreDuplicates: false }
         );
 
       if (profileError) {
         console.error('プロフィール作成エラー:', profileError.message);
+        // ユーザーIDだけが原因（2人が同時に同じIDを取ろうとした、など）なら、ID無しでもう一度作る
+        if (handle) {
+          await supabase
+            .from('profiles')
+            .upsert({ id: newUser.id, display_name: displayName || email.split('@')[0] }, { onConflict: 'id', ignoreDuplicates: false });
+          return { data, session: newSession, handleError: translatePgError(profileError) };
+        }
       }
     }
 
@@ -153,7 +180,7 @@ export function AuthProvider({ children }) {
   };
 
   // ゲストのまま登録する（同じ利用者にメールとパスワードを付けるので、保存したお店は残る。引き渡し書 §7-8）
-  const convertGuest = async ({ email, password, displayName }) => {
+  const convertGuest = async ({ email, password, displayName, handle }) => {
     if (!user?.isGuest) return { error: 'ゲストではありません。' };
     const { data, error } = await supabase.auth.updateUser({ email, password, data: { display_name: displayName } });
     if (error) {
@@ -163,12 +190,19 @@ export function AuthProvider({ children }) {
     }
     const { error: profileError } = await supabase
       .from('profiles')
-      .upsert({ id: user.id, display_name: displayName }, { onConflict: 'id', ignoreDuplicates: false });
-    if (profileError) console.error('プロフィール作成エラー:', profileError.message);
+      .upsert({ id: user.id, display_name: displayName, ...(handle ? { handle } : {}) }, { onConflict: 'id', ignoreDuplicates: false });
+    let handleErrorText;
+    if (profileError) {
+      console.error('プロフィール作成エラー:', profileError.message);
+      if (handle) {
+        await supabase.from('profiles').upsert({ id: user.id, display_name: displayName }, { onConflict: 'id', ignoreDuplicates: false });
+        handleErrorText = translatePgError(profileError);
+      }
+    }
     // メールの確認がオンのときは、確認が終わるまでメールアドレスは new_email のまま
     const pending = !!data?.user?.new_email;
     await loadProfile(data?.user ?? null);
-    return { success: true, pendingEmail: pending };
+    return { success: true, pendingEmail: pending, handleError: handleErrorText };
   };
 
   const guestLogin = async () => {
@@ -177,25 +211,90 @@ export function AuthProvider({ children }) {
     return { data };
   };
 
+  // updates は camelCase のキーだけ渡す（渡さなかった項目は変えない）
+  //   name / avatar / foodStyle（今まで通り）、handle / bio / avatarPath / inviteScope（2回目）
+  const COLUMN_MAP = {
+    name: 'display_name',
+    avatar: 'avatar',
+    foodStyle: 'food_style',
+    handle: 'handle',
+    bio: 'bio',
+    avatarPath: 'avatar_path',
+    inviteScope: 'invite_scope',
+  };
   const updateProfile = async (updates) => {
     if (!user) return { error: 'ログイン情報が見つかりません。' };
     if (user.isGuest) return { error: 'ゲストアカウントはプロフィールを保存できません。' };
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        display_name: updates.name,
-        avatar: updates.avatar,
-        food_style: updates.foodStyle,
-      })
-      .eq('id', user.id);
+    const payload = {};
+    for (const key of Object.keys(updates)) {
+      if (COLUMN_MAP[key]) payload[COLUMN_MAP[key]] = updates[key];
+    }
+
+    const { error } = await supabase.from('profiles').update(payload).eq('id', user.id);
 
     if (error) {
       console.error('プロフィール更新エラー:', error.message);
-      return { error: '保存に失敗しました。時間をおいて再度お試しください。' };
+      return { error: translatePgError(error) };
     }
 
     setUser((prev) => ({ ...prev, ...updates }));
+    return { success: true };
+  };
+
+  // Mogu Type連携（v2仕様 §4-7）：サイトのAPIで取ってきた結果を保存する。マイページコードは保存しない
+  const linkMoguType = async (friendCode, result) => {
+    if (!user) return { error: 'ログイン情報が見つかりません。' };
+    if (user.isGuest) return { error: 'ゲストアカウントでは連携できません。' };
+    const payload = {
+      mogu_type_friend_code: friendCode,
+      mogu_type_code: result.typeCode,
+      mogu_type_character_name: result.characterName,
+      mogu_type_axis_values: result.axisValues,
+      mogu_type_nickname: result.nickname || null,
+      mogu_type_completed_at: result.completedAt ? new Date(result.completedAt).toISOString() : null,
+      mogu_type_linked_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('profiles').update(payload).eq('id', user.id);
+    if (error) {
+      console.error('Mogu Type連携エラー:', error.message);
+      return { error: translatePgError(error) };
+    }
+    setUser((prev) => ({
+      ...prev,
+      moguType: {
+        code: result.typeCode,
+        characterName: result.characterName,
+        axisValues: result.axisValues,
+        friendCode,
+        nickname: result.nickname || null,
+        completedAt: payload.mogu_type_completed_at,
+        linkedAt: payload.mogu_type_linked_at,
+      },
+    }));
+    return { success: true };
+  };
+
+  // §4-9：連携を解除する（サイト側には何も送らない）
+  const unlinkMoguType = async () => {
+    if (!user) return { error: 'ログイン情報が見つかりません。' };
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        mogu_type_friend_code: null,
+        mogu_type_code: null,
+        mogu_type_character_name: null,
+        mogu_type_axis_values: null,
+        mogu_type_nickname: null,
+        mogu_type_completed_at: null,
+        mogu_type_linked_at: null,
+      })
+      .eq('id', user.id);
+    if (error) {
+      console.error('Mogu Type連携解除エラー:', error.message);
+      return { error: translatePgError(error) };
+    }
+    setUser((prev) => ({ ...prev, moguType: null }));
     return { success: true };
   };
 
@@ -264,7 +363,14 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const value = { user, loading, login, signup, guestLogin, logout, deleteAccount, updateProfile, saveDiagnosis, resetPassword, changePassword, convertGuest };
+  // 「IDを決めよう」を出したことを残す（1度だけ出すため）
+  const markHandlePrompted = async () => {
+    if (!user || user.isGuest) return;
+    await supabase.rpc('mark_handle_prompted');
+    setUser((prev) => ({ ...prev, handlePromptedAt: new Date().toISOString() }));
+  };
+
+  const value = { user, loading, login, signup, guestLogin, logout, deleteAccount, updateProfile, saveDiagnosis, linkMoguType, unlinkMoguType, resetPassword, changePassword, convertGuest, markHandlePrompted };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

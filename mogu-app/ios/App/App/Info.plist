@@ -68,5 +68,17 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Mogu Type連携（引き渡し書 §4-3）：Safariから mogu://mogu-type/link?friendCode=... を受け取る -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.mogu.mobile</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mogu</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

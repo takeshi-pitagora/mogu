@@ -22,6 +22,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Mogu Type連携（引き渡し書 §4-3）：mogu://mogu-type/link?friendCode=... を受け取る -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mogu" android:host="mogu-type" />
+            </intent-filter>
+
         </activity>
 
         <provider
