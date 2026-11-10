@@ -147,6 +147,13 @@ export function externalLinks(row) {
   };
 }
 
+// ホームの絞り順（3回目 §7-7：「同じモグタイプに人気」「急上昇中」を追加。定期的に集計した表を使う）
+export const SORTS = [
+  { value: 'recommend', label: 'おすすめ' },
+  { value: 'mogu_type_popular', label: '同じモグタイプに人気' },
+  { value: 'trending', label: '急上昇中' },
+];
+
 // ホームの絞り込み（並び順・エリア・ジャンル・予算）
 export const EMPTY_FILTERS = { sort: 'recommend', areas: [], genres: [], priceLevel: null };
 export const filterCount = (f) => (f.areas.length > 0 ? 1 : 0) + (f.genres.length > 0 ? 1 : 0) + (f.priceLevel != null ? 1 : 0);

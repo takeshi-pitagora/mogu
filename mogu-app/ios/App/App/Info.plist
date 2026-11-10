@@ -68,7 +68,7 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<!-- Mogu Type連携（引き渡し書 §4-3）：Safariから mogu://mogu-type/link?friendCode=... を受け取る -->
+	<!-- Mogu Type連携（引き渡し書 §4-3）・グループ招待（3回目 §7-5）：mogu:// のURLを受け取る -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -79,6 +79,11 @@
 				<string>mogu</string>
 			</array>
 		</dict>
+	</array>
+	<!-- プッシュ通知（3回目 §7-6）。本人が許可するまでは何も届かない -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

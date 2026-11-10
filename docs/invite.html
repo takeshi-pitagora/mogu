@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>グループへの招待 | MogU</title>
+<title>グループへの招待 | mogu</title>
 <style>
   :root { --accent:#B5703A; --bg:#FBF7F0; --text:#3A342E; --sub:#8B8177; --border:#E5DCCE; }
   body {
@@ -21,36 +21,52 @@
     padding: 14px 16px; font-family: ui-monospace, Menlo, monospace; font-size: 13px;
     word-break: break-all; margin-bottom: 12px;
   }
-  button {
-    width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--accent);
-    color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 24px;
+  button, a.btn {
+    display: block; box-sizing: border-box; width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--accent);
+    color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 12px; text-align: center; text-decoration: none;
   }
+  button.secondary, a.btn.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
   ol { font-size: 14px; padding-left: 20px; margin: 0; }
   .sub { color: var(--sub); font-size: 12px; margin-top: 24px; }
+  #manual { display: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="logo">MogU</div>
+  <div class="logo">mogu</div>
   <h1>グループに招待されました</h1>
-  <p>MogUアプリで、下の招待コードを入力すると参加できます。</p>
+  <p id="lead">アプリを開いています…</p>
 
-  <div class="code" id="code">招待コードが見つかりません</div>
-  <button id="copy" type="button" hidden>コードをコピー</button>
-
-  <ol>
-    <li>MogUアプリを開く</li>
-    <li>「グループ」タブの入力欄に、招待コードを貼り付ける</li>
-    <li>参加ボタンを押す</li>
-  </ol>
-  <p class="sub">招待コードの有効期限は発行から7日間です。</p>
+  <div id="manual">
+    <div class="code" id="code">招待コードが見つかりません</div>
+    <button id="copy" type="button" hidden>コードをコピー</button>
+    <a class="btn" id="openApp" href="#">mogu を開く</a>
+    <a class="btn secondary" id="appStore" href="#" target="_blank" rel="noopener">App Store で mogu を入手</a>
+    <ol>
+      <li>mogu アプリを開く（ボタンを押しても開かない場合は、App Store からインストールしてください）</li>
+      <li>「グループ」タブの右上の＋から「コードで参加」を選ぶ</li>
+      <li>上の招待コードを入力して、参加ボタンを押す</li>
+    </ol>
+    <p class="sub">招待コードの有効期限は発行から7日間です。</p>
+  </div>
 </div>
 <script>
   // 英数字とハイフン以外は受け付けない（表示にそのまま使うため）
   var m = location.search.match(/[?&]code=([A-Za-z0-9-]+)/);
   var code = m ? m[1] : '';
+  // App Storeの実際のURLはリリース後に決まる。決まるまでは仮のリンク先（運営の問い合わせ先）にしておく
+  var APP_STORE_URL = 'https://apps.apple.com/app/id0000000000'; // TODO: アプリ公開後に差し替える
+  var deepLink = code ? ('mogu://group/join?code=' + encodeURIComponent(code)) : 'mogu://';
+
   var box = document.getElementById('code');
   var btn = document.getElementById('copy');
+  var openApp = document.getElementById('openApp');
+  var appStore = document.getElementById('appStore');
+  var manual = document.getElementById('manual');
+  var lead = document.getElementById('lead');
+
+  openApp.href = deepLink;
+  appStore.href = APP_STORE_URL;
   if (code) {
     box.textContent = code;
     btn.hidden = false;
@@ -62,7 +78,20 @@
         var s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); done();
       }
     });
+  } else {
+    box.textContent = '招待コードが見つかりません';
   }
+
+  // アプリがあれば mogu:// を自動で開こうとする。開けなければ（アプリが無い）手順を見せる
+  var openedAt = Date.now();
+  window.location.href = deepLink;
+  setTimeout(function () {
+    // 1.2秒たっても画面が切り替わっていなければ、アプリが無いとみなして手順を出す
+    if (Date.now() - openedAt < 4000) {
+      lead.textContent = 'mogu のグループに参加しましょう';
+      manual.style.display = 'block';
+    }
+  }, 1200);
 </script>
 </body>
 </html>

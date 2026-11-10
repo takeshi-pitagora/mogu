@@ -13,6 +13,12 @@
 //
 // 他メンバーが参加している「自分が作ったグループ」は、残ったメンバーが使い続けられるよう、
 // いちばん早く入った人を新しい作成者にする（招待・管理ができなくならないように）
+//
+// 3回目（グループと通知）で増えた表（group_shops / group_hearts / group_seen / group_invites /
+// notifications / push_tokens）は、どれも auth.users(id) への on delete cascade を付けてあるので、
+// ③の auth.users 削除で自動的に消える。group_members の削除で ownership の引き継ぎが起きる場合も、
+// migrations/20261110_round3.sql のトリガー（mogu_group_member_left）が上の②と同じ処理を自動で行うため、
+// ここでの追加の削除処理は不要（②の手動の引き継ぎコードは、トリガーがまだ無い古いDBのための後方互換）
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

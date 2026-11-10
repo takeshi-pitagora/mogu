@@ -43,24 +43,26 @@ const ERROR_MESSAGES = {
 };
 
 // GET /api/app/result（§5）。読み取り専用・認証なし
+// errorCode: 'invalid_friend_code' | 'not_found' | 'not_full_diagnosis' | 'server_error' | 'network'（画面側で文言とボタンを出し分ける）
 export async function fetchMoguTypeResult(friendCode) {
   const code = normalizeFriendCode(friendCode);
-  if (!friendCodeFormatOk(code)) return { error: ERROR_MESSAGES.invalid_friend_code };
+  if (!friendCodeFormatOk(code)) return { error: ERROR_MESSAGES.invalid_friend_code, errorCode: 'invalid_friend_code' };
   let res;
   try {
     res = await fetch(`${RESULT_API}?friendCode=${encodeURIComponent(code)}`, { method: 'GET', cache: 'no-store' });
   } catch {
-    return { error: '通信できませんでした。時間をおいてもう一度お試しください。' };
+    return { error: '通信できませんでした。時間をおいてもう一度お試しください。', errorCode: 'network' };
   }
   if (res.status === 404) {
     const body = await res.json().catch(() => null);
-    return { error: body?.message || ERROR_MESSAGES.not_found };
+    return { error: body?.message || ERROR_MESSAGES.not_found, errorCode: 'not_found' };
   }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    return { error: body?.message || ERROR_MESSAGES[body?.error] || ERROR_MESSAGES.server_error };
+    const errorCode = body?.error && ERROR_MESSAGES[body.error] ? body.error : 'server_error';
+    return { error: body?.message || ERROR_MESSAGES[errorCode], errorCode };
   }
   const data = await res.json().catch(() => null);
-  if (!data || !data.typeCode) return { error: ERROR_MESSAGES.server_error };
+  if (!data || !data.typeCode) return { error: ERROR_MESSAGES.server_error, errorCode: 'server_error' };
   return { data };
 }

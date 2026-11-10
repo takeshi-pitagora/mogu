@@ -9,7 +9,7 @@ import Icon from '../../components/ui/Icon';
 import { Radio, RadioDisabled } from '../../components/ui/Radio';
 import { LoadingState, ErrorState } from '../../components/ui/States';
 import { chara, GUIDE } from '../../lib/chara';
-import { fetchMyGroups, fetchSaved, sendToGroup, setSavedHidden } from '../../lib/api';
+import { fetchMyGroups, fetchSaved, sendToGroup, setSavedHidden, fetchPopularityOrder, applyPopularityOrder } from '../../lib/api';
 import { externalLinks, genreLabel } from '../../lib/shop';
 import { openExternal } from '../../lib/open';
 import { FEATURES } from '../../lib/features';
@@ -25,17 +25,19 @@ const SORTS = [
   { key: 'new', label: '新しい順' },
   { key: 'rating', label: '評価の高い順（全年代）' },
   { key: 'budget', label: '予算の安い順' },
+  { key: 'mogu_type_popular', label: '同じモグタイプに人気' },
+  { key: 'trending', label: '急上昇中' },
 ];
 
 function sortShops(list, key) {
   const arr = [...list];
   if (key === 'rating') arr.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0) || (Number(b.user_ratings_total) || 0) - (Number(a.user_ratings_total) || 0));
   else if (key === 'budget') arr.sort((a, b) => (a.price_level == null ? 99 : Number(a.price_level)) - (b.price_level == null ? 99 : Number(b.price_level)));
-  else arr.sort((a, b) => (b._order ?? 0) - (a._order ?? 0));
+  else if (key !== 'mogu_type_popular' && key !== 'trending') arr.sort((a, b) => (b._order ?? 0) - (a._order ?? 0));
   return arr;
 }
 
-function SortSheet({ open, value, onApply, onClose }) {
+function SortSheet({ open, value, onApply, onClose, diagnosed }) {
   const [draft, setDraft] = useState(value);
   if (!open) return null;
   const row = { width: '100%', height: 60, padding: 0, border: 0, borderBottom: `1px solid ${color.line}`, background: 'transparent', color: color.ink, fontFamily: 'inherit', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left' };
@@ -43,12 +45,26 @@ function SortSheet({ open, value, onApply, onClose }) {
     <BottomSheet open onClose={onClose} ariaLabel="並べ替え">
       <SheetBar title="並べ替え" onCancel={onClose} actionLabel="適用" onAction={() => onApply(draft)} />
       <div role="radiogroup" aria-label="並べ替え">
-        {SORTS.map((s) => (
-          <button key={s.key} type="button" role="radio" aria-checked={draft === s.key} onClick={() => setDraft(s.key)} style={{ ...row, fontWeight: draft === s.key ? 700 : 500 }}>
-            {s.label}
-            <Radio on={draft === s.key} />
-          </button>
-        ))}
+        {SORTS.map((s) => {
+          const disabled = s.key === 'mogu_type_popular' && !diagnosed;
+          if (disabled) {
+            return (
+              <button key={s.key} type="button" role="radio" aria-checked="false" aria-disabled="true" disabled style={{ ...row, color: color.sub, fontWeight: 500 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {s.label}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 9px', boxSizing: 'border-box', borderRadius: 11, background: color.surface, color: color.sub, fontFamily: 'inherit', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>診断すると選べます</span>
+                </span>
+                <RadioDisabled />
+              </button>
+            );
+          }
+          return (
+            <button key={s.key} type="button" role="radio" aria-checked={draft === s.key} onClick={() => setDraft(s.key)} style={{ ...row, fontWeight: draft === s.key ? 700 : 500 }}>
+              {s.label}
+              <Radio on={draft === s.key} />
+            </button>
+          );
+        })}
         <button type="button" role="radio" aria-checked="false" aria-disabled="true" disabled style={{ ...row, borderBottom: 0, color: color.sub, fontWeight: 500 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             年代別の評価順
@@ -150,6 +166,8 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
   const [sort, setSort] = useState('new');
   const [sheet, setSheet] = useState(null); // 'sort' | { menu: shop, rect } | { send: shop }
   const [groups, setGroups] = useState([]);
+  const [popularityIds, setPopularityIds] = useState([]);
+  const diagnosed = !!user?.moguType?.code;
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -182,14 +200,26 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
     };
   }, [user?.id, guest]);
 
+  useEffect(() => {
+    if (sort !== 'mogu_type_popular' && sort !== 'trending') return undefined;
+    let alive = true;
+    fetchPopularityOrder(sort, user)
+      .then((ids) => alive && setPopularityIds(ids))
+      .catch(() => alive && setPopularityIds([]));
+    return () => {
+      alive = false;
+    };
+  }, [sort, user]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = (shops || []).filter((s) => {
       if (!q) return true;
       return [s.name, s.area, genreLabel(s), s.address].filter(Boolean).some((t) => String(t).toLowerCase().includes(q));
     });
+    if (sort === 'mogu_type_popular' || sort === 'trending') return applyPopularityOrder(list, popularityIds);
     return sortShops(list, sort);
-  }, [shops, query, sort]);
+  }, [shops, query, sort, popularityIds]);
 
   const sortLabel = SORTS.find((s) => s.key === sort)?.label || '';
   // 押しても何も起きないボタンは置かない：ゲストは登録の案内、グループがなければ［グループに送る］を出さない
@@ -271,6 +301,7 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
         <SortSheet
           open
           value={sort}
+          diagnosed={diagnosed}
           onClose={() => setSheet(null)}
           onApply={(v) => {
             setSort(v);

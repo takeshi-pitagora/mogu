@@ -21,13 +21,21 @@ import { photoUrlOf } from './lib/profile';
 import { GuestGroupLocked, GuestProfile, GuestRegisterSheet, GuestSampleGroupRow, GuestSignupScreen, GuestWelcome } from './pages/guest/GuestParts';
 import HandlePromptScreen from './pages/login/HandlePromptScreen';
 import DiagnosisScreen from './pages/profile/DiagnosisScreen';
+import NotificationSettingsScreen from './pages/settings/NotificationSettingsScreen';
 import { parseFriendCodeFromUrl } from './lib/mogutypeApi';
+import { extractInviteToken } from './lib/links';
+import { joinByCode } from './lib/groups';
+import { fetchNotifPrefs, fetchUnreadCount, markNotifPrompted } from './lib/notifications';
+import { requestPushPermissionAndRegister } from './lib/push';
+import { useToast } from './components/ui/Toast';
+import PushPermissionSheet from './pages/notifications/PushPermissionSheet';
 
 // アプリの外側（引き渡し書 §4-10・§4-11）
 //   浮いた下のタブ「ホーム／グループ／保存／プロフィール」と、各タブの中の画面（設定・お知らせなど）。
 //   中の画面に移っても下のタブは出たまま（確定版 Final-05・Final-10）。お店の詳細だけは下のタブの上に重ねる（Final-09）
 function Shell() {
   const { user } = useAuth();
+  const toast = useToast();
   const guest = !!user?.isGuest;
   const [tab, setTab] = useState('home');
   const [stack, setStack] = useState([]); // 今のタブの中の画面 [{ name, props }]
@@ -39,6 +47,9 @@ function Shell() {
   const [guestFlow, setGuestFlow] = useState(null); // null | 'signup' | { welcome: true, pendingEmail }
   const [diagnosis, setDiagnosis] = useState(null); // null | { intent } … マイページの［診断］／設定の「食スタイル診断」の画面
   const [pendingFriendCode, setPendingFriendCode] = useState(null); // mogu://mogu-type/link で受け取ったフレンドコード
+  const [unread, setUnread] = useState(false); // お知らせの未読（3回目 §7-6）
+  const [groupsVersion, setGroupsVersion] = useState(0); // グループ一覧を読み直す合図（招待の受諾・コード参加のあと）
+  const [pushAsk, setPushAsk] = useState(false); // 「通知を許可してください」のお願い（1度だけ）
 
   const push = useCallback((name, props = {}) => setStack((s) => [...s, { name, props }]), []);
   const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
@@ -50,26 +61,80 @@ function Shell() {
   const openShop = useCallback((s, opts = {}) => setShop({ shop: s, from: opts.from || 'saved' }), []);
   const openGuestSheet = useCallback(() => setGuestSheet(true), []);
   const openDiagnosis = useCallback((intent) => setDiagnosis({ intent }), []);
+  const openGroupTab = useCallback(() => {
+    setStack([]);
+    setTab('group');
+    setGroupsVersion((v) => v + 1);
+  }, []);
+
+  // お知らせの未読の有無（タブに切り替えたとき・お知らせを開いたあとに読み直す）
+  useEffect(() => {
+    if (!user?.id || guest) return undefined;
+    let alive = true;
+    fetchUnreadCount()
+      .then((n) => alive && setUnread(n > 0))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [user?.id, guest, tab, stack.length]);
+
+  // 通知の許可のお願い（引き渡し書 §7-6）：初めてグループタブを開いたとき、1度だけ
+  useEffect(() => {
+    if (guest || !user?.id || tab !== 'group') return;
+    fetchNotifPrefs()
+      .then((p) => {
+        if (!p?.notif_prompted_at) setPushAsk(true);
+      })
+      .catch(() => {});
+  }, [tab, guest, user?.id]);
 
   // Mogu Type連携（§4-3・§4-4）：Safariから mogu://mogu-type/link?friendCode=... で戻ってきたとき
+  // グループ招待（3回目 §7-5）：mogu://group/join?code=... で開かれたとき、コードで参加する
   useEffect(() => {
     const sub = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
       const code = parseFriendCodeFromUrl(url);
-      if (!code) return;
-      setPendingFriendCode(code);
-      setDiagnosis((d) => d || {});
+      if (code) {
+        setPendingFriendCode(code);
+        setDiagnosis((d) => d || {});
+        return;
+      }
+      if (!guest && user?.id && /\/\/group\/join/i.test(url)) {
+        const inviteCode = extractInviteToken(url);
+        if (!inviteCode) return;
+        joinByCode(inviteCode, user.id)
+          .then((res) => {
+            if (res.error) {
+              toast?.show('招待コードが使えませんでした');
+              return;
+            }
+            openGroupTab();
+            toast?.show(res.name ? `${res.name}に参加しました` : 'グループに参加しました', { withTabBar: true });
+          })
+          .catch(() => toast?.show('招待コードが使えませんでした'));
+      }
     });
     return () => {
       sub.then((s) => s.remove()).catch(() => {});
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guest, user?.id]);
 
   const top = stack[stack.length - 1];
 
   const renderSub = (item) => {
     switch (item.name) {
       case 'notifications':
-        return <NotificationsScreen onBack={pop} />;
+        return (
+          <NotificationsScreen
+            onBack={pop}
+            onOpenGroup={() => {
+              setStack([]);
+              setTab('group');
+              setGroupsVersion((v) => v + 1);
+            }}
+          />
+        );
       case 'settings':
         return (
           <SettingsScreen
@@ -78,6 +143,7 @@ function Shell() {
             onOpenInviteScope={() => push('inviteScope')}
             onOpenBlocked={() => push('blockedUsers')}
             onOpenDiagnosis={openDiagnosis}
+            onOpenNotificationSettings={() => push('notificationSettings')}
             onShowGuide={() => {
               setStack([]);
               setTab('home');
@@ -94,6 +160,8 @@ function Shell() {
         return <InviteScopeScreen onBack={pop} />;
       case 'blockedUsers':
         return <BlockedUsersScreen onBack={pop} />;
+      case 'notificationSettings':
+        return <NotificationSettingsScreen onBack={pop} />;
       default:
         return null;
     }
@@ -108,7 +176,7 @@ function Shell() {
           onSelectGroup={setSelectedGroup}
           onOpenShop={openShop}
           onOpenNotifications={() => push('notifications')}
-          unread={false}
+          unread={unread}
           guideRequest={guideRequest}
           guestSlot={guest ? (close) => <GuestSampleGroupRow onRegister={() => { close(); setGuestFlow('signup'); }} /> : undefined}
           onGuestLocked={openGuestSheet}
@@ -119,7 +187,7 @@ function Shell() {
           {guest ? (
             <GuestGroupLocked onRegister={() => setGuestFlow('signup')} onLocked={openGuestSheet} locked={guestSheet} />
           ) : (
-            <GroupScreen selectedGroup={selectedGroup} onSelectGroup={setSelectedGroup} />
+            <GroupScreen selectedGroup={selectedGroup} onSelectGroup={setSelectedGroup} reloadSignal={groupsVersion} />
           )}
         </div>
       )}
@@ -175,6 +243,20 @@ function Shell() {
           pendingFriendCode={pendingFriendCode}
           onConsumedPendingCode={() => setPendingFriendCode(null)}
           onClose={() => setDiagnosis(null)}
+        />
+      )}
+
+      {pushAsk && (
+        <PushPermissionSheet
+          onAllow={async () => {
+            setPushAsk(false);
+            await requestPushPermissionAndRegister();
+            markNotifPrompted();
+          }}
+          onSkip={() => {
+            setPushAsk(false);
+            markNotifPrompted();
+          }}
         />
       )}
     </div>

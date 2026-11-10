@@ -35,3 +35,10 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/report-notify/deno.json"
 entrypoint = "./functions/report-notify/index.ts"
+
+[functions.notify-dispatch]
+enabled = true
+# Database Webhook（notificationsテーブルのINSERT）から呼ばれる。x-webhook-secret ヘッダーで確認するので verify_jwt は false。
+verify_jwt = false
+import_map = "./functions/notify-dispatch/deno.json"
+entrypoint = "./functions/notify-dispatch/index.ts"

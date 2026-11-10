@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
@@ -15,26 +16,62 @@ import { LoadingState, ErrorState } from '../../components/ui/States';
 import { chara } from '../../lib/chara';
 import { getType } from '../../lib/mogutype';
 import { canShare, shareText } from '../../lib/open';
-import { createGroup, createInvite, groupMembers, joinByCode, leaveGroup, listGroups, previewInvite } from '../../lib/groups';
+import { shopPhotos, genreLabel } from '../../lib/shop';
+import {
+  createGroup,
+  createInvite,
+  fetchGroupBoard,
+  fetchGroupFeed,
+  groupMembers,
+  inviteByHandle,
+  joinByCode,
+  leaveGroup,
+  listGroups,
+  previewInvite,
+  renameGroup,
+  setGroupMuted,
+  setGroupPinned,
+  toggleGroupHeart,
+} from '../../lib/groups';
 import { submitReport } from '../../lib/profile';
 import OtherProfileScreen from '../profile/OtherProfileScreen';
 import { SubHeader } from '../settings/SettingsParts';
 
-// グループ（1回目：今の動き＝一覧・作る・招待コード・参加・抜ける・通報 のまま、確定版 Final-11 の部品と色に置き換える。実装計画 6章 #5）
-//   「目的」の選択とタグはなくす。ピン留め・新しいお店の数・お店のボード・QRコード・IDで招待・通知は3回目
-//   グループの詳細は「メンバー」「設定」だけ（「お店」のタブは3回目）。上の［ホームで使用中］で、ホームの探し方をこのグループにする
+// グループ（確定版 Final-11・3回目 §7-5）
+//   一覧：検索・ピン留め（先頭）・未読の件数・最新の出来事。＋から作る／コードで参加
+//   招待：LINEなどで送る・招待コード・QRコード・IDで招待
+//   詳細：お店（新着・ボード）／メンバー／設定（ミュート・名前の変更・通報・抜ける）
 const GROUP_NAME_MAX = 20;
+const LONG_PRESS_MS = 480;
 
 const page = { position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', background: color.bg, fontFamily: font.plex, color: color.ink };
 const body = { flex: '1 1 auto', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' };
 
-// 一覧の行（確定版 Final-11 の 1）
-function GroupRow({ g, inUse, onOpen }) {
+// 一覧の行（確定版 Final-11 の 1）。ピン留め・未読の数・最新の出来事・長押しでメニュー
+function GroupRow({ g, inUse, onOpen, onLongPress }) {
   const names = (g.members || []).map((m) => m.display_name).filter(Boolean);
+  const timer = useRef(null);
+  const fired = useRef(false);
+  const start = () => {
+    fired.current = false;
+    timer.current = setTimeout(() => {
+      fired.current = true;
+      onLongPress?.();
+    }, LONG_PRESS_MS);
+  };
+  const clear = () => timer.current && clearTimeout(timer.current);
+
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={() => {
+        if (fired.current) return;
+        onOpen();
+      }}
+      onPointerDown={start}
+      onPointerUp={clear}
+      onPointerLeave={clear}
+      onPointerCancel={clear}
       className="ui-btn ui-press"
       style={{
         width: '100%',
@@ -48,11 +85,13 @@ function GroupRow({ g, inUse, onOpen }) {
         color: color.ink,
         fontFamily: 'inherit',
         textAlign: 'left',
+        position: 'relative',
       }}
     >
       <GroupAvatar members={g.members} size={56} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+          {g.pinned && <Icon name="pin" size={14} color={color.sub} style={{ marginRight: 4 }} />}
           <span style={{ fontSize: 16, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</span>
           {g.count != null && <span style={{ marginLeft: 4, fontSize: 13, color: color.sub }}>（{g.count}）</span>}
           {inUse && (
@@ -62,11 +101,54 @@ function GroupRow({ g, inUse, onOpen }) {
             </span>
           )}
         </div>
-        {names.length > 0 && (
+        {g.lastEvent ? (
+          <div style={{ marginTop: 3, fontSize: 13, fontWeight: 700, color: color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.lastEvent}</div>
+        ) : names.length > 0 ? (
           <div style={{ marginTop: 3, fontSize: 13, fontWeight: 700, color: color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>メンバー：{names.join('・')}</div>
-        )}
+        ) : null}
       </div>
+      {g.unseenCount > 0 && (
+        <span aria-label={`未読${g.unseenCount}件`} style={{ flex: 'none', minWidth: 22, height: 22, padding: '0 6px', boxSizing: 'border-box', borderRadius: 11, background: color.red, color: color.white, fontFamily: font.plex, fontSize: 12, fontWeight: 700, lineHeight: '22px', textAlign: 'center' }}>
+          {g.unseenCount > 99 ? '99+' : g.unseenCount}
+        </span>
+      )}
     </button>
+  );
+}
+
+// 長押しのメニュー（ピン留め・ミュート）
+function RowMenu({ g, onClose, onTogglePin, onToggleMute }) {
+  const item = (icon, label, onClick, last) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ui-btn ui-press"
+      style={{
+        width: '100%',
+        height: 56,
+        padding: '0 16px',
+        border: 0,
+        borderBottom: last ? 0 : `1px solid ${color.line}`,
+        background: 'transparent',
+        color: color.ink,
+        fontFamily: 'inherit',
+        fontSize: 15,
+        fontWeight: 700,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <Icon name={icon} size={22} />
+      {label}
+    </button>
+  );
+  return (
+    <BottomSheet open onClose={onClose} ariaLabel={`${g.name}のメニュー`} minHeight={120} padding="10px 0 24px">
+      <div style={{ padding: '2px 20px 8px', fontSize: 13, fontWeight: 700, color: color.sub }}>{g.name}</div>
+      {item('pin', g.pinned ? 'ピン留めを外す' : 'ピン留めする', () => onTogglePin(!g.pinned))}
+      {item(g.muted ? 'bell' : 'bellOff', g.muted ? '通知をオンにする' : '通知をオフにする（ミュート）', () => onToggleMute(!g.muted), true)}
+    </BottomSheet>
   );
 }
 
@@ -123,9 +205,10 @@ function PlusMenu({ onCreate, onJoin, onClose }) {
   );
 }
 
-function GroupList({ groups, status, selectedId, onRetry, onOpen, onCreate, onJoin }) {
+function GroupList({ groups, status, selectedId, onRetry, onOpen, onCreate, onJoin, onTogglePin, onToggleMute }) {
   const [query, setQuery] = useState('');
   const [menu, setMenu] = useState(false);
+  const [rowMenu, setRowMenu] = useState(null);
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return groups;
@@ -209,11 +292,25 @@ function GroupList({ groups, status, selectedId, onRetry, onOpen, onCreate, onJo
           {status === 'ready' && (
             <div style={{ paddingBottom: 130 }}>
               {visible.map((g) => (
-                <GroupRow key={g.id} g={g} inUse={selectedId === g.id} onOpen={() => onOpen(g)} />
+                <GroupRow key={g.id} g={g} inUse={selectedId === g.id} onOpen={() => onOpen(g)} onLongPress={() => setRowMenu(g)} />
               ))}
             </div>
           )}
         </div>
+      )}
+      {rowMenu && (
+        <RowMenu
+          g={rowMenu}
+          onClose={() => setRowMenu(null)}
+          onTogglePin={(v) => {
+            setRowMenu(null);
+            onTogglePin(rowMenu, v);
+          }}
+          onToggleMute={(v) => {
+            setRowMenu(null);
+            onToggleMute(rowMenu, v);
+          }}
+        />
       )}
     </div>
   );
@@ -299,11 +396,22 @@ function CreateGroup({ onBack, onCreated }) {
   );
 }
 
-// 招待する（確定版 Final-11 の 6）。1回目は［LINE などで送る］と招待コードだけ（QRコードとIDで招待は3回目）
+// 招待する（確定版 Final-11 の 6）：リンク／QRコード／IDで招待 の3つを切り替える
+const INVITE_TABS = [
+  { key: 'link', label: 'リンク' },
+  { key: 'qr', label: 'QRコード' },
+  { key: 'handle', label: 'IDで招待' },
+];
 function InviteGroup({ group, onBack }) {
   const toast = useToast();
+  const [tab, setTab] = useState('link');
   const [invite, setInvite] = useState(null);
   const [error, setError] = useState(false);
+  const [qrUrl, setQrUrl] = useState(null);
+  const [handle, setHandle] = useState('');
+  const [handleBusy, setHandleBusy] = useState(false);
+  const [handleMsg, setHandleMsg] = useState('');
+
   useEffect(() => {
     let alive = true;
     createInvite(group.id)
@@ -317,6 +425,13 @@ function InviteGroup({ group, onBack }) {
     };
   }, [group.id]);
 
+  useEffect(() => {
+    if (!invite?.link || tab !== 'qr') return;
+    QRCode.toDataURL(invite.link, { width: 220, margin: 1, color: { dark: '#2E2C2A', light: '#FFFFFF' } })
+      .then(setQrUrl)
+      .catch(() => setQrUrl(null));
+  }, [invite?.link, tab]);
+
   const copy = async () => {
     if (!invite) return;
     try {
@@ -327,6 +442,21 @@ function InviteGroup({ group, onBack }) {
     }
   };
   const send = () => invite && shareText({ title: `${group.name}への招待`, text: `mogu のグループ「${group.name}」に参加しよう。招待コード：${invite.code}`, url: invite.link });
+
+  const sendByHandle = async (e) => {
+    e?.preventDefault();
+    if (!handle.trim() || handleBusy) return;
+    setHandleBusy(true);
+    setHandleMsg('');
+    const res = await inviteByHandle(group.id, handle.trim());
+    setHandleBusy(false);
+    if (res.error) {
+      setHandleMsg('そのIDの人を招待できませんでした');
+      return;
+    }
+    setHandle('');
+    setHandleMsg('招待を送りました');
+  };
 
   return (
     <div style={page}>
@@ -352,78 +482,94 @@ function InviteGroup({ group, onBack }) {
           </button>
         </div>
       </header>
+      <div role="tablist" style={{ flex: 'none', display: 'flex', margin: '0 20px', borderBottom: `${stroke.shape}px solid ${color.ink}` }}>
+        {INVITE_TABS.map((t) => {
+          const on = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => setTab(t.key)}
+              style={{ flex: '1 1 0px', height: 44, padding: 0, border: 0, borderBottom: `3px solid ${on ? color.ink : 'transparent'}`, background: 'transparent', color: on ? color.ink : color.sub, fontFamily: on ? font.dela : 'inherit', fontSize: 14, fontWeight: on ? 400 : 700 }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
       <div style={body}>
-        <div style={{ padding: '4px 20px 40px' }}>
+        <div style={{ padding: '18px 20px 40px' }}>
           <p style={{ margin: 0, fontFamily: font.dela, fontSize: 22, lineHeight: 1.35 }}>
             {group.name}に
             <br />
             友達を呼ぼう
           </p>
-          {canShare() && (
-            <button
-              type="button"
-              onClick={send}
-              disabled={!invite}
-              className="ui-btn ui-btn--primary"
-              style={{
-                width: '100%',
-                height: 56,
-                marginTop: 18,
-                border: 0,
-                borderRadius: 28,
-                background: invite ? color.ink : color.surface,
-                color: invite ? color.white : color.sub,
-                fontFamily: 'inherit',
-                fontSize: 16,
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
-            >
-              <Icon name="share" size={20} />
-              LINE などで送る
-            </button>
-          )}
-          <div style={{ marginTop: 22, padding: 16, borderRadius: 24, background: color.surface }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>招待コード</div>
-            <div style={{ marginTop: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ fontFamily: font.dela, fontSize: 22, letterSpacing: '0.08em', minHeight: 30 }}>{invite ? invite.code : error ? '' : '…'}</span>
+
+          {tab === 'link' && (
+            <>
+              {canShare() && (
                 <button
                   type="button"
-                  onClick={copy}
+                  onClick={send}
                   disabled={!invite}
-                  className="ui-btn ui-btn--small"
-                  style={{
-                    flex: 'none',
-                    height: 44,
-                    padding: '0 14px',
-                    boxSizing: 'border-box',
-                    border: `${stroke.shape}px solid ${color.ink}`,
-                    borderRadius: 22,
-                    background: color.white,
-                    color: color.ink,
-                    fontFamily: 'inherit',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
+                  className="ui-btn ui-btn--primary"
+                  style={{ width: '100%', height: 56, marginTop: 18, border: 0, borderRadius: 28, background: invite ? color.ink : color.surface, color: invite ? color.white : color.sub, fontFamily: 'inherit', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                 >
-                  <Icon name="copy" size={18} />
-                  コピー
+                  <Icon name="share" size={20} />
+                  LINE などで送る
                 </button>
+              )}
+              <div style={{ marginTop: 22, padding: 16, borderRadius: 24, background: color.surface }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>招待コード</div>
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontFamily: font.dela, fontSize: 22, letterSpacing: '0.08em', minHeight: 30 }}>{invite ? invite.code : error ? '' : '…'}</span>
+                    <button
+                      type="button"
+                      onClick={copy}
+                      disabled={!invite}
+                      className="ui-btn ui-btn--small"
+                      style={{ flex: 'none', height: 44, padding: '0 14px', boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 22, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Icon name="copy" size={18} />
+                      コピー
+                    </button>
+                  </div>
+                  {error && (
+                    <p role="alert" style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 700, color: color.red }}>
+                      招待コードを作れませんでした。少したってから、もう一度お試しください
+                    </p>
+                  )}
+                </div>
               </div>
-              {error && (
-                <p role="alert" style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 700, color: color.red }}>
-                  招待コードを作れませんでした。少したってから、もう一度お試しください
+            </>
+          )}
+
+          {tab === 'qr' && (
+            <div style={{ marginTop: 22, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ width: 240, height: 240, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 24, background: color.white, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {qrUrl ? <img src={qrUrl} alt={`${group.name}への招待QRコード`} style={{ width: 220, height: 220, display: 'block' }} /> : <Icon name="qr" size={40} color={color.sub} />}
+              </div>
+              <p style={{ margin: '14px 0 0', fontSize: 13, color: color.sub, textAlign: 'center' }}>このQRコードを友達に読み取ってもらうと、グループに参加できます</p>
+            </div>
+          )}
+
+          {tab === 'handle' && (
+            <form onSubmit={sendByHandle} style={{ marginTop: 18 }}>
+              <TextField label="友達のID" value={handle} onChange={(v) => { setHandle(v); setHandleMsg(''); }} placeholder="@から始まるID" />
+              {handleMsg && (
+                <p role="status" style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: handleMsg.includes('できません') ? color.red : color.ink }}>
+                  {handleMsg}
                 </p>
               )}
-            </div>
-          </div>
+              <Button type="submit" variant="primary" disabled={!handle.trim() || handleBusy} style={{ marginTop: 16 }}>
+                招待を送る
+              </Button>
+              <p style={{ margin: '12px 0 0', fontSize: 12, lineHeight: 1.6, color: color.sub }}>相手の「招待を受け取る範囲」の設定によっては、招待できないことがあります</p>
+            </form>
+          )}
         </div>
       </div>
     </div>
@@ -540,7 +686,7 @@ function JoinGroup({ onBack, onJoined }) {
   );
 }
 
-// グループの通報（確定版 Final-13 の 10・f13-10）。2回目：submit_report（kind='group'）へ送る
+// グループの通報（確定版 Final-13 の 10・f13-10）
 const REPORT_REASONS = [
   { id: 'group_name', label: '不適切なグループ名' },
   { id: 'harassment', label: 'グループでのいやがらせ' },
@@ -626,15 +772,152 @@ function ReportGroupSheet({ group, onClose, onSent }) {
   );
 }
 
-// グループの詳細（確定版 Final-11 の 16〜19 の「メンバー」「設定」）
-function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
+// グループ名の変更（確定版 Final-11・設定タブから）
+function RenameSheet({ group, onClose, onRenamed }) {
+  const [name, setName] = useState(group.name);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const submit = async () => {
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await renameGroup(group.id, name.trim());
+      onRenamed(name.trim());
+    } catch (err) {
+      console.error('グループ名の変更エラー:', err?.message || err);
+      setError('変更できませんでした。少したってから、もう一度お試しください');
+      setBusy(false);
+    }
+  };
+  return (
+    <BottomSheet open onClose={onClose} ariaLabel="グループ名を変更する" minHeight={260}>
+      <div style={{ marginTop: 12, fontFamily: font.dela, fontSize: 18, textAlign: 'center' }}>グループ名を変更する</div>
+      <div style={{ marginTop: 16 }}>
+        <TextField label="グループ名" value={name} onChange={(v) => setName(v.slice(0, GROUP_NAME_MAX))} maxLength={GROUP_NAME_MAX} showCount error={error} />
+      </div>
+      <Button variant="primary" onClick={submit} disabled={!name.trim() || busy} style={{ marginTop: 16 }}>
+        変更する
+      </Button>
+    </BottomSheet>
+  );
+}
+
+// お店のカード（グループの「新着」「ボード」で共通）
+function ShopRow({ s, onHeart, busy }) {
+  const photo = shopPhotos(s)[0];
+  const place = [s.area, s.genre || genreLabel(s)].filter(Boolean).join('・');
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${color.line}` }}>
+      <div style={{ flex: 'none', width: 56, height: 56, borderRadius: 16, overflow: 'hidden', background: color.ink }}>
+        {photo && <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+        {place && <div style={{ marginTop: 2, fontSize: 12, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place}</div>}
+      </div>
+      {s.matched_at && (
+        <span style={{ flex: 'none', fontSize: 11, fontWeight: 700, color: color.ink, display: 'flex', alignItems: 'center', gap: 3 }}>
+          <Icon name="check" size={13} />
+          マッチ
+        </span>
+      )}
+      {s.heart_count != null && (
+        <span style={{ flex: 'none', fontSize: 12, fontWeight: 700, color: color.sub, minWidth: 18, textAlign: 'center' }}>{s.heart_count}</span>
+      )}
+      <button
+        type="button"
+        aria-pressed={s.self_hearted}
+        disabled={busy}
+        onClick={() => onHeart(s)}
+        className="ui-btn ui-press"
+        style={{ flex: 'none', width: 40, height: 40, border: 0, padding: 0, background: 'transparent', color: s.self_hearted ? color.red : color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Icon name={s.self_hearted ? 'heartFill' : 'heartCheck'} size={22} />
+      </button>
+    </div>
+  );
+}
+
+function GroupShops({ groupId }) {
+  const [feed, setFeed] = useState([]);
+  const [board, setBoard] = useState([]);
+  const [status, setStatus] = useState('loading');
+  const [heartBusy, setHeartBusy] = useState(null);
+
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => {
+    setStatus('loading');
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([fetchGroupFeed(groupId), fetchGroupBoard(groupId)])
+      .then(([f, b]) => {
+        if (!alive) return;
+        setFeed(f);
+        setBoard(b);
+        setStatus('ready');
+      })
+      .catch((err) => {
+        console.error('グループのお店の取得エラー:', err?.message || err);
+        if (alive) setStatus('error');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [groupId, reloadKey]);
+
+  const toggleHeart = async (s) => {
+    setHeartBusy(s.restaurant_id);
+    try {
+      await toggleGroupHeart(groupId, s.restaurant_id);
+      // 読み込み中の表示には戻さず、そのまま静かに読み直す
+      const [f, b] = await Promise.all([fetchGroupFeed(groupId), fetchGroupBoard(groupId)]);
+      setFeed(f);
+      setBoard(b);
+    } catch (err) {
+      console.error('♡の切り替えエラー:', err?.message || err);
+    } finally {
+      setHeartBusy(null);
+    }
+  };
+
+  if (status === 'loading') return <LoadingState style={{ paddingTop: 60 }} />;
+  if (status === 'error') return <ErrorState kind="server" onRetry={reload} style={{ paddingTop: 60 }} />;
+
+  return (
+    <div style={{ padding: '6px 0 150px' }}>
+      {feed.length > 0 && (
+        <>
+          <h3 style={{ margin: '10px 0 0', fontFamily: font.dela, fontSize: 15, fontWeight: 400 }}>新着</h3>
+          {feed.map((s) => (
+            <ShopRow key={s.restaurant_id} s={{ ...s, self_hearted: false }} onHeart={toggleHeart} busy={heartBusy === s.restaurant_id} />
+          ))}
+        </>
+      )}
+      <h3 style={{ margin: '18px 0 0', fontFamily: font.dela, fontSize: 15, fontWeight: 400 }}>ボード（♡の多い順）</h3>
+      {board.length === 0 ? (
+        <p style={{ margin: '12px 0 0', fontSize: 13, color: color.sub }}>まだお店がありません。ホームでいいねすると、ここに並びます</p>
+      ) : (
+        board.map((s) => <ShopRow key={s.restaurant_id} s={s} onHeart={toggleHeart} busy={heartBusy === s.restaurant_id} />)
+      )}
+    </div>
+  );
+}
+
+// グループの詳細（確定版 Final-11 の 16〜19）：お店／メンバー／設定
+function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRenamed }) {
   const { user } = useAuth();
-  const [tab, setTab] = useState('members');
+  const [tab, setTab] = useState('shops');
   const [members, setMembers] = useState(group.members || []);
   const [report, setReport] = useState(false);
   const [leave, setLeave] = useState(false);
+  const [rename, setRename] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [viewProfile, setViewProfile] = useState(null); // メンバーの行を押したとき開く他の人のプロフィール（userId）
+  const [muted, setMuted] = useState(!!group.muted);
+  const [viewProfile, setViewProfile] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -656,6 +939,16 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
       console.error('退出エラー:', err?.message || err);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const toggleMute = async (v) => {
+    setMuted(v);
+    try {
+      await setGroupMuted(group.id, v);
+    } catch (err) {
+      console.error('ミュートの変更エラー:', err?.message || err);
+      setMuted(!v);
     }
   };
 
@@ -685,7 +978,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
       </button>
     );
   };
-  const setRow = (icon, label, onClick, danger) => (
+  const setRow = (icon, label, onClick, danger, value) => (
     <button
       type="button"
       onClick={onClick}
@@ -707,6 +1000,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
     >
       <Icon name={icon} size={22} color={danger ? color.red : color.ink} />
       <span style={{ flex: 1, fontSize: 15, fontWeight: 700 }}>{label}</span>
+      {value}
     </button>
   );
 
@@ -748,11 +1042,13 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
           </button>
         </div>
         <div role="tablist" style={{ display: 'flex', marginTop: 12, borderBottom: `${stroke.shape}px solid ${color.ink}` }}>
+          {tabBtn('shops', 'お店')}
           {tabBtn('members', 'メンバー')}
           {tabBtn('settings', '設定')}
         </div>
         <div style={{ padding: '6px 20px 150px' }}>
-          {tab === 'members' ? (
+          {tab === 'shops' && <GroupShops groupId={group.id} />}
+          {tab === 'members' && (
             <>
               <button
                 type="button"
@@ -825,8 +1121,24 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
                 );
               })}
             </>
-          ) : (
+          )}
+          {tab === 'settings' && (
             <>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={muted}
+                onClick={() => toggleMute(!muted)}
+                className="ui-btn ui-btn--text"
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: 0, border: 0, borderBottom: `1px solid ${color.line}`, background: 'transparent', color: color.ink, fontFamily: 'inherit', textAlign: 'left' }}
+              >
+                <Icon name={muted ? 'bellOff' : 'bell'} size={22} />
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 700 }}>このグループをミュート</span>
+                <span aria-hidden="true" style={{ position: 'relative', width: 46, height: 28, borderRadius: 14, background: muted ? color.ink : color.surface, boxSizing: 'border-box', border: `1px solid ${muted ? color.ink : color.lineStrong}` }}>
+                  <span style={{ position: 'absolute', top: 2, left: muted ? 20 : 2, width: 22, height: 22, borderRadius: '50%', background: color.white }} />
+                </span>
+              </button>
+              {setRow('pencil', 'グループ名を変更する', () => setRename(true))}
               {setRow('flag', 'このグループを通報する', () => setReport(true))}
               {setRow('leave', 'グループから抜ける', () => setLeave(true), true)}
             </>
@@ -834,13 +1146,14 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft }) {
         </div>
       </div>
       {report && <ReportGroupSheet group={group} onClose={() => setReport(false)} onSent={() => setReport(false)} />}
+      {rename && <RenameSheet group={group} onClose={() => setRename(false)} onRenamed={(name) => { setRename(false); onRenamed(name); }} />}
       <ConfirmSheet open={leave} title="グループから抜けますか？" actionLabel="グループから抜ける" danger busy={busy} onConfirm={doLeave} onCancel={() => setLeave(false)} />
       {viewProfile && <OtherProfileScreen userId={viewProfile} onBack={() => setViewProfile(null)} />}
     </div>
   );
 }
 
-export default function GroupScreen({ selectedGroup, onSelectGroup }) {
+export default function GroupScreen({ selectedGroup, onSelectGroup, reloadSignal = 0 }) {
   const { user } = useAuth();
   const toast = useToast();
   const [groups, setGroups] = useState([]);
@@ -865,9 +1178,28 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
     return () => {
       alive = false;
     };
-  }, [user?.id, reloadKey]);
+  }, [user?.id, reloadKey, reloadSignal]);
 
   const toList = () => setView({ name: 'list' });
+
+  const togglePin = async (g, v) => {
+    setGroups((list) => list.map((x) => (x.id === g.id ? { ...x, pinned: v } : x)));
+    try {
+      await setGroupPinned(g.id, v);
+      reload();
+    } catch (err) {
+      console.error('ピン留めの変更エラー:', err?.message || err);
+      reload();
+    }
+  };
+  const toggleMute = async (g, v) => {
+    setGroups((list) => list.map((x) => (x.id === g.id ? { ...x, muted: v } : x)));
+    try {
+      await setGroupMuted(g.id, v);
+    } catch (err) {
+      console.error('ミュートの変更エラー:', err?.message || err);
+    }
+  };
 
   if (view.name === 'create') {
     return (
@@ -913,6 +1245,7 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
         onBack={toList}
         onToggleUse={() => onSelectGroup?.(inUse ? null : { id: g.id, name: g.name, members: g.members, count: g.count })}
         onInvite={() => setView({ name: 'invite', group: g, back: { name: 'detail', group: g } })}
+        onRenamed={() => reload()}
         onLeft={(left) => {
           if (selectedGroup?.id === left.id) onSelectGroup?.(null);
           setGroups((list) => list.filter((x) => x.id !== left.id));
@@ -933,6 +1266,8 @@ export default function GroupScreen({ selectedGroup, onSelectGroup }) {
       onOpen={(g) => setView({ name: 'detail', group: g })}
       onCreate={() => setView({ name: 'create' })}
       onJoin={() => setView({ name: 'join' })}
+      onTogglePin={togglePin}
+      onToggleMute={toggleMute}
     />
   );
 }

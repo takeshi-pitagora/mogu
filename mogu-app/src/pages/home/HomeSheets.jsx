@@ -5,7 +5,8 @@ import Button from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
 import { Radio, GroupRadioRow } from '../../components/ui/Radio';
 import { groupRowStyle as rowStyle } from '../../components/ui/styles';
-import { AREAS, BUDGETS, GENRES, EMPTY_FILTERS } from '../../lib/shop';
+import { AREAS, BUDGETS, GENRES, EMPTY_FILTERS, SORTS } from '../../lib/shop';
+import { useAuth } from '../../context/AuthContext';
 
 // ---------------------------------------------------------------
 // 絞り込みのシート（確定版 Final-08 の 5・6）
@@ -54,6 +55,20 @@ function ComingSoonChip({ children }) {
   );
 }
 
+function NeedsDiagnosisChip({ children }) {
+  return (
+    <button
+      type="button"
+      disabled
+      aria-disabled="true"
+      style={{ height: 44, boxSizing: 'border-box', padding: '0 8px 0 16px', border: `${stroke.shape}px dashed ${color.lineStrong}`, borderRadius: 22, background: color.white, color: color.sub, fontFamily: font.plex, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+    >
+      {children}
+      <span style={{ display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 9px', boxSizing: 'border-box', borderRadius: 11, background: color.surface, color: color.sub, fontFamily: font.plex, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>診断すると選べます</span>
+    </button>
+  );
+}
+
 function Group({ title, note, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -67,6 +82,8 @@ function Group({ title, note, children }) {
 }
 
 export function FilterSheet({ open, value, onApply, onClose }) {
+  const { user } = useAuth();
+  const diagnosed = !!user?.moguType?.code;
   const [draft, setDraft] = useState(value);
   const toggle = (key, v) => setDraft((d) => ({ ...d, [key]: d[key].includes(v) ? d[key].filter((x) => x !== v) : [...d[key], v] }));
 
@@ -82,7 +99,16 @@ export function FilterSheet({ open, value, onApply, onClose }) {
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '8px 20px 16px' }}>
           <Group title="並び順" note="1つ選ぶ">
-            <FilterChip selected={draft.sort === 'recommend'} onClick={() => setDraft((d) => ({ ...d, sort: 'recommend' }))}>おすすめ</FilterChip>
+            {SORTS.map((s) => {
+              if (s.value === 'mogu_type_popular' && !diagnosed) {
+                return <NeedsDiagnosisChip key={s.value}>{s.label}</NeedsDiagnosisChip>;
+              }
+              return (
+                <FilterChip key={s.value} selected={draft.sort === s.value} onClick={() => setDraft((d) => ({ ...d, sort: s.value }))}>
+                  {s.label}
+                </FilterChip>
+              );
+            })}
             <ComingSoonChip>年代別の評価順</ComingSoonChip>
           </Group>
           <Group title="エリア" note="複数選択可">

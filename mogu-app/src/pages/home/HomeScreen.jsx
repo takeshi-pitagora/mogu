@@ -124,7 +124,7 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
     }, EXIT_MS);
     const groupId = selectedGroup?.id || null;
     setHistory((h) => [...h, { shop, action, groupId }]);
-    recordSwipe({ userId: user?.id, restaurant: shop, action: action === 'like' ? 'like' : 'nope', groupId }).catch((err) => console.error('スワイプ保存エラー:', err?.message || err));
+    recordSwipe({ userId: user?.id, restaurant: shop, action: action === 'like' ? 'like' : 'nope', groupId, moguTypeCode: user?.moguType?.code }).catch((err) => console.error('スワイプ保存エラー:', err?.message || err));
   };
 
   const undo = () => {

@@ -16,7 +16,7 @@ import { GroupTitle, Row, RowGroup, SubPage, Tile } from './SettingsParts';
 // 設定（確定版 Final-05 ひと目型）。プロフィール右上の歯車から開く
 //   いちばん上のカード（写真・ニックネーム・メールアドレス → アカウント）、タイル、サポート、このアプリについて、［ログアウト］、バージョン
 //   2回目：タイルに「招待を受け取る範囲」「ブロックしたユーザー」を追加（f05-1）。サポートに「通報したい内容がある」を追加（f13-13）
-//   通知のタイルは3回目（まだ出さない）。押しても何も起きない行は置かない
+//   3回目：タイルに「通知」を追加（§7-6）。押しても何も起きない行は置かない
 //   ゲストのとき：いちばん上のカードの代わりに［アカウントを登録する］（Final-05 の 4）。ログアウトは出さない
 function AccountCard({ user, onClick }) {
   return (
@@ -57,7 +57,7 @@ function RegisterCard({ onClick }) {
   );
 }
 
-export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScope, onOpenBlocked, onOpenDiagnosis, onShowGuide, onRegister }) {
+export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScope, onOpenBlocked, onOpenDiagnosis, onOpenNotificationSettings, onShowGuide, onRegister }) {
   const { user, logout } = useAuth();
   const guest = !!user?.isGuest;
   const [confirm, setConfirm] = useState(false);
@@ -86,6 +86,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 16 }}>
         {!guest && <Tile icon="tray" label="招待を受け取る範囲" value={user.inviteScope === 'none' ? '受け取らない' : '誰からでも'} onClick={onOpenInviteScope} />}
         {!guest && <Tile icon="block" label="ブロックしたユーザー" value={blockedCount == null ? '…' : `${blockedCount}人`} onClick={onOpenBlocked} />}
+        {!guest && <Tile icon="bell" label="通知" value="設定する" onClick={onOpenNotificationSettings} />}
         <Tile icon="link" label="食スタイル診断" value={diagnosed ? '診断済み' : '未診断'} onClick={() => onOpenDiagnosis?.()} />
       </div>
 
@@ -109,13 +110,13 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24 }}>
           <Button variant="secondary" onClick={() => setConfirm(true)}>
-            ログアウト
+            ログアウトする
           </Button>
           <p style={{ margin: 0, height: 18, textAlign: 'center', fontSize: 12, fontWeight: 500, color: color.sub }}>Version {APP_VERSION}</p>
         </div>
       )}
 
-      <ConfirmSheet open={confirm} title="ログアウトしますか？" actionLabel="ログアウト" onConfirm={() => logout()} onCancel={() => setConfirm(false)} />
+      <ConfirmSheet open={confirm} title="ログアウトしますか？" actionLabel="ログアウトする" onConfirm={() => logout()} onCancel={() => setConfirm(false)} />
       <ReportGeneralSheet open={report} onClose={() => setReport(false)} />
     </SubPage>
   );

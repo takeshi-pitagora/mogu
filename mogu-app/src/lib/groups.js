@@ -113,6 +113,69 @@ export async function leaveGroup({ groupId, userId }) {
   if (error) throw error;
 }
 
+// ピン留め・ミュート（3回目 §7-5・Final-11）
+export async function setGroupPinned(groupId, pinned) {
+  const { error } = await supabase.rpc('set_group_pinned', { p_group_id: groupId, p_pinned: pinned });
+  if (!missingFunction(error)) {
+    if (error) throw error;
+    return;
+  }
+  const { data } = await supabase.auth.getUser();
+  const { error: e2 } = await supabase.from('group_members').update({ pinned }).eq('group_id', groupId).eq('user_id', data.user?.id);
+  if (e2) throw e2;
+}
+
+export async function setGroupMuted(groupId, muted) {
+  const { error } = await supabase.rpc('set_group_muted', { p_group_id: groupId, p_muted: muted });
+  if (error && !missingFunction(error)) throw error;
+}
+
+export async function renameGroup(groupId, name) {
+  const { error } = await supabase.rpc('rename_group', { p_group_id: groupId, p_name: name });
+  if (error) throw error;
+}
+
+// IDで招待する（見つからない・招待できない、は同じ文言で返す。相手に知られないため）
+export async function inviteByHandle(groupId, handle) {
+  const { error } = await supabase.rpc('invite_by_handle', { p_group_id: groupId, p_handle: handle });
+  if (!error) return { ok: true };
+  if (missingFunction(error)) return { error: 'unsupported' };
+  if (/not_found/i.test(error.message || '')) return { error: 'notFound' };
+  return { error: 'failed' };
+}
+
+// グループのお店のタブ：まだ見ていない流れ（feed）とボード（board・♡の多い順）
+export async function fetchGroupFeed(groupId) {
+  const { data, error } = await supabase.rpc('get_group_feed', { p_group_id: groupId });
+  if (error) {
+    if (missingFunction(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+export async function fetchGroupBoard(groupId) {
+  const { data, error } = await supabase.rpc('get_group_board', { p_group_id: groupId });
+  if (error) {
+    if (missingFunction(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+// ♡をつける・外す（戻り値：付いた(true)／外れた(false)）
+export async function toggleGroupHeart(groupId, restaurantId) {
+  const { data, error } = await supabase.rpc('toggle_group_heart', { p_group_id: groupId, p_restaurant_id: restaurantId });
+  if (error) throw error;
+  return !!data;
+}
+
+// ホームでグループを選んでいいね・保存したときに、グループのお店へ足す
+export async function addGroupShop({ groupId, restaurantId, source = 'swipe' }) {
+  const { error } = await supabase.rpc('add_group_shop', { p_group_id: groupId, p_restaurant_id: restaurantId, p_source: source });
+  if (error && !missingFunction(error)) throw error;
+}
+
 // グループの通報（1回目は今の仕組み：運営の窓口へメール。2回目で通報の表に保存する形に変える）
 export function reportGroupByMail({ group, reason, reporterId }) {
   const subject = `【mogu 通報】グループ「${group.name}」`;

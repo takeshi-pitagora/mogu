@@ -7,6 +7,7 @@ import { supabase } from './supabase';
 import { recommend } from './recommend';
 import { axesFor, fetchGroupMembers } from './peers';
 import { shopGenre } from './shop';
+import { addGroupShop } from './groups';
 
 const missingColumn = (error, col) => !!error && new RegExp(col).test(`${error.message || ''} ${error.details || ''}`);
 
@@ -38,13 +39,62 @@ export async function fetchDeck({ user, filters, group }) {
   }
 
   // 並び順「おすすめ」：ひとりのときは今のアプリの並びのまま。グループのときはメンバーのタイプで並べる（今の仕組み）
-  if (group?.id && data.length > 0) data = await rankForGroup(data, group.id, user);
+  if (filters.sort === 'mogu_type_popular' || filters.sort === 'trending') {
+    data = await rankByPopularity(data, filters.sort, user);
+  } else if (group?.id && data.length > 0) {
+    data = await rankForGroup(data, group.id, user);
+  }
 
   const swiped = new Set(swipedIds);
   let list = data.filter((r) => !swiped.has(r.id) && !r.is_excluded);
   if (filters.genres.length > 0) list = list.filter((r) => filters.genres.includes(shopGenre(r)));
   if (filters.priceLevel != null) list = list.filter((r) => String(r.price_level) === String(filters.priceLevel));
   return list;
+}
+
+// 「同じモグタイプに人気」「急上昇中」（3回目 §7-7）：定期的に集計した表から並び順（restaurant_idの配列）をもらう
+const missingFn = (error) => !!error && /(function|could not find|does not exist|PGRST20[2-6])/i.test(`${error.message || ''} ${error.code || ''}`);
+export async function fetchPopularityOrder(sort, user) {
+  if (sort === 'mogu_type_popular') {
+    const code = user?.moguType?.code;
+    if (!code) return []; // 未診断なら並びは変えない
+    const { data, error } = await supabase.rpc('get_popular_restaurant_ids', { p_type: code });
+    if (error) {
+      if (!missingFn(error)) console.warn('人気の並び順を取得できませんでした:', error.message);
+      return [];
+    }
+    return (data || []).map((r) => (typeof r === 'string' ? r : r.get_popular_restaurant_ids || r.id));
+  }
+  if (sort === 'trending') {
+    const { data, error } = await supabase.rpc('get_trending_restaurant_ids');
+    if (error) {
+      if (!missingFn(error)) console.warn('急上昇中の並び順を取得できませんでした:', error.message);
+      return [];
+    }
+    return (data || []).map((r) => (typeof r === 'string' ? r : r.get_trending_restaurant_ids || r.id));
+  }
+  return [];
+}
+
+async function rankByPopularity(rows, sort, user) {
+  const ids = await fetchPopularityOrder(sort, user);
+  if (ids.length === 0) return rows;
+  const order = new Map(ids.map((id, i) => [id, i]));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const ranked = ids.map((id) => byId.get(id)).filter(Boolean);
+  const rest = rows.filter((r) => !order.has(r.id));
+  return [...ranked, ...rest];
+}
+
+// 並び順（restaurant_idの配列）で、すでに取得済みの一覧を並べ替える（保存画面用）
+export function applyPopularityOrder(rows, ids) {
+  if (!ids || ids.length === 0) return rows;
+  const order = new Map(ids.map((id, i) => [id, i]));
+  return [...rows].sort((a, b) => {
+    const oa = order.has(a.id) ? order.get(a.id) : Infinity;
+    const ob = order.has(b.id) ? order.get(b.id) : Infinity;
+    return oa - ob;
+  });
 }
 
 async function rankForGroup(rows, groupId, user) {
@@ -69,13 +119,18 @@ async function rankForGroup(rows, groupId, user) {
 // ---------------------------------------------------------------
 // スワイプの記録
 // ---------------------------------------------------------------
-export async function recordSwipe({ userId, restaurant, action, groupId }) {
+export async function recordSwipe({ userId, restaurant, action, groupId, moguTypeCode }) {
   if (!userId) return;
   const row = { user_id: userId, restaurant_id: restaurant.id, action };
   if (groupId) row.group_id = groupId;
+  if (moguTypeCode) row.mogu_type_code = moguTypeCode;
   let { error } = await supabase.from('swipes').insert(row);
   if (error && groupId && missingColumn(error, 'group_id')) {
     delete row.group_id;
+    ({ error } = await supabase.from('swipes').insert(row));
+  }
+  if (error && moguTypeCode && missingColumn(error, 'mogu_type_code')) {
+    delete row.mogu_type_code;
     ({ error } = await supabase.from('swipes').insert(row));
   }
   if (error) throw error;
@@ -85,6 +140,8 @@ export async function recordSwipe({ userId, restaurant, action, groupId }) {
     await supabase
       .from('saved_restaurants')
       .upsert({ user_id: userId, restaurant_id: restaurant.id, group_id: groupId }, { onConflict: 'user_id,restaurant_id,group_id' });
+    // グループの「お店」タブ・ボード・マッチ通知（3回目 §7-5）。関数がまだないDBでは何もしない
+    await addGroupShop({ groupId, restaurantId: restaurant.id, source: 'swipe' }).catch((err) => console.warn('グループのお店への追加に失敗:', err?.message || err));
   }
 }
 
@@ -147,7 +204,17 @@ export async function fetchMyGroups(userId) {
   if (!userId) return [];
   const { data, error } = await supabase.rpc('get_my_groups');
   if (!error && Array.isArray(data)) {
-    return data.map((g) => ({ id: g.id, name: g.name, count: g.member_count, members: g.members || [], created_at: g.created_at }));
+    return data.map((g) => ({
+      id: g.id,
+      name: g.name,
+      count: g.member_count,
+      members: g.members || [],
+      created_at: g.created_at,
+      pinned: !!g.pinned,
+      muted: !!g.muted,
+      unseenCount: g.unseen_count || 0,
+      lastEvent: g.last_event || null,
+    }));
   }
   // 関数がまだないDB：今までどおり group_members から読む（メンバーの名前は出せない）
   const { data: rows, error: e2 } = await supabase.from('group_members').select('groups(*)').eq('user_id', userId);
@@ -156,7 +223,7 @@ export async function fetchMyGroups(userId) {
     .map((r) => r.groups)
     .filter(Boolean)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .map((g) => ({ id: g.id, name: g.name, count: null, members: [], created_at: g.created_at }));
+    .map((g) => ({ id: g.id, name: g.name, count: null, members: [], created_at: g.created_at, pinned: false, muted: false, unseenCount: 0, lastEvent: null }));
 }
 
 // グループに送る（1回目は今の仕組み：送った人のグループの保存に入れる）
@@ -165,4 +232,5 @@ export async function sendToGroup({ userId, restaurant, groupId }) {
     .from('saved_restaurants')
     .upsert({ user_id: userId, restaurant_id: restaurant.id, group_id: groupId }, { onConflict: 'user_id,restaurant_id,group_id' });
   if (error) throw error;
+  await addGroupShop({ groupId, restaurantId: restaurant.id, source: 'send' }).catch((err) => console.warn('グループのお店への追加に失敗:', err?.message || err));
 }
