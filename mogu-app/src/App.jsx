@@ -50,6 +50,7 @@ function Shell() {
   const [unread, setUnread] = useState(false); // お知らせの未読（3回目 §7-6）
   const [groupsVersion, setGroupsVersion] = useState(0); // グループ一覧を読み直す合図（招待の受諾・コード参加のあと）
   const [pushAsk, setPushAsk] = useState(false); // 「通知を許可してください」のお願い（1度だけ）
+  const [pendingOpenGroupId, setPendingOpenGroupId] = useState(null); // お知らせの行から、特定のグループを開く合図
 
   const push = useCallback((name, props = {}) => setStack((s) => [...s, { name, props }]), []);
   const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
@@ -61,10 +62,11 @@ function Shell() {
   const openShop = useCallback((s, opts = {}) => setShop({ shop: s, from: opts.from || 'saved' }), []);
   const openGuestSheet = useCallback(() => setGuestSheet(true), []);
   const openDiagnosis = useCallback((intent) => setDiagnosis({ intent }), []);
-  const openGroupTab = useCallback(() => {
+  const openGroupTab = useCallback((groupId) => {
     setStack([]);
     setTab('group');
     setGroupsVersion((v) => v + 1);
+    if (groupId) setPendingOpenGroupId(groupId);
   }, []);
 
   // お知らせの未読の有無（タブに切り替えたとき・お知らせを開いたあとに読み直す）
@@ -128,11 +130,7 @@ function Shell() {
         return (
           <NotificationsScreen
             onBack={pop}
-            onOpenGroup={() => {
-              setStack([]);
-              setTab('group');
-              setGroupsVersion((v) => v + 1);
-            }}
+            onOpenGroup={(groupId) => openGroupTab(groupId)}
           />
         );
       case 'settings':
@@ -187,7 +185,13 @@ function Shell() {
           {guest ? (
             <GuestGroupLocked onRegister={() => setGuestFlow('signup')} onLocked={openGuestSheet} locked={guestSheet} />
           ) : (
-            <GroupScreen selectedGroup={selectedGroup} onSelectGroup={setSelectedGroup} reloadSignal={groupsVersion} />
+            <GroupScreen
+              selectedGroup={selectedGroup}
+              onSelectGroup={setSelectedGroup}
+              reloadSignal={groupsVersion}
+              pendingOpenGroup={pendingOpenGroupId}
+              onConsumePendingOpenGroup={() => setPendingOpenGroupId(null)}
+            />
           )}
         </div>
       )}

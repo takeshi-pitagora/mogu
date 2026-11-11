@@ -83,11 +83,13 @@
   }
 
   // アプリがあれば mogu:// を自動で開こうとする。開けなければ（アプリが無い）手順を見せる
-  var openedAt = Date.now();
+  var opened = false;
+  document.addEventListener('visibilitychange', function () { if (document.hidden) opened = true; });
+  window.addEventListener('pagehide', function () { opened = true; });
   window.location.href = deepLink;
   setTimeout(function () {
-    // 1.2秒たっても画面が切り替わっていなければ、アプリが無いとみなして手順を出す
-    if (Date.now() - openedAt < 4000) {
+    // 1.2秒たってもこのページに留まっている（＝アプリが開けなかった）ときだけ手順を出す
+    if (!opened) {
       lead.textContent = 'mogu のグループに参加しましょう';
       manual.style.display = 'block';
     }

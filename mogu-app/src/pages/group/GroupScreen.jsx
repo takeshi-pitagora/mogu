@@ -1153,7 +1153,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRe
   );
 }
 
-export default function GroupScreen({ selectedGroup, onSelectGroup, reloadSignal = 0 }) {
+export default function GroupScreen({ selectedGroup, onSelectGroup, reloadSignal = 0, pendingOpenGroup, onConsumePendingOpenGroup }) {
   const { user } = useAuth();
   const toast = useToast();
   const [groups, setGroups] = useState([]);
@@ -1162,6 +1162,15 @@ export default function GroupScreen({ selectedGroup, onSelectGroup, reloadSignal
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  // お知らせの行・ID招待の受諾から、特定のグループを直接開く（3回目 §7-6）
+  useEffect(() => {
+    if (!pendingOpenGroup) return;
+    Promise.resolve().then(() => {
+      setView({ name: 'detail', group: { id: pendingOpenGroup, name: '' } });
+      onConsumePendingOpenGroup?.();
+    });
+  }, [pendingOpenGroup, onConsumePendingOpenGroup]);
   useEffect(() => {
     if (!user?.id) return undefined;
     let alive = true;
