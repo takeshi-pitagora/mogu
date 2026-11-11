@@ -414,6 +414,8 @@ grant execute on function public.group_board(uuid) to authenticated;
 -- -------------------------------------------------------------
 -- ⑨ 一覧（検索・ピン留め・最新の出来事・まだ見ていないお店の数）
 -- -------------------------------------------------------------
+-- 戻り値の列を増やしたため、CREATE OR REPLACE だけでは型を変えられない（42P13）。先に消してから作り直す
+drop function if exists public.get_my_groups();
 create or replace function public.get_my_groups()
 returns table (id uuid, name text, member_count int, members jsonb, created_at timestamptz, pinned boolean, muted boolean, last_activity_at timestamptz, unseen_count int, last_event text)
 language sql
