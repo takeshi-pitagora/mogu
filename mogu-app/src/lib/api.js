@@ -44,6 +44,15 @@ export async function fetchDeck({ user, filters, group }) {
   let list = data.filter((r) => !swiped.has(r.id) && !r.is_excluded);
   if (filters.genres.length > 0) list = list.filter((r) => filters.genres.includes(shopGenre(r)));
   if (filters.priceLevel != null) list = list.filter((r) => String(r.price_level) === String(filters.priceLevel));
+
+  // 並び順「同じモグタイプに人気」「急上昇中」：選んだときだけ、集計の多い順に並べ直す（§7-7）
+  if (filters.sort === 'typePopular' || filters.sort === 'trending') {
+    const { data: ranked, error } = await supabase.rpc(filters.sort === 'typePopular' ? 'popular_restaurants_for_type' : 'trending_restaurants');
+    if (!error && ranked) {
+      const rank = new Map(ranked.map((r, i) => [r.restaurant_id, i]));
+      list = [...list].sort((a, b) => (rank.has(a.id) ? rank.get(a.id) : Infinity) - (rank.has(b.id) ? rank.get(b.id) : Infinity));
+    }
+  }
   return list;
 }
 
@@ -147,7 +156,18 @@ export async function fetchMyGroups(userId) {
   if (!userId) return [];
   const { data, error } = await supabase.rpc('get_my_groups');
   if (!error && Array.isArray(data)) {
-    return data.map((g) => ({ id: g.id, name: g.name, count: g.member_count, members: g.members || [], created_at: g.created_at }));
+    return data.map((g) => ({
+      id: g.id,
+      name: g.name,
+      count: g.member_count,
+      members: g.members || [],
+      created_at: g.created_at,
+      pinned: !!g.pinned,
+      muted: !!g.muted,
+      lastActivityAt: g.last_activity_at || g.created_at,
+      unseenCount: g.unseen_count ?? null,
+      lastEvent: g.last_event || null,
+    }));
   }
   // 関数がまだないDB：今までどおり group_members から読む（メンバーの名前は出せない）
   const { data: rows, error: e2 } = await supabase.from('group_members').select('groups(*)').eq('user_id', userId);
@@ -159,10 +179,20 @@ export async function fetchMyGroups(userId) {
     .map((g) => ({ id: g.id, name: g.name, count: null, members: [], created_at: g.created_at }));
 }
 
-// グループに送る（1回目は今の仕組み：送った人のグループの保存に入れる）
-export async function sendToGroup({ userId, restaurant, groupId }) {
-  const { error } = await supabase
-    .from('saved_restaurants')
-    .upsert({ user_id: userId, restaurant_id: restaurant.id, group_id: groupId }, { onConflict: 'user_id,restaurant_id,group_id' });
+// グループに送る：グループのお店に正式に入れる（group_shop_meta・いいねの記録・マッチの判定まで、group_add_shop に任せる）
+export async function sendToGroup({ restaurant, groupId }) {
+  const { error } = await supabase.rpc('group_add_shop', { p_group_id: groupId, p_restaurant_id: restaurant.id, p_source: 'send' });
   if (error) throw error;
+}
+
+// 並び順「同じモグタイプに人気」「急上昇中」（ホーム・保存。§7-7）。どちらも restaurant_id・like_count の配列（多い順）
+export async function fetchTypePopularRanking() {
+  const { data, error } = await supabase.rpc('popular_restaurants_for_type');
+  if (error) throw error;
+  return data || [];
+}
+export async function fetchTrendingRanking() {
+  const { data, error } = await supabase.rpc('trending_restaurants');
+  if (error) throw error;
+  return data || [];
 }

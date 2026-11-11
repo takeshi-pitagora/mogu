@@ -30,3 +30,18 @@ export const extractInviteToken = (raw) => {
   if (text.includes('/invite/')) return text.split('/invite/').pop().split(/[?#]/)[0];
   return text;
 };
+
+// mogu://group/join?code=... （QRコード・招待ページからの呼び出し。引き渡し書 §7-5・§10「招待のリンクとQRのURLの形」）
+export const buildGroupJoinScheme = (token) => `mogu://group/join?code=${encodeURIComponent(token)}`;
+export const parseGroupJoinFromUrl = (url) => {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'mogu:' || u.host !== 'group') return null;
+    const path = `${u.pathname}`.replace(/^\/+/, '');
+    if (path !== 'join') return null;
+    const code = u.searchParams.get('code');
+    return code ? extractInviteToken(code) : null;
+  } catch {
+    return null;
+  }
+};

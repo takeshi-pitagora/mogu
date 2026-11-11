@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LOGO } from '../../lib/brand';
 import { fetchDeck, fetchMyGroups, recordSwipe, undoSwipe } from '../../lib/api';
 import { shopPhotos, EMPTY_FILTERS, filterCount } from '../../lib/shop';
+import { getType } from '../../lib/mogutype';
 import Icon from '../../components/ui/Icon';
 import AvatarStack from '../../components/ui/AvatarStack';
 import { HeaderIconButton } from '../../components/ui/ScreenHeader';
@@ -273,6 +274,7 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
         <FilterSheet
           open
           value={filters}
+          showTypePopular={!!getType(user?.moguType?.code)}
           onClose={() => setSheet(null)}
           onApply={(f) => {
             setSheet(null);

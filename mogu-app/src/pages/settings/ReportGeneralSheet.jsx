@@ -20,9 +20,9 @@ const DETAIL_MAX = 1000;
 
 // 設定の中「通報したい内容がある」（確定版 f13-13・f13-14）
 //   下から出るシート。相手のユーザーID（わかれば）・内容の種類・くわしい内容・スクリーンショット（付けなくてもよい）
-export default function ReportGeneralSheet({ open, onClose }) {
+export default function ReportGeneralSheet({ open, onClose, initialHandle = '' }) {
   const { user } = useAuth();
-  const [targetHandle, setTargetHandle] = useState('');
+  const [targetHandle, setTargetHandle] = useState(initialHandle);
   const [reason, setReason] = useState('');
   const [detail, setDetail] = useState('');
   const [shots, setShots] = useState([]); // [{ file, url }]
@@ -31,7 +31,7 @@ export default function ReportGeneralSheet({ open, onClose }) {
   const [done, setDone] = useState(false);
 
   const reset = () => {
-    setTargetHandle('');
+    setTargetHandle(initialHandle);
     setReason('');
     setDetail('');
     setShots([]);
@@ -42,6 +42,12 @@ export default function ReportGeneralSheet({ open, onClose }) {
     reset();
     onClose?.();
   };
+  // 招待の確認（お知らせ⑩）の「…」から開いたときなど、相手のIDをあらかじめ入れておく
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setTargetHandle(initialHandle);
+  }
 
   const addShot = async () => {
     if (shots.length >= 3) return;

@@ -16,12 +16,16 @@ import SettingsScreen from './pages/settings/SettingsScreen';
 import AccountScreen from './pages/settings/AccountScreen';
 import PasswordScreen from './pages/settings/PasswordScreen';
 import InviteScopeScreen from './pages/settings/InviteScopeScreen';
+import NotificationSettingsScreen from './pages/settings/NotificationSettingsScreen';
 import BlockedUsersScreen from './pages/settings/BlockedUsersScreen';
 import { photoUrlOf } from './lib/profile';
 import { GuestGroupLocked, GuestProfile, GuestRegisterSheet, GuestSampleGroupRow, GuestSignupScreen, GuestWelcome } from './pages/guest/GuestParts';
 import HandlePromptScreen from './pages/login/HandlePromptScreen';
 import DiagnosisScreen from './pages/profile/DiagnosisScreen';
 import { parseFriendCodeFromUrl } from './lib/mogutypeApi';
+import { parseGroupJoinFromUrl } from './lib/links';
+import { listenForPushTap, listenForPushToken, reRegisterIfAllowed } from './lib/push';
+import { unreadCount as fetchUnreadCount } from './lib/notifications';
 
 // アプリの外側（引き渡し書 §4-10・§4-11）
 //   浮いた下のタブ「ホーム／グループ／保存／プロフィール」と、各タブの中の画面（設定・お知らせなど）。
@@ -39,6 +43,9 @@ function Shell() {
   const [guestFlow, setGuestFlow] = useState(null); // null | 'signup' | { welcome: true, pendingEmail }
   const [diagnosis, setDiagnosis] = useState(null); // null | { intent } … マイページの［診断］／設定の「食スタイル診断」の画面
   const [pendingFriendCode, setPendingFriendCode] = useState(null); // mogu://mogu-type/link で受け取ったフレンドコード
+  const [pendingGroupCode, setPendingGroupCode] = useState(null); // mogu://group/join（招待ページ・QR）で受け取った招待コード
+  const [pendingOpenGroup, setPendingOpenGroup] = useState(null); // お知らせの行から開く先（{ id, tab }）
+  const [unread, setUnread] = useState(false); // ベルの赤い点（未読が1つでもあれば出す）
 
   const push = useCallback((name, props = {}) => setStack((s) => [...s, { name, props }]), []);
   const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
@@ -48,33 +55,83 @@ function Shell() {
     setTab(t);
   };
   const openShop = useCallback((s, opts = {}) => setShop({ shop: s, from: opts.from || 'saved' }), []);
+  // お知らせの行から：グループタブに移って、そのグループを開く（§7-6）
+  const openGroup = useCallback(
+    (groupId, tabName) => {
+      if (!groupId) return;
+      setStack([]);
+      setTab('group');
+      setPendingOpenGroup({ id: groupId, tab: tabName || null });
+    },
+    []
+  );
   const openGuestSheet = useCallback(() => setGuestSheet(true), []);
   const openDiagnosis = useCallback((intent) => setDiagnosis({ intent }), []);
 
   // Mogu Type連携（§4-3・§4-4）：Safariから mogu://mogu-type/link?friendCode=... で戻ってきたとき
+  // グループの招待（§7-5・§10）：招待ページ・QRコードから mogu://group/join?code=... で開かれたとき
   useEffect(() => {
     const sub = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
-      const code = parseFriendCodeFromUrl(url);
-      if (!code) return;
-      setPendingFriendCode(code);
-      setDiagnosis((d) => d || {});
+      const friendCode = parseFriendCodeFromUrl(url);
+      if (friendCode) {
+        setPendingFriendCode(friendCode);
+        setDiagnosis((d) => d || {});
+        return;
+      }
+      const groupCode = parseGroupJoinFromUrl(url);
+      if (groupCode) {
+        setStack([]);
+        setTab('group');
+        setPendingGroupCode(groupCode);
+      }
     });
     return () => {
       sub.then((s) => s.remove()).catch(() => {});
     };
   }, []);
 
+  // プッシュ通知：すでに許可済みなら端末トークンを登録し直す。登録先・タップしたときの受け皿を用意する
+  useEffect(() => {
+    reRegisterIfAllowed();
+    const offToken = listenForPushToken();
+    const offTap = listenForPushTap(() => {
+      setStack([]);
+      push('notifications');
+    });
+    return () => {
+      offToken();
+      offTap();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const top = stack[stack.length - 1];
+
+  const refreshUnread = useCallback(() => {
+    if (guest) return;
+    fetchUnreadCount()
+      .then((n) => setUnread(n > 0))
+      .catch(() => {});
+  }, [guest]);
+
+  useEffect(() => {
+    refreshUnread();
+  }, [refreshUnread]);
+  // お知らせの画面を閉じたとき（既読にしたあと）、ベルの印を更新する
+  useEffect(() => {
+    if (!top) refreshUnread();
+  }, [top, refreshUnread]);
 
   const renderSub = (item) => {
     switch (item.name) {
       case 'notifications':
-        return <NotificationsScreen onBack={pop} />;
+        return <NotificationsScreen onBack={pop} onOpenGroup={openGroup} />;
       case 'settings':
         return (
           <SettingsScreen
             onBack={pop}
             onOpenAccount={() => push('account')}
+            onOpenNotifications={() => push('notificationSettings')}
             onOpenInviteScope={() => push('inviteScope')}
             onOpenBlocked={() => push('blockedUsers')}
             onOpenDiagnosis={openDiagnosis}
@@ -90,6 +147,8 @@ function Shell() {
         return <AccountScreen onBack={pop} onOpenPassword={() => push('password')} />;
       case 'password':
         return <PasswordScreen onBack={pop} />;
+      case 'notificationSettings':
+        return <NotificationSettingsScreen onBack={pop} />;
       case 'inviteScope':
         return <InviteScopeScreen onBack={pop} />;
       case 'blockedUsers':
@@ -108,7 +167,7 @@ function Shell() {
           onSelectGroup={setSelectedGroup}
           onOpenShop={openShop}
           onOpenNotifications={() => push('notifications')}
-          unread={false}
+          unread={unread}
           guideRequest={guideRequest}
           guestSlot={guest ? (close) => <GuestSampleGroupRow onRegister={() => { close(); setGuestFlow('signup'); }} /> : undefined}
           onGuestLocked={openGuestSheet}
@@ -119,7 +178,15 @@ function Shell() {
           {guest ? (
             <GuestGroupLocked onRegister={() => setGuestFlow('signup')} onLocked={openGuestSheet} locked={guestSheet} />
           ) : (
-            <GroupScreen selectedGroup={selectedGroup} onSelectGroup={setSelectedGroup} />
+            <GroupScreen
+              selectedGroup={selectedGroup}
+              onSelectGroup={setSelectedGroup}
+              pendingCode={pendingGroupCode}
+              onConsumePendingCode={() => setPendingGroupCode(null)}
+              pendingOpenGroup={pendingOpenGroup}
+              onConsumePendingOpenGroup={() => setPendingOpenGroup(null)}
+              onOpenShop={openShop}
+            />
           )}
         </div>
       )}

@@ -51,6 +51,15 @@
   var code = m ? m[1] : '';
   var box = document.getElementById('code');
   var btn = document.getElementById('copy');
+
+  // moguアプリが入っていれば、すぐにアプリの「グループを確かめる」を開こうとする。
+  // 開けなかった（アプリがない）ときは、このままこのページで案内する（引き渡し書 §10：招待のリンクとQRのURLの形）
+  if (code) {
+    var opened = false;
+    document.addEventListener('visibilitychange', function () { if (document.hidden) opened = true; });
+    window.addEventListener('pagehide', function () { opened = true; });
+    try { location.href = 'mogu://group/join?code=' + encodeURIComponent(code); } catch (e) { /* 無視 */ }
+  }
   if (code) {
     box.textContent = code;
     btn.hidden = false;

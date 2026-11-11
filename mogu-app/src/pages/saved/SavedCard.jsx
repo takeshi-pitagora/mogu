@@ -11,7 +11,7 @@ export const SAVED_CARD_H = 262;
 const LONG_PRESS_MS = 480;
 const SLOP = 8;
 
-export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false }) {
+export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false, rankBadge }) {
   const photos = shopPhotos(shop);
   const rating = ratingOf(shop);
   const budget = budgetLabel(shop.price_level);
@@ -44,6 +44,17 @@ export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false })
           <span style={{ fontFamily: font.dela, fontSize: 15, color: color.ink }}>{rating.value}</span>
         </span>
       )}
+      {/* 並び順「同じモグタイプに人気」「急上昇中」のときだけ：左上に順位、右上の評価の下あたりに件数（§7-7） */}
+      {rankBadge && (
+        <span style={{ position: 'absolute', left: 14, top: 14, display: 'flex', alignItems: 'baseline', gap: 4, height: 32, boxSizing: 'border-box', padding: '0 12px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, background: color.ink, fontSize: 11, fontWeight: 700, color: color.line, lineHeight: '28px', zIndex: 2 }}>
+          <span style={{ fontFamily: font.dela, fontSize: 15, color: color.white }}>{rankBadge.rank}位</span>
+        </span>
+      )}
+      {rankBadge?.text && (
+        <span style={{ position: 'absolute', right: 14, top: rating ? 50 : 14, height: 24, boxSizing: 'border-box', padding: '0 10px', borderRadius: 12, background: alpha(color.white, 0.92), fontSize: 11, fontWeight: 700, color: color.ink, lineHeight: '24px', zIndex: 2, whiteSpace: 'nowrap' }}>
+          {rankBadge.text}
+        </span>
+      )}
       <div style={{ position: 'absolute', left: 18, right: 18, bottom: 16, color: color.white, zIndex: 2 }}>
         <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 21, fontWeight: 400, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shop.name}</h2>
         {(place || budget) && (
@@ -65,7 +76,7 @@ export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false })
   );
 }
 
-export default function SavedCard({ shop, onOpen, onLongPress }) {
+export default function SavedCard({ shop, onOpen, onLongPress, rankBadge }) {
   const photos = shopPhotos(shop);
   const [index, setIndex] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -144,7 +155,7 @@ export default function SavedCard({ shop, onOpen, onLongPress }) {
       onContextMenu={(e) => e.preventDefault()}
       style={{ touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', cursor: 'pointer' }}
     >
-      <SavedCardBody shop={shop} index={index} offset={offset} dragging={dragging} />
+      <SavedCardBody shop={shop} index={index} offset={offset} dragging={dragging} rankBadge={rankBadge} />
     </div>
   );
 }

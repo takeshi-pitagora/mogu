@@ -57,7 +57,7 @@ function RegisterCard({ onClick }) {
   );
 }
 
-export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScope, onOpenBlocked, onOpenDiagnosis, onShowGuide, onRegister }) {
+export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScope, onOpenBlocked, onOpenDiagnosis, onOpenNotifications, onShowGuide, onRegister }) {
   const { user, logout } = useAuth();
   const guest = !!user?.isGuest;
   const [confirm, setConfirm] = useState(false);
@@ -84,6 +84,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
       {guest ? <RegisterCard onClick={onRegister} /> : <AccountCard user={user} onClick={onOpenAccount} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 16 }}>
+        {!guest && <Tile icon="bell" label="通知" value={user.notifEnabled ? 'オン' : 'オフ'} onClick={onOpenNotifications} />}
         {!guest && <Tile icon="tray" label="招待を受け取る範囲" value={user.inviteScope === 'none' ? '受け取らない' : '誰からでも'} onClick={onOpenInviteScope} />}
         {!guest && <Tile icon="block" label="ブロックしたユーザー" value={blockedCount == null ? '…' : `${blockedCount}人`} onClick={onOpenBlocked} />}
         <Tile icon="link" label="食スタイル診断" value={diagnosed ? '診断済み' : '未診断'} onClick={() => onOpenDiagnosis?.()} />

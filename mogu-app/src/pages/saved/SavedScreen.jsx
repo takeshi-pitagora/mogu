@@ -9,8 +9,9 @@ import Icon from '../../components/ui/Icon';
 import { Radio, RadioDisabled } from '../../components/ui/Radio';
 import { LoadingState, ErrorState } from '../../components/ui/States';
 import { chara, GUIDE } from '../../lib/chara';
-import { fetchMyGroups, fetchSaved, sendToGroup, setSavedHidden } from '../../lib/api';
+import { fetchMyGroups, fetchSaved, fetchTrendingRanking, fetchTypePopularRanking, sendToGroup, setSavedHidden } from '../../lib/api';
 import { externalLinks, genreLabel } from '../../lib/shop';
+import { getType } from '../../lib/mogutype';
 import { openExternal } from '../../lib/open';
 import { FEATURES } from '../../lib/features';
 import SavedCard, { SavedCardBody, SAVED_CARD_H } from './SavedCard';
@@ -19,31 +20,36 @@ import SendToGroupSheet from '../shop/SendToGroupSheet';
 // 保存（確定版 Final-09 大きなカード型）
 //   上部「保存」と並べ替え、検索「キーワードを検索」、「36件 ・ 新しい順」、大きなカードの1列
 //   保存に出すのは、ひとりでいいねしたお店だけ
-//   1回目の並べ替えは「新しい順・評価の高い順・予算の安い順」。年代別の評価順は Coming Soon（押せない）。
-//   「同じモグタイプに人気順」「急上昇中」は3回目まで出さない
-const SORTS = [
-  { key: 'new', label: '新しい順' },
-  { key: 'rating', label: '評価の高い順（全年代）' },
-  { key: 'budget', label: '予算の安い順' },
-];
+//   並べ替え：新しい順・評価の高い順（全年代）・同じモグタイプに人気順・急上昇中・予算の安い順（§7-7。3回目から）
+//   「同じモグタイプに人気順」はまだ診断していない人には出さない
+function baseSorts() {
+  return [
+    { key: 'new', label: '新しい順' },
+    { key: 'rating', label: '評価の高い順（全年代）' },
+  ];
+}
 
-function sortShops(list, key) {
+function sortShops(list, key, rankMaps) {
   const arr = [...list];
   if (key === 'rating') arr.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0) || (Number(b.user_ratings_total) || 0) - (Number(a.user_ratings_total) || 0));
   else if (key === 'budget') arr.sort((a, b) => (a.price_level == null ? 99 : Number(a.price_level)) - (b.price_level == null ? 99 : Number(b.price_level)));
-  else arr.sort((a, b) => (b._order ?? 0) - (a._order ?? 0));
+  else if (key === 'typePopular' || key === 'trending') {
+    const map = rankMaps?.[key];
+    arr.sort((a, b) => (map?.get(b.id)?.like_count ?? -1) - (map?.get(a.id)?.like_count ?? -1));
+  } else arr.sort((a, b) => (b._order ?? 0) - (a._order ?? 0));
   return arr;
 }
 
-function SortSheet({ open, value, onApply, onClose }) {
+function SortSheet({ open, value, onApply, onClose, showTypePopular }) {
   const [draft, setDraft] = useState(value);
   if (!open) return null;
+  const sorts = [...baseSorts(), ...(showTypePopular ? [{ key: 'typePopular', label: '同じモグタイプに人気順' }] : []), { key: 'trending', label: '急上昇中' }, { key: 'budget', label: '予算の安い順' }];
   const row = { width: '100%', height: 60, padding: 0, border: 0, borderBottom: `1px solid ${color.line}`, background: 'transparent', color: color.ink, fontFamily: 'inherit', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left' };
   return (
     <BottomSheet open onClose={onClose} ariaLabel="並べ替え">
       <SheetBar title="並べ替え" onCancel={onClose} actionLabel="適用" onAction={() => onApply(draft)} />
       <div role="radiogroup" aria-label="並べ替え">
-        {SORTS.map((s) => (
+        {sorts.map((s) => (
           <button key={s.key} type="button" role="radio" aria-checked={draft === s.key} onClick={() => setDraft(s.key)} style={{ ...row, fontWeight: draft === s.key ? 700 : 500 }}>
             {s.label}
             <Radio on={draft === s.key} />
@@ -150,6 +156,8 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
   const [sort, setSort] = useState('new');
   const [sheet, setSheet] = useState(null); // 'sort' | { menu: shop, rect } | { send: shop }
   const [groups, setGroups] = useState([]);
+  const [rankMaps, setRankMaps] = useState({}); // { typePopular: Map, trending: Map }（§7-7。並び順と、カードの件数バッジに使う）
+  const diagnosed = !!getType(user?.moguType?.code);
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -182,16 +190,36 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
     };
   }, [user?.id, guest]);
 
+  // 並び順「同じモグタイプに人気」「急上昇中」を選んだときだけ、集計を取りに行く（§7-7）
+  useEffect(() => {
+    if (!FEATURES.rankingSorts) return undefined;
+    if (sort !== 'typePopular' && sort !== 'trending') return undefined;
+    if (rankMaps[sort]) return undefined;
+    let alive = true;
+    const fetcher = sort === 'typePopular' ? fetchTypePopularRanking : fetchTrendingRanking;
+    fetcher()
+      .then((rows) => {
+        if (!alive) return;
+        const map = new Map();
+        rows.forEach((r, i) => map.set(r.restaurant_id, { rank: i + 1, like_count: r.like_count }));
+        setRankMaps((m) => ({ ...m, [sort]: map }));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [sort, rankMaps]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = (shops || []).filter((s) => {
       if (!q) return true;
       return [s.name, s.area, genreLabel(s), s.address].filter(Boolean).some((t) => String(t).toLowerCase().includes(q));
     });
-    return sortShops(list, sort);
-  }, [shops, query, sort]);
+    return sortShops(list, sort, rankMaps);
+  }, [shops, query, sort, rankMaps]);
 
-  const sortLabel = SORTS.find((s) => s.key === sort)?.label || '';
+  const sortLabel = [...baseSorts(), { key: 'typePopular', label: '同じモグタイプに人気順' }, { key: 'trending', label: '急上昇中' }, { key: 'budget', label: '予算の安い順' }].find((s) => s.key === sort)?.label || '';
   // 押しても何も起きないボタンは置かない：ゲストは登録の案内、グループがなければ［グループに送る］を出さない
   const canSend = FEATURES.sendToGroup && (guest || groups.length > 0);
 
@@ -256,9 +284,14 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
             {status === 'error' && <ErrorState kind="server" onRetry={() => { setStatus('loading'); setReloadKey((k) => k + 1); }} style={{ height: '70%' }} />}
             {status === 'ready' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: `0 ${layout.screenX}px ${layout.scrollBottom + (guest && FEATURES.sendToGroup ? 72 : 0)}px` }}>
-                {visible.map((s) => (
-                  <SavedCard key={s.id} shop={s} onOpen={() => onOpenShop?.(s, { from: 'saved' })} onLongPress={(rect) => setSheet({ menu: s, rect })} />
-                ))}
+                {visible.map((s) => {
+                  const rank = (sort === 'typePopular' || sort === 'trending') && rankMaps[sort]?.get(s.id);
+                  // 画面ごとの仕様 ⑨：同じモグタイプに人気順は「VNBP 128いいね」、急上昇中は「+42 今週」
+                  const rankBadge = rank
+                    ? { rank: rank.rank, text: sort === 'typePopular' ? `${user?.moguType?.code || ''} ${rank.like_count}いいね`.trim() : `+${rank.like_count} 今週` }
+                    : null;
+                  return <SavedCard key={s.id} shop={s} onOpen={() => onOpenShop?.(s, { from: 'saved' })} onLongPress={(rect) => setSheet({ menu: s, rect })} rankBadge={rankBadge} />;
+                })}
               </div>
             )}
           </div>
@@ -271,6 +304,7 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
         <SortSheet
           open
           value={sort}
+          showTypePopular={diagnosed}
           onClose={() => setSheet(null)}
           onApply={(v) => {
             setSort(v);

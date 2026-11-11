@@ -66,7 +66,7 @@ function Group({ title, note, children }) {
   );
 }
 
-export function FilterSheet({ open, value, onApply, onClose }) {
+export function FilterSheet({ open, value, onApply, onClose, showTypePopular }) {
   const [draft, setDraft] = useState(value);
   const toggle = (key, v) => setDraft((d) => ({ ...d, [key]: d[key].includes(v) ? d[key].filter((x) => x !== v) : [...d[key], v] }));
 
@@ -83,6 +83,10 @@ export function FilterSheet({ open, value, onApply, onClose }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '8px 20px 16px' }}>
           <Group title="並び順" note="1つ選ぶ">
             <FilterChip selected={draft.sort === 'recommend'} onClick={() => setDraft((d) => ({ ...d, sort: 'recommend' }))}>おすすめ</FilterChip>
+            {showTypePopular && (
+              <FilterChip selected={draft.sort === 'typePopular'} onClick={() => setDraft((d) => ({ ...d, sort: 'typePopular' }))}>同じモグタイプに人気</FilterChip>
+            )}
+            <FilterChip selected={draft.sort === 'trending'} onClick={() => setDraft((d) => ({ ...d, sort: 'trending' }))}>急上昇中</FilterChip>
             <ComingSoonChip>年代別の評価順</ComingSoonChip>
           </Group>
           <Group title="エリア" note="複数選択可">

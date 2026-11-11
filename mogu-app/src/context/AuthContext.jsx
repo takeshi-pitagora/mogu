@@ -60,6 +60,12 @@ export function AuthProvider({ children }) {
       bio: profile?.bio || '',
       avatarPath: profile?.avatar_path || null,
       inviteScope: profile?.invite_scope || 'anyone',
+      // 3回目（グループと通知）で足した列
+      notifEnabled: profile?.notif_enabled !== false,
+      notifMatch: profile?.notif_match !== false,
+      notifJoin: profile?.notif_join !== false,
+      notifIdInvite: profile?.notif_id_invite !== false,
+      notifAnnounce: !!profile?.notif_announce,
       moguType: profile?.mogu_type_code
         ? {
             code: profile.mogu_type_code,
@@ -213,6 +219,7 @@ export function AuthProvider({ children }) {
 
   // updates は camelCase のキーだけ渡す（渡さなかった項目は変えない）
   //   name / avatar / foodStyle（今まで通り）、handle / bio / avatarPath / inviteScope（2回目）
+  //   notifEnabled / notifMatch / notifJoin / notifIdInvite / notifAnnounce（3回目）
   const COLUMN_MAP = {
     name: 'display_name',
     avatar: 'avatar',
@@ -221,6 +228,11 @@ export function AuthProvider({ children }) {
     bio: 'bio',
     avatarPath: 'avatar_path',
     inviteScope: 'invite_scope',
+    notifEnabled: 'notif_enabled',
+    notifMatch: 'notif_match',
+    notifJoin: 'notif_join',
+    notifIdInvite: 'notif_id_invite',
+    notifAnnounce: 'notif_announce',
   };
   const updateProfile = async (updates) => {
     if (!user) return { error: 'ログイン情報が見つかりません。' };

@@ -108,9 +108,82 @@ const normalizeCode = (raw) => {
   return /^[A-Za-z0-9]{8}$/.test(t) ? t.toUpperCase() : t;
 };
 
-export async function leaveGroup({ groupId, userId }) {
-  const { error } = await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
+// ピン留め・このグループの通知をオフ（確定版 Final-11 の長押しメニュー・設定タブ。3回目）
+export async function setGroupPinned(groupId, pinned) {
+  const { error } = await supabase.rpc('group_set_pinned', { p_group_id: groupId, p_pinned: pinned });
   if (error) throw error;
+}
+export async function setGroupMuted(groupId, muted) {
+  const { error } = await supabase.rpc('group_set_muted', { p_group_id: groupId, p_muted: muted });
+  if (error) throw error;
+}
+
+// グループ名を変える（確定版 Final-11 の設定タブ。使えない言葉はサーバーの mogu_groups_guard が弾く）
+export async function renameGroup(groupId, name) {
+  const { error } = await supabase.from('groups').update({ name }).eq('id', groupId);
+  if (error) throw error;
+}
+
+// 抜ける（3回目：いちばん早く入った人への引き継ぎをサーバーでまとめて行う）
+export async function leaveGroup({ groupId }) {
+  const { error } = await supabase.rpc('leave_group', { p_group_id: groupId });
+  if (error) throw error;
+}
+
+// IDで招待（確定版 Final-11「IDで招待」）
+export async function findUserByHandle(handle) {
+  const { data, error } = await supabase.rpc('find_user_by_handle', { p_handle: handle });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || null;
+}
+export async function inviteByHandle(groupId, handle) {
+  const { error } = await supabase.rpc('invite_group_by_handle', { p_group_id: groupId, p_handle: handle });
+  if (error) {
+    const msg = `${error.message || ''}`;
+    if (/user_not_found/i.test(msg)) return { error: 'notFound' };
+    if (/already_member/i.test(msg)) return { error: 'alreadyMember' };
+    return { error: 'failed' };
+  }
+  return { success: true };
+}
+
+// お店のタブ：流れ（まだ見ていないお店）・ボード・ハートの付け外し（3回目）
+export async function groupUnseenShops(groupId) {
+  const { data, error } = await supabase.rpc('group_unseen_shops', { p_group_id: groupId });
+  if (error) throw error;
+  return data || [];
+}
+export async function groupBoard(groupId) {
+  const { data, error } = await supabase.rpc('group_board', { p_group_id: groupId });
+  if (error) throw error;
+  return data || [];
+}
+
+// restaurants の中身まで合わせて返す（流れ・ボードのカードを描くのに使う）
+async function withRestaurants(rows, idKey) {
+  const ids = [...new Set(rows.map((r) => r[idKey]).filter(Boolean))];
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase.from('restaurants').select('*').in('id', ids);
+  if (error) throw error;
+  const byId = new Map((data || []).map((r) => [r.id, r]));
+  return rows.map((r) => ({ ...r, shop: byId.get(r[idKey]) || null })).filter((r) => r.shop);
+}
+export async function groupUnseenShopsFull(groupId) {
+  return withRestaurants(await groupUnseenShops(groupId), 'restaurant_id');
+}
+export async function groupBoardFull(groupId) {
+  return withRestaurants(await groupBoard(groupId), 'restaurant_id');
+}
+export async function groupMarkSeen(groupId, restaurantId) {
+  const { error } = await supabase.rpc('group_mark_seen', { p_group_id: groupId, p_restaurant_id: restaurantId });
+  if (error) throw error;
+}
+export async function groupToggleHeart(groupId, restaurantId) {
+  const { data, error } = await supabase.rpc('group_toggle_heart', { p_group_id: groupId, p_restaurant_id: restaurantId });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || { like_count: 0, my_heart: false, matched: false };
 }
 
 // グループの通報（1回目は今の仕組み：運営の窓口へメール。2回目で通報の表に保存する形に変える）
