@@ -29,7 +29,9 @@ function AccountCard({ user, onClick }) {
       <Avatar size={56} photoUrl={photoUrlOf(user.avatarPath)} name={user.name} />
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontFamily: font.dela, fontSize: 18, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</span>
-        {user.email && <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</span>}
+        {/* 写真・ニックネーム・@ID・メールアドレス（4回目 §3-7） */}
+        {user.handle && <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>@{user.handle}</span>}
+        {user.email && <span style={{ display: 'block', marginTop: 1, fontSize: 12, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</span>}
       </span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 13, fontWeight: 700 }}>
         アカウント

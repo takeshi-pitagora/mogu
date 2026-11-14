@@ -91,19 +91,41 @@ export async function markNotifPrompted() {
   if (error && !missingFunction(error)) console.warn('notif_prompted_at の記録に失敗:', error.message);
 }
 
-// 通知の中身を、お知らせ画面に出す文言に変える（確定版 Final-10 の行の文言。4回目 §3-4）
+// 通知の中身を、お知らせ画面に出す文言に変える（確定版 Final-10 の行の文言。修正指示書 §3-6）
+//   名前・グループ名・店名だけを太字にするため、文を細かく分けて返す
+//   [{ t: '文字', b: true }, …]（b が true のところだけ太字）
 export function notificationText(n) {
   const p = n.payload || {};
+  const group = p.group_name || 'グループ';
   switch (n.type) {
+    // 「代官山ランチ部で、サンプル食堂 渋谷店がマッチしました」
     case 'group_match':
-      return { title: `${p.group_name || 'グループ'}で、${p.restaurant_name || 'お店'}がマッチしました`, body: '' };
+      return [
+        { t: group, b: true },
+        { t: 'で、' },
+        { t: p.restaurant_name || 'お店', b: true },
+        { t: 'がマッチしました' },
+      ];
+    // 「はなこさんが代官山ランチ部に参加しました」
     case 'member_joined':
-      return { title: `${p.display_name || '新しいメンバー'}さんが${p.group_name || 'グループ'}に参加しました`, body: '' };
+      return [
+        { t: p.display_name || '新しいメンバー', b: true },
+        { t: 'さんが' },
+        { t: group, b: true },
+        { t: 'に参加しました' },
+      ];
+    // 「@hanako さんから、恵比寿スイーツ会への招待」。返事をしたあとは「恵比寿スイーツ会に参加しました」（⑩-8）
     case 'id_invite':
-      return { title: `${p.inviter_handle ? `@${p.inviter_handle} ` : p.inviter_name ? `${p.inviter_name} ` : ''}さんから、${p.group_name || 'グループ'}への招待`, body: '' };
+      if (p.accepted) return [{ t: group, b: true }, { t: 'に参加しました' }];
+      return [
+        { t: p.inviter_handle ? `@${p.inviter_handle}` : p.inviter_name || '友達', b: true },
+        { t: ' さんから、' },
+        { t: group, b: true },
+        { t: 'への招待' },
+      ];
     case 'announcement':
-      return { title: p.title || 'お知らせ', body: p.body || '' };
+      return [{ t: p.title || 'お知らせ', b: true }];
     default:
-      return { title: 'お知らせ', body: '' };
+      return [{ t: 'お知らせ' }];
   }
 }

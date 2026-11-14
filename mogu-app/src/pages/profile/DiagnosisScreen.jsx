@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
+import { color, font, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { getType } from '../../lib/mogutype';
-import { AXIS_LABELS, AXIS_META, axisHeading, axisPercent } from '../../lib/axis';
+import { AXIS_CARD, AXIS_LABELS, AXIS_META, axisHeading, axisPercent } from '../../lib/axis';
 import { DIAGNOSE_URL, fetchMoguTypeResult, MYPAGE_URL } from '../../lib/mogutypeApi';
 import { openExternal } from '../../lib/open';
 import Button from '../../components/ui/Button';
@@ -161,27 +161,24 @@ function LinkedView({ user, busy, onRefresh, onUnlink }) {
   const detailUrl = user.moguType.detailUrl || MYPAGE_URL;
   const date = user.moguType.linkedAt ? new Date(user.moguType.linkedAt) : null;
   const dateText = date && !Number.isNaN(date.getTime()) ? `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日に連携` : '';
-  const g = type ? groupColor[groupOf(type.code)] : null;
   const axes = user.moguType.axisValues;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-      <MoguTypeCard code={type?.code} characterName={user.moguType.characterName} nickname={user.moguType.nickname} />
-      {dateText && <p style={{ margin: '10px 0 0', fontSize: 12, color: color.sub }}>{dateText}</p>}
+      <MoguTypeCard code={type?.code} characterName={user.moguType.characterName} nickname={user.moguType.nickname} completedAt={user.moguType.completedAt} />
       {axes && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20, width: '100%' }}>
-          <h2 style={{ margin: 0, textAlign: 'left', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>4つの軸</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 0, width: '100%' }}>
+          <h2 style={{ margin: '22px 0 -4px', textAlign: 'left', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>4つの軸</h2>
           {AXIS_META.map((m, i) => {
             const label = AXIS_LABELS[i];
             const { left, right } = axisPercent(axes[m.key] ?? 1.5);
             const leftStrong = left >= right;
-            const strongLabel = leftStrong ? label.left : label.right;
-            const strongPercent = leftStrong ? left : right;
             return (
-              <AxisCard key={m.key} badge={m.badge} number={m.number} heading={axisHeading(strongLabel, strongPercent)} label={label} left={left} right={right} leftStrong={leftStrong} g={g} />
+              <AxisCard key={m.key} meta={m} label={label} left={left} right={right} leftStrong={leftStrong} heading={axisHeading(m.key, leftStrong, leftStrong ? left : right)} />
             );
           })}
         </div>
       )}
+      {dateText && <p style={{ margin: '18px 0 0', fontSize: 12, color: color.sub }}>{dateText}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24, width: '100%' }}>
         <Button variant="secondary" onClick={onRefresh} disabled={busy}>
           結果を更新
@@ -203,14 +200,14 @@ function ConfirmCard({ pending, busy, onCancel, onConfirm }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
       <h2 style={{ margin: '8px 0 0', fontFamily: font.dela, fontSize: 20, fontWeight: 400 }}>この結果が、あなたのパスになります</h2>
-      <MoguTypeCard code={result.typeCode} characterName={result.characterName} nickname={result.nickname} imageUrl={result.imageUrl} style={{ marginTop: 18 }} />
-      <p style={{ margin: '18px 0 0', fontSize: 15, fontWeight: 700 }}>この結果をmoguで使いますか？</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14, width: '100%' }}>
-        <Button variant="primary" onClick={onConfirm} disabled={busy}>
-          使う
-        </Button>
-        <Button variant="secondary" onClick={onCancel} disabled={busy}>
+      <MoguTypeCard code={result.typeCode} characterName={result.characterName} nickname={result.nickname} completedAt={result.completedAt} imageUrl={result.imageUrl} style={{ marginTop: 18 }} />
+      <p style={{ margin: '22px 0 0', fontFamily: font.dela, fontSize: 18 }}>この結果を mogu で使いますか？</p>
+      <div style={{ display: 'flex', gap: 10, marginTop: 12, width: '100%' }}>
+        <Button variant="secondary" onClick={onCancel} disabled={busy} style={{ flex: 1 }}>
           やめる
+        </Button>
+        <Button variant="primary" onClick={onConfirm} disabled={busy} style={{ flex: 1 }}>
+          使う
         </Button>
       </div>
     </div>
@@ -233,42 +230,53 @@ function ErrorView({ error, busy, onRetryDiagnose, onRetry }) {
   );
 }
 
-// 4軸のカード（確定版 Final-06-4〜6）：色付きの軸名・白抜きの番号・見出し・強い側の大きな％・6つに区切ったバーと赤いピン
-function AxisCard({ badge, number, heading, label, left, right, leftStrong, g }) {
-  const dark = g ? g.dark : color.ink;
-  const light = g ? g.light : color.surface;
+// 4軸のカード（確定版 Final-06-4〜6 の HTML のとおり）
+//   地は黒（#2E2C2A）、軸ごとの色（01 緑・02 テラコッタ・03 モーブ・04 金）、
+//   右上に白抜きの番号（Dela 54・横 0.78 につぶす）、色付きの軸名、Dela 21 の見出し、
+//   強い側の大きな％（Dela 46・ずれた影）、6つに区切ったバーと赤いピン
+function AxisCard({ meta, label, left, right, leftStrong, heading }) {
   const strongPercent = leftStrong ? left : right;
   const weakPercent = leftStrong ? right : left;
   const strongLabel = leftStrong ? label.left : label.right;
   const weakLabel = leftStrong ? label.right : label.left;
-  // 6つに区切ったバー：強い側の数（0〜6）だけ濃く塗り、そのすぐ右にピン
-  const filled = Math.min(6, Math.max(0, Math.round((strongPercent / 100) * 6)));
+  // ピンは「左の端＝左の文字そのもの」の目盛りの上に立つ。値（0〜3）の位置＝右の％
+  const pinAt = right;
+  const seg = [meta.main, meta.mid, meta.pale, meta.pale, meta.mid, meta.main];
   return (
-    <div style={{ textAlign: 'left', padding: '16px 16px 18px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 24, background: color.white }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ display: 'inline-flex', height: 26, padding: '0 12px', alignItems: 'center', borderRadius: 13, background: dark, color: color.white, fontSize: 11, fontWeight: 700 }}>{badge}</span>
-        <span aria-hidden="true" style={{ fontFamily: font.dela, fontSize: 30, fontWeight: 400, WebkitTextStroke: `1.5px ${color.ink}`, color: light }}>{number}</span>
-      </div>
-      <p style={{ margin: '10px 0 0', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>{heading}</p>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10 }}>
-        <span>
-          <span style={{ fontWeight: 700 }}>{strongLabel}</span>{' '}
-          <span style={{ fontFamily: font.dela, fontSize: 26, color: dark }}>{strongPercent}%</span>
+    <section style={{ position: 'relative', textAlign: 'left', boxSizing: 'border-box', padding: '18px 20px 20px', border: `${stroke.shape}px solid ${AXIS_CARD.border}`, borderRadius: 28, background: AXIS_CARD.bg, color: AXIS_CARD.text }}>
+      <span
+        aria-hidden="true"
+        style={{ position: 'absolute', right: 16, top: 10, fontFamily: font.dela, fontSize: 54, lineHeight: 1, color: 'transparent', WebkitTextStroke: `2px ${meta.outline}`, transform: 'scaleX(0.78)', transformOrigin: 'right top' }}
+      >
+        {meta.number}
+      </span>
+      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', height: 30, padding: '0 12px', borderRadius: 10, background: meta.main, fontSize: 14, fontWeight: 700 }}>{meta.badge}</span>
+      <h3 style={{ position: 'relative', margin: '10px 0 0', paddingRight: 64, fontFamily: font.dela, fontSize: 21, fontWeight: 400, lineHeight: 1.3 }}>{heading}</h3>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 10 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{strongLabel}</span>
+          <span style={{ fontFamily: font.dela, fontSize: 46, lineHeight: 1, color: AXIS_CARD.number, textShadow: `3px 3px 0 ${meta.main}` }}>{strongPercent}</span>
+          <span style={{ fontFamily: font.dela, fontSize: 16, color: AXIS_CARD.number }}>%</span>
         </span>
-        <span style={{ fontSize: 12, color: color.sub }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: AXIS_CARD.weak }}>
           {weakPercent}% {weakLabel}
         </span>
       </div>
-      <div aria-hidden="true" style={{ display: 'flex', gap: 3, marginTop: 10 }}>
-        {Array.from({ length: 6 }, (_, i) => (
-          <span key={i} style={{ position: 'relative', flex: '1 1 0%', height: 10, borderRadius: 4, background: i < filled ? dark : color.surface }}>
-            {i === Math.max(0, filled - 1) && (
-              <span style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, borderRadius: '50%', background: color.red }} />
-            )}
-          </span>
-        ))}
+      <div style={{ position: 'relative', paddingTop: 30, marginTop: 2 }}>
+        <span aria-hidden="true" style={{ position: 'absolute', top: 0, left: `calc(${pinAt}% - 10px)` }}>
+          <svg width="30" height="44" viewBox="0 0 30 44">
+            <path d="M10 42 19.5 15" stroke="#C9C2B8" strokeWidth="3" />
+            <circle cx="20" cy="12" r="10" fill={color.red} stroke={color.ink} strokeWidth="2" />
+            <circle cx="16.5" cy="8.5" r="3" fill="#FFFFFF" fillOpacity="0.8" />
+          </svg>
+        </span>
+        <div aria-hidden="true" style={{ display: 'flex', height: 22, boxSizing: 'border-box', border: `3px solid ${color.white}`, borderRadius: 11, overflow: 'hidden' }}>
+          {seg.map((bg, i) => (
+            <span key={i} style={{ flex: 1, background: bg, borderLeft: i === 0 ? 0 : `2px solid ${color.ink}` }} />
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 

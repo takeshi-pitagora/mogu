@@ -58,10 +58,12 @@ grant execute on function public.get_my_groups() to authenticated;
 -- ② IDで招待の「相手を確かめる」画面用：invite_by_handle と同じ条件で、
 --   招待できる相手だけプロフィールを返す（できないときは invite_by_handle と同じ not_found）。
 --   見つかっても、まだ招待は送らない（送信は今までどおり invite_by_handle で行う）。
+--   戻り値の列名を変えたので、作り直す前に一度消す（列の形が変わるときは DROP が要る）
+drop function if exists public.preview_invitee_by_handle(uuid, text);
 create or replace function public.preview_invitee_by_handle(p_group_id uuid, p_handle text)
 returns table (
   id uuid, display_name text, handle text, avatar_path text,
-  mogu_type_code text, mogu_type_character_name text, mogu_type_nickname text, mogu_type_linked_at timestamptz
+  mogu_type_code text, mogu_type_character_name text, mogu_type_nickname text, mogu_type_completed_at timestamptz
 )
 language plpgsql
 stable
@@ -92,7 +94,7 @@ begin
 
   return query
     select p.id, p.display_name, p.handle, p.avatar_path,
-           p.mogu_type_code, p.mogu_type_character_name, p.mogu_type_nickname, p.mogu_type_linked_at
+           p.mogu_type_code, p.mogu_type_character_name, p.mogu_type_nickname, p.mogu_type_completed_at
     from public.profiles p
     where p.id = v_target;
 end;
@@ -175,6 +177,8 @@ declare
   v_inviter_type text;
   v_inviter_type_name text;
   v_inviter_nickname text;
+  v_inviter_completed timestamptz;
+  v_member_count int;
 begin
   if auth.uid() is null then
     raise exception 'guest account cannot invite';
@@ -194,10 +198,11 @@ begin
     raise exception 'not_found';
   end if;
 
-  select display_name, handle, avatar_path, mogu_type_code, mogu_type_character_name, mogu_type_nickname
-    into v_inviter_name, v_inviter_handle, v_inviter_avatar, v_inviter_type, v_inviter_type_name, v_inviter_nickname
+  select display_name, handle, avatar_path, mogu_type_code, mogu_type_character_name, mogu_type_nickname, mogu_type_completed_at
+    into v_inviter_name, v_inviter_handle, v_inviter_avatar, v_inviter_type, v_inviter_type_name, v_inviter_nickname, v_inviter_completed
     from public.profiles where id = auth.uid();
   select name into v_group_name from public.groups where id = p_group_id;
+  select count(*)::int into v_member_count from public.group_members where group_id = p_group_id;
 
   insert into public.group_invites (group_id, inviter_id, invitee_id)
   values (p_group_id, auth.uid(), v_target)
@@ -205,9 +210,10 @@ begin
 
   insert into public.notifications (user_id, type, payload)
   values (v_target, 'id_invite', jsonb_build_object(
-    'group_id', p_group_id, 'group_name', v_group_name,
+    'group_id', p_group_id, 'group_name', v_group_name, 'member_count', v_member_count,
     'inviter_id', auth.uid(), 'inviter_name', v_inviter_name, 'inviter_handle', v_inviter_handle, 'inviter_avatar_path', v_inviter_avatar,
-    'inviter_mogu_type_code', v_inviter_type, 'inviter_mogu_type_character_name', v_inviter_type_name, 'inviter_mogu_type_nickname', v_inviter_nickname
+    'inviter_mogu_type_code', v_inviter_type, 'inviter_mogu_type_character_name', v_inviter_type_name, 'inviter_mogu_type_nickname', v_inviter_nickname,
+    'inviter_mogu_type_completed_at', v_inviter_completed
   ));
 end;
 $$;
@@ -217,3 +223,29 @@ revoke all on function public.mogu_notify_member_joined(uuid, uuid) from public,
 grant execute on function public.mogu_notify_member_joined(uuid, uuid) to authenticated;
 revoke all on function public.invite_by_handle(uuid, text) from public, anon;
 grant execute on function public.invite_by_handle(uuid, text) to authenticated;
+
+-- ④ おすすめ度で使う get_group_member_types に、Mogu Type の列を足す。
+--   ⑪のメンバーのラベルは、get_my_groups がまだ無いDBではこの関数から作っているため、
+--   ここでも Mogu Type 連携の値（mogu_type_code）を返すようにする（修正指示書 §3-1：結果は1つだけ持つ）。
+--   おすすめ度の計算に使う food_axes は今までどおり返す（今動いている機能を壊さない）。
+--   戻り値の列が増えるので、作り直す前に一度消す。
+drop function if exists public.get_group_member_types(uuid);
+create or replace function public.get_group_member_types(gid uuid)
+returns table (id uuid, display_name text, avatar text, food_style text, food_axes jsonb, mogu_type_code text, avatar_path text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id, p.display_name, p.avatar, p.food_style, p.food_axes, p.mogu_type_code, p.avatar_path
+  from public.group_members gm
+  join public.profiles p on p.id = gm.user_id
+  where gm.group_id = gid
+    and exists (
+      select 1 from public.group_members me
+      where me.group_id = gid and me.user_id = auth.uid()
+    );
+$$;
+
+revoke all on function public.get_group_member_types(uuid) from public, anon;
+grant execute on function public.get_group_member_types(uuid) to authenticated;

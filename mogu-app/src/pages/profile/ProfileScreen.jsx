@@ -131,15 +131,22 @@ function FindCharaSheet({ open, onClose, onDiagnose }) {
   );
 }
 
-// ③シェア画像：9:16。上に写真・名前・@ID、下にQR（左）とモグキャラ（右）、左下にmoguロゴ（4回目 §7）
-//   QRの飛び先は「プロフィールを見る」用の別URL（lib/links.js の buildProfileLink。未確定・要確認）
+// ③シェア画像（確定版 Final-03-7「BeReal 型」）。360×640（9:16）の形をそのまま3倍で描く
+//   地はグループの淡い色、上に写真のカード（下の黒い帯に名前と@ID）、
+//   その下の左にQRコード、右にモグキャラとタイプ・キャラ名、左下に mogu のロゴ
+//   【要確認】QRコードの飛び先は lib/links.js の buildProfileLink（プロフィールを見る用の公開ページ）。
+//   このURLの形は修正指示書・引き渡し書のどちらにも決まりがないため、けんとに確認する
+const SHARE_SCALE = 3;
+const SHARE_W = 360 * SHARE_SCALE;
+const SHARE_H = 640 * SHARE_SCALE;
+
 async function drawShareImage({ user, type, ch, photoUrl }) {
   const canvas = document.createElement('canvas');
-  const w = 1080;
-  const h = 1920;
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = SHARE_W;
+  canvas.height = SHARE_H;
   const ctx = canvas.getContext('2d');
+  const k = SHARE_SCALE;
+  const g = type ? groupColor[groupOf(type.code)] : null;
 
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
@@ -150,103 +157,78 @@ async function drawShareImage({ user, type, ch, photoUrl }) {
       img.src = src;
     });
 
-  ctx.fillStyle = '#EFEBE4';
-  ctx.fillRect(0, 0, w, h);
+  // 地（グループの淡い色）
+  ctx.fillStyle = g ? g.light : color.surface;
+  ctx.fillRect(0, 0, SHARE_W, SHARE_H);
 
-  // 左上：moguロゴ
-  const logo = await loadImage(LOGO.black);
-  const logoW = w * 0.22;
-  ctx.drawImage(logo, 64, 64, logoW, logoW * (logo.height / logo.width));
-
-  // 写真（丸）
-  const avatarSize = 260;
-  const avatarX = (w - avatarSize) / 2;
-  const avatarY = 300;
+  // 写真のカード（left 20・right 20・top 24・高さ 300・角 28）
+  const cardX = 20 * k;
+  const cardY = 24 * k;
+  const cardW = SHARE_W - 40 * k;
+  const cardH = 300 * k;
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-  ctx.closePath();
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fill();
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, 28 * k);
   ctx.clip();
+  ctx.fillStyle = '#5E4B3C';
+  ctx.fillRect(cardX, cardY, cardW, cardH);
   if (photoUrl) {
     try {
       const img = await loadImage(photoUrl);
-      ctx.drawImage(img, avatarX, avatarY, avatarSize, avatarSize);
+      // 写真はカードいっぱいに、切り取って合わせる
+      const r = Math.max(cardW / img.width, cardH / img.height);
+      const dw = img.width * r;
+      const dh = img.height * r;
+      ctx.drawImage(img, cardX + (cardW - dw) / 2, cardY + (cardH - dh) / 2, dw, dh);
     } catch {
-      // 読み込めないときは白丸のまま
+      /* 読み込めないときは地のまま */
     }
   }
-  ctx.restore();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = '#2E2C2A';
-  ctx.beginPath();
-  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // 名前・@ID
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#2E2C2A';
-  ctx.font = '400 56px "Dela Gothic One", sans-serif';
-  ctx.fillText(user.name || 'mogu', w / 2, avatarY + avatarSize + 100);
-  if (user.handle) {
-    ctx.font = '400 32px "IBM Plex Sans JP", sans-serif';
-    ctx.fillStyle = '#6B6560';
-    ctx.fillText(`@${user.handle}`, w / 2, avatarY + avatarSize + 150);
-  }
-
-  // 下段：QR（左）とモグキャラ（右）
-  const boxY = 980;
-  const boxSize = 440;
-  const gap = 40;
-  const totalW = boxSize * 2 + gap;
-  const leftX = (w - totalW) / 2;
-  const rightX = leftX + boxSize + gap;
-
+  // カードの下の黒い帯（名前と@ID）
+  const bandH = 66 * k;
+  ctx.fillStyle = color.ink;
+  ctx.fillRect(cardX, cardY + cardH - bandH, cardW, bandH);
+  ctx.textAlign = 'left';
   ctx.fillStyle = '#FFFFFF';
-  ctx.strokeStyle = '#2E2C2A';
-  ctx.lineWidth = 4;
-  roundRectPath(ctx, leftX, boxY, boxSize, boxSize, 28);
-  ctx.fill();
-  ctx.stroke();
+  ctx.font = `400 ${22 * k}px "Dela Gothic One", sans-serif`;
+  ctx.fillText(user.name || 'mogu', cardX + 18 * k, cardY + cardH - bandH + 32 * k);
+  if (user.handle) {
+    ctx.fillStyle = '#D9D4CE';
+    ctx.font = `400 ${12 * k}px "IBM Plex Sans JP", sans-serif`;
+    ctx.fillText(`@${user.handle}`, cardX + 18 * k, cardY + cardH - bandH + 52 * k);
+  }
+  ctx.restore();
+
+  // QRコード（136×136・left 24・top 384）
   const link = user.handle ? buildProfileLink(user.handle) : '';
   if (link) {
-    const qrImg = await loadImage(await QRCode.toDataURL(link, { width: boxSize, margin: 1, color: { dark: '#2E2C2A', light: '#FFFFFF' } }));
-    const pad = boxSize * 0.08;
-    ctx.drawImage(qrImg, leftX + pad, boxY + pad, boxSize - pad * 2, boxSize - pad * 2);
+    const qrImg = await loadImage(await QRCode.toDataURL(link, { width: 136 * k, margin: 0, color: { dark: '#2E2C2A', light: '#0000' } }));
+    ctx.drawImage(qrImg, 24 * k, 384 * k, 136 * k, 136 * k);
   }
 
-  const charaBg = type ? groupColor[groupOf(type.code)] : null;
-  ctx.fillStyle = charaBg ? charaBg.light : '#FFFFFF';
-  roundRectPath(ctx, rightX, boxY, boxSize, boxSize, 28);
-  ctx.fill();
-  ctx.stroke();
+  // モグキャラ（148×226・left 186・top 340）とその下のタイプ・キャラ名
   if (ch) {
     const charaImg = await loadImage(ch.framed);
-    const imgH = boxSize * 0.78;
-    const imgW = imgH * (charaImg.width / charaImg.height);
-    ctx.drawImage(charaImg, rightX + (boxSize - imgW) / 2, boxY + boxSize - imgH - 16, imgW, imgH);
-    ctx.fillStyle = charaBg ? charaBg.dark : '#2E2C2A';
-    ctx.font = '400 20px "Dela Gothic One", sans-serif';
+    ctx.drawImage(charaImg, 186 * k, 340 * k, 148 * k, 226 * k);
     ctx.textAlign = 'center';
-    ctx.fillText(type.code, rightX + boxSize / 2, boxY + 36);
-    ctx.font = '700 22px "IBM Plex Sans JP", sans-serif';
-    ctx.fillStyle = '#2E2C2A';
-    ctx.fillText(type.name, rightX + boxSize / 2, boxY + 64);
-  } else {
-    ctx.fillStyle = '#2E2C2A';
-    ctx.font = '400 120px "Dela Gothic One", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('？', rightX + boxSize / 2, boxY + boxSize / 2);
-    ctx.textBaseline = 'alphabetic';
+    const cx = (186 + 148 / 2) * k;
+    ctx.fillStyle = g ? g.dark : color.ink;
+    ctx.font = `400 ${13 * k}px "Dela Gothic One", sans-serif`;
+    ctx.fillText(type.code, cx, 585 * k);
+    ctx.fillStyle = color.ink;
+    ctx.font = `700 ${15 * k}px "IBM Plex Sans JP", sans-serif`;
+    ctx.fillText(type.name, cx, 606 * k);
   }
 
-  // 下：合言葉
-  ctx.fillStyle = '#6B6560';
-  ctx.font = '400 28px "IBM Plex Sans JP", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('mogu でつながろう', w / 2, boxY + boxSize + 90);
+  // 左下の mogu のロゴ（高さ 24・left 24・top 586）
+  const logo = await loadImage(LOGO.black);
+  const logoH = 24 * k;
+  ctx.drawImage(logo, 24 * k, 586 * k, logoH * (logo.width / logo.height), logoH);
+
+  // ふち
+  ctx.strokeStyle = color.ink;
+  ctx.lineWidth = 2 * k;
+  roundRectPath(ctx, k, k, SHARE_W - 2 * k, SHARE_H - 2 * k, 24 * k);
+  ctx.stroke();
 
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }

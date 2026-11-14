@@ -20,7 +20,7 @@ export async function listGroups(userId) {
       need.map(async (g) => {
         try {
           const rows = await fetchGroupMembers(g.id);
-          g.members = rows.map((m) => ({ id: m.id, display_name: m.display_name, food_style: m.food_style }));
+          g.members = rows.map((m) => ({ id: m.id, display_name: m.display_name, mogu_type_code: m.mogu_type_code }));
           g.count = rows.length || g.count;
         } catch {
           /* 読めないときは名前なし */
@@ -33,7 +33,7 @@ export async function listGroups(userId) {
 
 export async function groupMembers(groupId) {
   const rows = await fetchGroupMembers(groupId);
-  return rows.map((m) => ({ id: m.id, display_name: m.display_name, food_style: m.food_style }));
+  return rows.map((m) => ({ id: m.id, display_name: m.display_name, mogu_type_code: m.mogu_type_code }));
 }
 
 // グループを作る（作った人もメンバーに入る）。目的の選択はなくしたので、今の列の値（friend）を入れる
@@ -165,7 +165,7 @@ export async function previewInviteeByHandle(groupId, handle) {
             code: row.mogu_type_code,
             characterName: row.mogu_type_character_name,
             nickname: row.mogu_type_nickname,
-            linkedAt: row.mogu_type_linked_at,
+            completedAt: row.mogu_type_completed_at,
           }
         : null,
     },

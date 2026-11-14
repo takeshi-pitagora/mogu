@@ -405,12 +405,7 @@ function InviteGroup({ group, onBack }) {
   const toast = useToast();
   const [invite, setInvite] = useState(null);
   const [error, setError] = useState(false);
-  const [step, setStep] = useState('main'); // main | qr | confirm | sent
-  const [handle, setHandle] = useState('');
-  const [handleBusy, setHandleBusy] = useState(false);
-  const [handleError, setHandleError] = useState('');
-  const [previewPerson, setPreviewPerson] = useState(null);
-  const [sendBusy, setSendBusy] = useState(false);
+  const [step, setStep] = useState('main'); // main | qr | id
 
   useEffect(() => {
     let alive = true;
@@ -436,37 +431,11 @@ function InviteGroup({ group, onBack }) {
   };
   const send = () => invite && shareText({ title: `${group.name}への招待`, text: `mogu のグループ「${group.name}」に参加しよう。招待コード：${invite.code}`, url: invite.link });
 
-  // 「相手を確かめる」：IDでそのまま送らず、見つかった相手のプロフィールを見せてから送る（4回目 §3-3）
-  const lookup = async (e) => {
-    e?.preventDefault();
-    if (!handle.trim() || handleBusy) return;
-    setHandleBusy(true);
-    setHandleError('');
-    const res = await previewInviteeByHandle(group.id, handle.trim());
-    setHandleBusy(false);
-    if (res.error) {
-      setHandleError('そのIDの人を招待できませんでした');
-      return;
-    }
-    setPreviewPerson(res.profile);
-    setStep('confirm');
-  };
-
-  const sendToPreview = async () => {
-    if (!previewPerson || sendBusy) return;
-    setSendBusy(true);
-    const res = await inviteByHandle(group.id, previewPerson.handle);
-    setSendBusy(false);
-    if (res.error) {
-      setHandleError('そのIDの人を招待できませんでした');
-      setStep('main');
-      return;
-    }
-    setStep('sent');
-  };
-
   if (step === 'qr') {
     return <InviteQrPoster group={group} invite={invite} onClose={() => setStep('main')} onSend={send} />;
+  }
+  if (step === 'id') {
+    return <InviteByHandle group={group} onBack={() => setStep('main')} />;
   }
 
   return (
@@ -552,41 +521,125 @@ function InviteGroup({ group, onBack }) {
                 </div>
               </div>
 
+              {/* ⑪-6 ではボタンだけ。IDを入れるのは別の画面（⑪-8）。
+                  「招待を受け取る範囲の設定によっては…」の注意書きは置かない（4回目 §3-3） */}
               <h2 style={{ margin: '28px 0 0', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>IDで招待</h2>
-              <form onSubmit={lookup} style={{ marginTop: 12 }}>
-                <TextField label="友達のID" value={handle} onChange={(v) => { setHandle(v); setHandleError(''); }} placeholder="@から始まるID" />
-                {handleError && (
-                  <p role="status" style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: color.red }}>
-                    {handleError}
-                  </p>
-                )}
-                <Button type="submit" variant="primary" disabled={!handle.trim() || handleBusy} style={{ marginTop: 16 }}>
-                  ユーザーIDで探す
-                </Button>
-                <p style={{ margin: '12px 0 0', fontSize: 12, lineHeight: 1.6, color: color.sub }}>相手の「招待を受け取る範囲」の設定によっては、招待できないことがあります</p>
-              </form>
+              <Button variant="secondary" onClick={() => setStep('id')} style={{ marginTop: 12 }}>
+                ユーザーIDで探す
+              </Button>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {step === 'confirm' && previewPerson && (
-            <InviteHandleConfirm
-              person={previewPerson}
-              busy={sendBusy}
-              onBack={() => setStep('main')}
-              onSend={sendToPreview}
-            />
+// IDで招待（確定版 ⑪-8・9・10）：IDを入れる → 相手を確かめる（⑥のパス）→ 送ったあと
+function InviteByHandle({ group, onBack }) {
+  const [handle, setHandle] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [person, setPerson] = useState(null);
+  const [sent, setSent] = useState(false);
+
+  const lookup = async (e) => {
+    e?.preventDefault();
+    const q = handle.trim().replace(/^@/, '');
+    if (!q || busy) return;
+    setBusy(true);
+    setError('');
+    const res = await previewInviteeByHandle(group.id, q);
+    setBusy(false);
+    // 見つからない・相手が招待を受け取らない・ブロックは、どれも同じ文にする（4回目 §3-5）
+    if (res.error) {
+      setPerson(null);
+      setError('このIDの人は見つかりませんでした');
+      return;
+    }
+    setPerson(res.profile);
+  };
+
+  const send = async () => {
+    if (!person || busy) return;
+    setBusy(true);
+    const res = await inviteByHandle(group.id, person.handle);
+    setBusy(false);
+    if (res.error) {
+      setPerson(null);
+      setError('このIDの人は見つかりませんでした');
+      return;
+    }
+    setSent(true);
+  };
+
+  return (
+    <div style={page}>
+      <header style={{ flex: 'none', paddingTop: 'var(--safe-top)', background: color.bg }}>
+        <div style={{ position: 'relative', height: 44, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button
+            type="button"
+            aria-label="戻る"
+            onClick={onBack}
+            className="ui-btn ui-btn--text"
+            style={{ width: 44, height: 44, padding: 0, border: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="back" size={24} />
+          </button>
+          <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', margin: 0, fontFamily: font.dela, fontSize: 16, fontWeight: 400, whiteSpace: 'nowrap' }}>IDで招待</h1>
+          {sent ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="ui-btn ui-btn--primary"
+              style={{ height: 36, padding: '0 16px', border: 0, borderRadius: 18, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 14, fontWeight: 700 }}
+            >
+              完了
+            </button>
+          ) : (
+            <span style={{ width: 44 }} />
           )}
+        </div>
+      </header>
+      <div style={body}>
+        <div style={{ padding: '18px 20px 40px' }}>
+          <form onSubmit={lookup}>
+            <TextField
+              label="ユーザーID"
+              value={handle}
+              onChange={(v) => {
+                setHandle(v);
+                setError('');
+                setPerson(null);
+                setSent(false);
+              }}
+              prefix="@"
+              placeholder="hanako"
+            />
+            {error && (
+              <p role="status" style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: color.red }}>
+                {error}
+              </p>
+            )}
+            {!person && !sent && (
+              <Button type="submit" variant="primary" disabled={!handle.trim() || busy} style={{ marginTop: 16 }}>
+                ユーザーIDで探す
+              </Button>
+            )}
+          </form>
 
-          {step === 'sent' && previewPerson && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 20 }}>
+          {person && !sent && <InviteHandleConfirm person={person} busy={busy} onSend={send} />}
+
+          {sent && person && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 24 }}>
               <Icon name="check" size={40} color={color.ink} />
-              <p style={{ margin: '16px 0 0', fontSize: 15, fontWeight: 700 }}>招待を送りました</p>
+              <p style={{ margin: '16px 0 0', fontFamily: font.dela, fontSize: 18 }}>招待を送りました</p>
               <Button
                 variant="secondary"
                 onClick={() => {
                   setHandle('');
-                  setPreviewPerson(null);
-                  setStep('main');
+                  setPerson(null);
+                  setSent(false);
                 }}
                 style={{ marginTop: 18, width: '100%' }}
               >
@@ -600,35 +653,37 @@ function InviteGroup({ group, onBack }) {
   );
 }
 
-// 「相手を確かめる」（確定版 ⑪-9）：写真・名前・@ID と、⑥のパス（簡易版）を見せてから送る
-function InviteHandleConfirm({ person, busy, onBack, onSend }) {
+// 「相手を確かめる」（確定版 ⑪-9）：名前・@ID と、その人の⑥のパスを見せてから送る
+function InviteHandleConfirm({ person, busy, onSend }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 18 }}>
       <Avatar size={72} photoUrl={photoUrlOf(person.avatarPath)} name={person.displayName} label="写真" />
       <p style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 18 }}>{person.displayName}</p>
       <p style={{ margin: '2px 0 0', fontSize: 13, color: color.sub }}>@{person.handle}</p>
       {person.moguType ? (
-        <MoguTypeCard code={person.moguType.code} characterName={person.moguType.characterName} nickname={person.moguType.nickname} style={{ marginTop: 18 }} />
+        <MoguTypeCard
+          code={person.moguType.code}
+          characterName={person.moguType.characterName}
+          nickname={person.moguType.nickname}
+          completedAt={person.moguType.completedAt}
+          style={{ marginTop: 18 }}
+        />
       ) : (
-        <div style={{ marginTop: 18, width: '100%', maxWidth: 280, padding: '22px 16px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 24, background: color.surface }}>
-          <p style={{ margin: 0, fontFamily: font.dela, fontSize: 22, color: color.sub }}>？？？？</p>
+        <div style={{ marginTop: 18, width: '100%', maxWidth: 353, boxSizing: 'border-box', padding: '38px 16px', border: `${stroke.shape}px solid ${color.line}`, borderRadius: 24, background: color.surface }}>
+          <p style={{ margin: 0, fontFamily: font.dela, fontSize: 24, letterSpacing: '0.12em', color: color.sub }}>？？？？</p>
           <p style={{ margin: '8px 0 0', fontSize: 13, color: color.sub }}>まだ食スタイル診断をしていません</p>
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24, width: '100%' }}>
-        <Button variant="primary" onClick={onSend} disabled={busy}>
-          招待を送る
-        </Button>
-        <Button variant="secondary" onClick={onBack} disabled={busy}>
-          やめる
-        </Button>
-      </div>
+      <Button variant="primary" onClick={onSend} disabled={busy} style={{ marginTop: 24 }}>
+        招待を送る
+      </Button>
     </div>
   );
 }
 
 // QRコード（確定版 ⑪-7 ストリートポスター型）：mogu のロゴのふちだけを背景にくり返し、
 // 「SCAN TO JOIN」の帯を斜めに2本。QRの下にグループ名、左下にロゴ、右下に招待コード
+const BAND_TEXT = 'SCAN TO JOIN ✦ SCAN TO JOIN ✦ SCAN TO JOIN ✦ SCAN TO JOIN';
 const POSTER_W = 960;
 const POSTER_H = 1280;
 function InviteQrPoster({ group, invite, onClose, onSend }) {
@@ -667,7 +722,7 @@ function InviteQrPoster({ group, invite, onClose, onSend }) {
   };
 
   return (
-    <div style={{ ...page, background: color.ink }}>
+    <div style={page}>
       <header style={{ flex: 'none', paddingTop: 'var(--safe-top)' }}>
         <div style={{ height: 44, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           <button
@@ -675,9 +730,9 @@ function InviteQrPoster({ group, invite, onClose, onSend }) {
             aria-label="閉じる"
             onClick={onClose}
             className="ui-btn ui-btn--text"
-            style={{ width: 44, height: 44, padding: 0, border: 0, background: 'transparent', color: color.white, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 44, height: 44, boxSizing: 'border-box', padding: 0, border: `${stroke.shape}px solid ${color.ink}`, borderRadius: '50%', background: color.white, color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Icon name="close" size={24} />
+            <Icon name="close" size={22} />
           </button>
         </div>
       </header>
@@ -691,17 +746,17 @@ function InviteQrPoster({ group, invite, onClose, onSend }) {
             aspectRatio: `${POSTER_W} / ${POSTER_H}`,
             overflow: 'hidden',
             borderRadius: 28,
-            background: `${color.surface} url(${LOGO_OUTLINE}) repeat`,
-            backgroundSize: '160px auto',
+            background: `${color.white} url(${LOGO_OUTLINE}) repeat`,
+            backgroundSize: '150px auto',
             border: `${stroke.shape}px solid ${color.ink}`,
           }}
         >
           {/* SCAN TO JOIN の帯（斜め2本） */}
-          <div style={{ position: 'absolute', left: '-20%', top: '14%', width: '140%', transform: 'rotate(-8deg)', background: color.ink, color: color.white, padding: '6px 0', fontFamily: font.dela, fontSize: 13, letterSpacing: '0.1em', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-            SCAN TO JOIN • SCAN TO JOIN • SCAN TO JOIN
+          <div style={{ position: 'absolute', left: '-20%', top: '18%', width: '140%', transform: 'rotate(-8deg)', background: color.surface, color: color.ink, padding: '7px 0', fontFamily: font.dela, fontSize: 13, letterSpacing: '0.08em', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            {BAND_TEXT}
           </div>
-          <div style={{ position: 'absolute', left: '-20%', bottom: '20%', width: '140%', transform: 'rotate(-8deg)', background: color.accent, color: color.white, padding: '6px 0', fontFamily: font.dela, fontSize: 13, letterSpacing: '0.1em', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-            SCAN TO JOIN • SCAN TO JOIN • SCAN TO JOIN
+          <div style={{ position: 'absolute', left: '-20%', bottom: '18%', width: '140%', transform: 'rotate(-8deg)', background: color.ink, color: color.white, padding: '7px 0', fontFamily: font.dela, fontSize: 13, letterSpacing: '0.08em', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            {BAND_TEXT}
           </div>
 
           <div style={{ position: 'absolute', left: '50%', top: '42%', transform: 'translate(-50%, -50%)', width: '62%', aspectRatio: '1 / 1', background: color.white, borderRadius: 20, border: `${stroke.shape}px solid ${color.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%', boxSizing: 'border-box' }}>
@@ -725,7 +780,7 @@ function InviteQrPoster({ group, invite, onClose, onSend }) {
             onClick={saveImage}
             disabled={!invite || saving}
             className="ui-btn ui-btn--secondary"
-            style={{ flex: 1, height: 52, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.white}`, borderRadius: 26, background: 'transparent', color: color.white, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            style={{ flex: 1, height: 52, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 26, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
             <Icon name="download" size={18} />
             画像を保存
@@ -736,7 +791,7 @@ function InviteQrPoster({ group, invite, onClose, onSend }) {
               onClick={onSend}
               disabled={!invite}
               className="ui-btn ui-btn--primary"
-              style={{ flex: 1, height: 52, border: 0, borderRadius: 26, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              style={{ flex: 1, height: 52, border: 0, borderRadius: 26, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
             >
               <Icon name="share" size={18} />
               LINE などで送る
@@ -764,12 +819,12 @@ async function drawPosterToCanvas({ canvas, groupName, code, link }) {
     });
 
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#F7EAD1';
+  ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, w, h);
 
   const outline = await loadImage(LOGO_OUTLINE);
   const tile = 220;
-  ctx.globalAlpha = 0.5;
+  ctx.globalAlpha = 1;
   for (let y = -tile; y < h + tile; y += tile * 0.6) {
     for (let x = -tile; x < w + tile; x += tile) {
       ctx.drawImage(outline, x, y, tile, tile * (outline.height / outline.width));
@@ -778,21 +833,21 @@ async function drawPosterToCanvas({ canvas, groupName, code, link }) {
   ctx.globalAlpha = 1;
 
   // 斜めの帯
-  const drawBand = (yFrac, fill) => {
+  const drawBand = (yFrac, fill, textColor) => {
     ctx.save();
     ctx.translate(w / 2, h * yFrac);
     ctx.rotate((-8 * Math.PI) / 180);
     ctx.fillStyle = fill;
     ctx.fillRect(-w * 0.7, -34, w * 1.4, 68);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '700 32px "Dela Gothic One", sans-serif';
+    ctx.fillStyle = textColor;
+    ctx.font = '400 32px "Dela Gothic One", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('SCAN TO JOIN  •  SCAN TO JOIN  •  SCAN TO JOIN', 0, 2);
+    ctx.fillText(BAND_TEXT, 0, 2);
     ctx.restore();
   };
-  drawBand(0.16, '#2E2C2A');
-  drawBand(0.62, '#C08268');
+  drawBand(0.2, '#EFEBE4', '#2E2C2A');
+  drawBand(0.78, '#2E2C2A', '#FFFFFF');
 
   // QR
   const qrSize = w * 0.6;
