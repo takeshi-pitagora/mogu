@@ -227,17 +227,18 @@ grant execute on function public.invite_by_handle(uuid, text) to authenticated;
 -- ④ おすすめ度で使う get_group_member_types に、Mogu Type の列を足す。
 --   ⑪のメンバーのラベルは、get_my_groups がまだ無いDBではこの関数から作っているため、
 --   ここでも Mogu Type 連携の値（mogu_type_code）を返すようにする（修正指示書 §3-1：結果は1つだけ持つ）。
---   おすすめ度の計算に使う food_axes は今までどおり返す（今動いている機能を壊さない）。
+--   おすすめ順の計算も Mogu Type の4軸（mogu_type_axis_values）に寄せるので、それも返す。
+--   古い列（food_style・food_axes）は、戻したくなったときのために残しておく（読むのはやめる）。
 --   戻り値の列が増えるので、作り直す前に一度消す。
 drop function if exists public.get_group_member_types(uuid);
 create or replace function public.get_group_member_types(gid uuid)
-returns table (id uuid, display_name text, avatar text, food_style text, food_axes jsonb, mogu_type_code text, avatar_path text)
+returns table (id uuid, display_name text, avatar text, food_style text, food_axes jsonb, mogu_type_code text, mogu_type_axis_values jsonb, avatar_path text)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select p.id, p.display_name, p.avatar, p.food_style, p.food_axes, p.mogu_type_code, p.avatar_path
+  select p.id, p.display_name, p.avatar, p.food_style, p.food_axes, p.mogu_type_code, p.mogu_type_axis_values, p.avatar_path
   from public.group_members gm
   join public.profiles p on p.id = gm.user_id
   where gm.group_id = gid

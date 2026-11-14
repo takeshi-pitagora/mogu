@@ -1,5 +1,5 @@
 // =============================================================
-// 相性診断：同じグループにいる友達を取り出して、相性の高い順に並べる
+// おすすめ順に使う、同じグループのメンバーの4軸を取り出す
 //
 // - 友達の取得は、Supabase の関数 get_group_peers()（supabase/migrations/20261030_group_peers.sql）を使う。
 //   他人のプロフィールは RLS で直接読めないことがあるため、
@@ -7,32 +7,22 @@
 // - 関数がまだ無いDBでは、通常のクエリで読める範囲だけ取得する（読めなければ空）。
 // =============================================================
 import { supabase } from './supabase';
-import { getType } from './mogutype';
-import { axesFromTypeCode, pairCompatibility } from './recommend';
 
 const AXIS_KEYS = ['VT', 'NF', 'BG', 'PL'];
 
-// 保存済みの4軸スコアがあればそれを、無ければタイプコードから軸の値を作る
-export function axesFor(foodAxes, code) {
-  if (foodAxes && AXIS_KEYS.every((k) => Number.isFinite(Number(foodAxes[k])))) {
-    const out = {};
-    AXIS_KEYS.forEach((k) => { out[k] = Number(foodAxes[k]); });
-    return out;
-  }
-  return getType(code) ? axesFromTypeCode(code) : null;
-}
-
-// 自分 me（{ foodAxes, foodStyle }）と友達一覧 peers から、相性の高い順のリストを作る。
-// 診断していない友達は percent: null で末尾に回す。
-export function rankPeers(me, peers) {
-  const myAxes = axesFor(me?.foodAxes, me?.foodStyle);
-  const rows = (peers || []).map((p) => {
-    const type = getType(p.food_style);
-    const theirAxes = axesFor(p.food_axes, p.food_style);
-    const percent = myAxes && theirAxes ? pairCompatibility(myAxes, theirAxes).total : null;
-    return { id: p.id, name: p.display_name || 'ユーザー', avatar: p.avatar, type, percent };
+// おすすめ順に使う4軸。Mogu Type 連携の値（mogu_type_axis_values）だけを見る。
+//   古い20問の列（food_axes・food_style）はもう読まない（けんとの指示 2026-11-14）。
+//   プロフィールや⑥で見せているのは Mogu Type の結果なので、おすすめだけ別の結果で
+//   計算していると、見せている結果と中身が合わなくなるため。
+//   連携していない人は「軸なし」＝ null（おすすめ順の計算に入れない）。
+export function axesFor(axisValues) {
+  if (!axisValues) return null;
+  if (!AXIS_KEYS.every((k) => Number.isFinite(Number(axisValues[k])))) return null;
+  const out = {};
+  AXIS_KEYS.forEach((k) => {
+    out[k] = Number(axisValues[k]);
   });
-  return rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1));
+  return out;
 }
 
 export async function fetchGroupPeers(userId) {
@@ -57,7 +47,7 @@ export async function fetchGroupPeers(userId) {
 
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar, food_style, food_axes')
+    .select('id, display_name, avatar, mogu_type_code, mogu_type_axis_values')
     .in('id', ids);
   return profiles || [];
 }

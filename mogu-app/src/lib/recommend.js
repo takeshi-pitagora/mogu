@@ -296,19 +296,36 @@ export function recommend(members, rows, { limit = 20, params = DEFAULT_PARAMS }
 }
 
 // ---------------------------------------------------------------
-// 2人のタイプ相性（mogutype.com の calculateCompatibility と同じ式）
-//   VT・BG は差が小さいほど高く、NF・PL は常に満点（違っても役割分担できる）
+// 2人の総合相性度（50〜100%）。サイト（mogutype.com）の compatibilityScore そのまま。
+//   出どころ：03_diagnosis_data/source/compat-result.js（2026年10月に変えた今の式）
+//   ・映え／味（VT）とお財布（BG）：1軸25点。合計点の差1点につき、
+//     文字が同じなら2.3点、文字が違えば3点を引く（0点より下げない）
+//   ・開拓（NF）と予約（PL）：25点ずつ固定
+//   ・小数の誤差を出さないため、0.1点を1とする整数で計算する（サイトと同じ書き方）
 // ---------------------------------------------------------------
+const COMPAT_SIMILAR_AXES = ['VT', 'BG'];
+const COMPAT_PENALTY_SAME = 23; // 0.1点単位（2.3点）
+const COMPAT_PENALTY_DIFFERENT = 30; // 0.1点単位（3点）
+const COMPAT_LETTER_BORDER = 7; // 合計点7以下が左の文字
+
+function compatAxisSum(value) {
+  const number = Number(value ?? 1.5);
+  const safe = Number.isFinite(number) ? number : 1.5;
+  return Math.min(15, Math.max(0, Math.round(safe * 5)));
+}
+
+function compatAxisTenths(sumA, sumB) {
+  const sameLetter = sumA <= COMPAT_LETTER_BORDER === sumB <= COMPAT_LETTER_BORDER;
+  const penalty = (sameLetter ? COMPAT_PENALTY_SAME : COMPAT_PENALTY_DIFFERENT) * Math.abs(sumA - sumB);
+  return Math.max(0, 250 - penalty);
+}
+
 export function pairCompatibility(axesA, axesB) {
-  const modes = { VT: 'similar', NF: 'fixed', BG: 'similar', PL: 'fixed' };
-  let total = 0;
-  const parts = {};
-  AXES.forEach((axis) => {
-    const diff = Math.abs((axesA?.[axis] ?? 1.5) - (axesB?.[axis] ?? 1.5));
-    const raw = modes[axis] === 'fixed' ? 25 : 25 - diff * 8.33;
-    const score = Math.max(0, Math.min(25, raw));
-    parts[axis] = Math.round(score * 10) / 10;
-    total += score;
+  const tenths = {};
+  COMPAT_SIMILAR_AXES.forEach((key) => {
+    tenths[key] = compatAxisTenths(compatAxisSum(axesA?.[key]), compatAxisSum(axesB?.[key]));
   });
-  return { total: Math.max(50, Math.min(100, Math.round(total))), parts };
+  const parts = { VT: tenths.VT / 10, NF: 25, BG: tenths.BG / 10, PL: 25 };
+  const total = Math.floor((500 + tenths.VT + tenths.BG + 5) / 10);
+  return { total, parts };
 }

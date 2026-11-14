@@ -100,10 +100,12 @@ export function applyPopularityOrder(rows, ids) {
 async function rankForGroup(rows, groupId, user) {
   const memberRows = await fetchGroupMembers(groupId);
   const others = memberRows.filter((m) => m.id !== user?.id);
-  const members = [
-    { axes: axesFor(user?.foodAxes, user?.foodStyle) || {} },
-    ...others.map((m) => ({ axes: axesFor(m.food_axes, m.food_style) || {} })),
-  ];
+  // Mogu Type と連携している人の4軸だけを使う。連携していない人は計算に入れない
+  const members = [{ axes: axesFor(user?.moguType?.axisValues) }, ...others.map((m) => ({ axes: axesFor(m.mogu_type_axis_values) }))].filter(
+    (m) => m.axes,
+  );
+  // 全員が未連携なら、今までどおりの並びのまま返す
+  if (members.length === 0) return rows;
   const ranked = recommend(members, rows, { limit: rows.length });
   const seen = new Set();
   const ordered = ranked.map(({ restaurant }) => {
