@@ -22,6 +22,10 @@ export const OPERATOR_URL = null;
 // 誰でも開ける公開ページを指す。コードは ?code= に入る。
 export const buildInviteLink = (token) => `${SITE_BASE_URL}/invite.html?code=${token}`;
 
+// プロフィールのシェア画像のQRコードの飛び先。「プロフィールを見る」用の公開ページ（?u=ユーザーID）。
+// ⑪の招待とは別のURL形式にした（4回目の投稿時点ではまだ未確定。要確認：実装報告に記載）。
+export const buildProfileLink = (handle) => `${SITE_BASE_URL}/profile.html?u=${handle}`;
+
 // 招待リンク・コード・旧形式（/invite/xxxx）のどれが貼られても、トークン部分だけを取り出す。
 export const extractInviteToken = (raw) => {
   const text = (raw || '').trim();

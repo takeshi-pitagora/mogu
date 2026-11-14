@@ -144,6 +144,34 @@ export async function inviteByHandle(groupId, handle) {
   return { error: 'failed' };
 }
 
+// IDで招待：送る前に「相手を確かめる」画面用のプレビュー（確定版 ⑪-9。4回目 §3-3）
+export async function previewInviteeByHandle(groupId, handle) {
+  const { data, error } = await supabase.rpc('preview_invitee_by_handle', { p_group_id: groupId, p_handle: handle });
+  if (error) {
+    if (missingFunction(error)) return { error: 'unsupported' };
+    if (/not_found/i.test(error.message || '')) return { error: 'notFound' };
+    return { error: 'failed' };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return { error: 'notFound' };
+  return {
+    profile: {
+      id: row.id,
+      displayName: row.display_name,
+      handle: row.handle,
+      avatarPath: row.avatar_path,
+      moguType: row.mogu_type_code
+        ? {
+            code: row.mogu_type_code,
+            characterName: row.mogu_type_character_name,
+            nickname: row.mogu_type_nickname,
+            linkedAt: row.mogu_type_linked_at,
+          }
+        : null,
+    },
+  };
+}
+
 // グループのお店のタブ：まだ見ていない流れ（feed）とボード（board・♡の多い順）
 export async function fetchGroupFeed(groupId) {
   const { data, error } = await supabase.rpc('get_group_feed', { p_group_id: groupId });

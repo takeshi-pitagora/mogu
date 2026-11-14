@@ -17,6 +17,9 @@ import { chara } from '../../lib/chara';
 import { getType } from '../../lib/mogutype';
 import { canShare, shareText } from '../../lib/open';
 import { shopPhotos, genreLabel } from '../../lib/shop';
+import { photoUrlOf } from '../../lib/profile';
+import { LOGO, LOGO_OUTLINE } from '../../lib/brand';
+import MoguTypeCard from '../../components/ui/MoguTypeCard';
 import {
   createGroup,
   createInvite,
@@ -28,6 +31,7 @@ import {
   leaveGroup,
   listGroups,
   previewInvite,
+  previewInviteeByHandle,
   renameGroup,
   setGroupMuted,
   setGroupPinned,
@@ -396,21 +400,17 @@ function CreateGroup({ onBack, onCreated }) {
   );
 }
 
-// 招待する（確定版 Final-11 の 6）：リンク／QRコード／IDで招待 の3つを切り替える
-const INVITE_TABS = [
-  { key: 'link', label: 'リンク' },
-  { key: 'qr', label: 'QRコード' },
-  { key: 'handle', label: 'IDで招待' },
-];
+// 招待する（確定版 Final-11 の 6・4回目 §3-3）：タブに分けず、1画面に縦に並べる
 function InviteGroup({ group, onBack }) {
   const toast = useToast();
-  const [tab, setTab] = useState('link');
   const [invite, setInvite] = useState(null);
   const [error, setError] = useState(false);
-  const [qrUrl, setQrUrl] = useState(null);
+  const [step, setStep] = useState('main'); // main | qr | confirm | sent
   const [handle, setHandle] = useState('');
   const [handleBusy, setHandleBusy] = useState(false);
-  const [handleMsg, setHandleMsg] = useState('');
+  const [handleError, setHandleError] = useState('');
+  const [previewPerson, setPreviewPerson] = useState(null);
+  const [sendBusy, setSendBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -425,13 +425,6 @@ function InviteGroup({ group, onBack }) {
     };
   }, [group.id]);
 
-  useEffect(() => {
-    if (!invite?.link || tab !== 'qr') return;
-    QRCode.toDataURL(invite.link, { width: 220, margin: 1, color: { dark: '#2E2C2A', light: '#FFFFFF' } })
-      .then(setQrUrl)
-      .catch(() => setQrUrl(null));
-  }, [invite?.link, tab]);
-
   const copy = async () => {
     if (!invite) return;
     try {
@@ -443,20 +436,38 @@ function InviteGroup({ group, onBack }) {
   };
   const send = () => invite && shareText({ title: `${group.name}への招待`, text: `mogu のグループ「${group.name}」に参加しよう。招待コード：${invite.code}`, url: invite.link });
 
-  const sendByHandle = async (e) => {
+  // 「相手を確かめる」：IDでそのまま送らず、見つかった相手のプロフィールを見せてから送る（4回目 §3-3）
+  const lookup = async (e) => {
     e?.preventDefault();
     if (!handle.trim() || handleBusy) return;
     setHandleBusy(true);
-    setHandleMsg('');
-    const res = await inviteByHandle(group.id, handle.trim());
+    setHandleError('');
+    const res = await previewInviteeByHandle(group.id, handle.trim());
     setHandleBusy(false);
     if (res.error) {
-      setHandleMsg('そのIDの人を招待できませんでした');
+      setHandleError('そのIDの人を招待できませんでした');
       return;
     }
-    setHandle('');
-    setHandleMsg('招待を送りました');
+    setPreviewPerson(res.profile);
+    setStep('confirm');
   };
+
+  const sendToPreview = async () => {
+    if (!previewPerson || sendBusy) return;
+    setSendBusy(true);
+    const res = await inviteByHandle(group.id, previewPerson.handle);
+    setSendBusy(false);
+    if (res.error) {
+      setHandleError('そのIDの人を招待できませんでした');
+      setStep('main');
+      return;
+    }
+    setStep('sent');
+  };
+
+  if (step === 'qr') {
+    return <InviteQrPoster group={group} invite={invite} onClose={() => setStep('main')} onSend={send} />;
+  }
 
   return (
     <div style={page}>
@@ -472,43 +483,27 @@ function InviteGroup({ group, onBack }) {
             <Icon name="back" size={24} />
           </button>
           <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', margin: 0, fontFamily: font.dela, fontSize: 16, fontWeight: 400, whiteSpace: 'nowrap' }}>招待する</h1>
+          {/* ⑮の決まりに合わせ、上の帯の黒いボタンにする（画像では文字だけだが：4回目「決まり」） */}
           <button
             type="button"
             onClick={onBack}
-            className="ui-btn ui-btn--text"
-            style={{ height: 44, padding: '0 8px', border: 0, background: 'transparent', color: color.ink, fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}
+            className="ui-btn ui-btn--primary"
+            style={{ height: 36, padding: '0 16px', border: 0, borderRadius: 18, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 14, fontWeight: 700 }}
           >
             完了
           </button>
         </div>
       </header>
-      <div role="tablist" style={{ flex: 'none', display: 'flex', margin: '0 20px', borderBottom: `${stroke.shape}px solid ${color.ink}` }}>
-        {INVITE_TABS.map((t) => {
-          const on = tab === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => setTab(t.key)}
-              style={{ flex: '1 1 0px', height: 44, padding: 0, border: 0, borderBottom: `3px solid ${on ? color.ink : 'transparent'}`, background: 'transparent', color: on ? color.ink : color.sub, fontFamily: on ? font.dela : 'inherit', fontSize: 14, fontWeight: on ? 400 : 700 }}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
       <div style={body}>
         <div style={{ padding: '18px 20px 40px' }}>
-          <p style={{ margin: 0, fontFamily: font.dela, fontSize: 22, lineHeight: 1.35 }}>
-            {group.name}に
-            <br />
-            友達を呼ぼう
-          </p>
-
-          {tab === 'link' && (
+          {step === 'main' && (
             <>
+              <p style={{ margin: 0, fontFamily: font.dela, fontSize: 22, lineHeight: 1.35 }}>
+                {group.name}に
+                <br />
+                友達を呼ぼう
+              </p>
+
               {canShare() && (
                 <button
                   type="button"
@@ -521,6 +516,18 @@ function InviteGroup({ group, onBack }) {
                   LINE などで送る
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => setStep('qr')}
+                disabled={!invite}
+                className="ui-btn ui-btn--secondary"
+                style={{ width: '100%', height: 56, marginTop: 10, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 28, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                <Icon name="qr" size={20} />
+                QRコードを表示
+              </button>
+
               <div style={{ marginTop: 22, padding: 16, borderRadius: 24, background: color.surface }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>招待コード</div>
                 <div style={{ marginTop: 6 }}>
@@ -544,36 +551,306 @@ function InviteGroup({ group, onBack }) {
                   )}
                 </div>
               </div>
+
+              <h2 style={{ margin: '28px 0 0', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>IDで招待</h2>
+              <form onSubmit={lookup} style={{ marginTop: 12 }}>
+                <TextField label="友達のID" value={handle} onChange={(v) => { setHandle(v); setHandleError(''); }} placeholder="@から始まるID" />
+                {handleError && (
+                  <p role="status" style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: color.red }}>
+                    {handleError}
+                  </p>
+                )}
+                <Button type="submit" variant="primary" disabled={!handle.trim() || handleBusy} style={{ marginTop: 16 }}>
+                  ユーザーIDで探す
+                </Button>
+                <p style={{ margin: '12px 0 0', fontSize: 12, lineHeight: 1.6, color: color.sub }}>相手の「招待を受け取る範囲」の設定によっては、招待できないことがあります</p>
+              </form>
             </>
           )}
 
-          {tab === 'qr' && (
-            <div style={{ marginTop: 22, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: 240, height: 240, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 24, background: color.white, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {qrUrl ? <img src={qrUrl} alt={`${group.name}への招待QRコード`} style={{ width: 220, height: 220, display: 'block' }} /> : <Icon name="qr" size={40} color={color.sub} />}
-              </div>
-              <p style={{ margin: '14px 0 0', fontSize: 13, color: color.sub, textAlign: 'center' }}>このQRコードを友達に読み取ってもらうと、グループに参加できます</p>
-            </div>
+          {step === 'confirm' && previewPerson && (
+            <InviteHandleConfirm
+              person={previewPerson}
+              busy={sendBusy}
+              onBack={() => setStep('main')}
+              onSend={sendToPreview}
+            />
           )}
 
-          {tab === 'handle' && (
-            <form onSubmit={sendByHandle} style={{ marginTop: 18 }}>
-              <TextField label="友達のID" value={handle} onChange={(v) => { setHandle(v); setHandleMsg(''); }} placeholder="@から始まるID" />
-              {handleMsg && (
-                <p role="status" style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: handleMsg.includes('できません') ? color.red : color.ink }}>
-                  {handleMsg}
-                </p>
-              )}
-              <Button type="submit" variant="primary" disabled={!handle.trim() || handleBusy} style={{ marginTop: 16 }}>
-                招待を送る
+          {step === 'sent' && previewPerson && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 20 }}>
+              <Icon name="check" size={40} color={color.ink} />
+              <p style={{ margin: '16px 0 0', fontSize: 15, fontWeight: 700 }}>招待を送りました</p>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setHandle('');
+                  setPreviewPerson(null);
+                  setStep('main');
+                }}
+                style={{ marginTop: 18, width: '100%' }}
+              >
+                ほかの人も招待する
               </Button>
-              <p style={{ margin: '12px 0 0', fontSize: 12, lineHeight: 1.6, color: color.sub }}>相手の「招待を受け取る範囲」の設定によっては、招待できないことがあります</p>
-            </form>
+            </div>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+// 「相手を確かめる」（確定版 ⑪-9）：写真・名前・@ID と、⑥のパス（簡易版）を見せてから送る
+function InviteHandleConfirm({ person, busy, onBack, onSend }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 10 }}>
+      <Avatar size={72} photoUrl={photoUrlOf(person.avatarPath)} name={person.displayName} label="写真" />
+      <p style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 18 }}>{person.displayName}</p>
+      <p style={{ margin: '2px 0 0', fontSize: 13, color: color.sub }}>@{person.handle}</p>
+      {person.moguType ? (
+        <MoguTypeCard code={person.moguType.code} characterName={person.moguType.characterName} nickname={person.moguType.nickname} style={{ marginTop: 18 }} />
+      ) : (
+        <div style={{ marginTop: 18, width: '100%', maxWidth: 280, padding: '22px 16px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 24, background: color.surface }}>
+          <p style={{ margin: 0, fontFamily: font.dela, fontSize: 22, color: color.sub }}>？？？？</p>
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: color.sub }}>まだ食スタイル診断をしていません</p>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24, width: '100%' }}>
+        <Button variant="primary" onClick={onSend} disabled={busy}>
+          招待を送る
+        </Button>
+        <Button variant="secondary" onClick={onBack} disabled={busy}>
+          やめる
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// QRコード（確定版 ⑪-7 ストリートポスター型）：mogu のロゴのふちだけを背景にくり返し、
+// 「SCAN TO JOIN」の帯を斜めに2本。QRの下にグループ名、左下にロゴ、右下に招待コード
+const POSTER_W = 960;
+const POSTER_H = 1280;
+function InviteQrPoster({ group, invite, onClose, onSend }) {
+  const toast = useToast();
+  const canvasRef = useRef(null);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!invite?.link) return;
+    QRCode.toDataURL(invite.link, { width: 480, margin: 1, color: { dark: '#2E2C2A', light: '#FFFFFF' } })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null));
+  }, [invite?.link]);
+
+  const saveImage = async () => {
+    if (!invite?.link || saving) return;
+    setSaving(true);
+    try {
+      await drawPosterToCanvas({ canvas: canvasRef.current, groupName: group.name, code: invite.code, link: invite.link });
+      const blob = await new Promise((resolve) => canvasRef.current.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('画像を作れませんでした');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mogu-${group.name}-qr.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast?.show('画像を保存しました');
+    } catch (err) {
+      console.error('QR画像の保存エラー:', err?.message || err);
+      toast?.show('画像を保存できませんでした');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ ...page, background: color.ink }}>
+      <header style={{ flex: 'none', paddingTop: 'var(--safe-top)' }}>
+        <div style={{ height: 44, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            aria-label="閉じる"
+            onClick={onClose}
+            className="ui-btn ui-btn--text"
+            style={{ width: 44, height: 44, padding: 0, border: 0, background: 'transparent', color: color.white, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="close" size={24} />
+          </button>
+        </div>
+      </header>
+      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 20px 24px' }}>
+        <div
+          aria-label={`${group.name}への招待QRコード`}
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: 320,
+            aspectRatio: `${POSTER_W} / ${POSTER_H}`,
+            overflow: 'hidden',
+            borderRadius: 28,
+            background: `${color.surface} url(${LOGO_OUTLINE}) repeat`,
+            backgroundSize: '160px auto',
+            border: `${stroke.shape}px solid ${color.ink}`,
+          }}
+        >
+          {/* SCAN TO JOIN の帯（斜め2本） */}
+          <div style={{ position: 'absolute', left: '-20%', top: '14%', width: '140%', transform: 'rotate(-8deg)', background: color.ink, color: color.white, padding: '6px 0', fontFamily: font.dela, fontSize: 13, letterSpacing: '0.1em', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            SCAN TO JOIN • SCAN TO JOIN • SCAN TO JOIN
+          </div>
+          <div style={{ position: 'absolute', left: '-20%', bottom: '20%', width: '140%', transform: 'rotate(-8deg)', background: color.accent, color: color.white, padding: '6px 0', fontFamily: font.dela, fontSize: 13, letterSpacing: '0.1em', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            SCAN TO JOIN • SCAN TO JOIN • SCAN TO JOIN
+          </div>
+
+          <div style={{ position: 'absolute', left: '50%', top: '42%', transform: 'translate(-50%, -50%)', width: '62%', aspectRatio: '1 / 1', background: color.white, borderRadius: 20, border: `${stroke.shape}px solid ${color.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%', boxSizing: 'border-box' }}>
+            {qrDataUrl ? <img src={qrDataUrl} alt="" style={{ width: '100%', height: '100%', display: 'block' }} /> : <Icon name="qr" size={40} color={color.sub} />}
+          </div>
+
+          {/* グループ名のステッカー */}
+          <div style={{ position: 'absolute', left: '50%', top: '66%', transform: 'translateX(-50%) rotate(-2deg)', maxWidth: '80%', padding: '6px 16px', background: color.white, border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 14, fontFamily: font.dela, fontSize: 15, textAlign: 'center' }}>
+            {group.name}
+          </div>
+
+          <img src={LOGO.black} alt="mogu" style={{ position: 'absolute', left: 18, bottom: 16, width: 64, height: 'auto', display: 'block' }} />
+          {invite?.code && (
+            <span style={{ position: 'absolute', right: 18, bottom: 16, fontFamily: font.dela, fontSize: 13, letterSpacing: '0.08em', color: color.ink }}>{invite.code}</span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 320, marginTop: 20 }}>
+          <button
+            type="button"
+            onClick={saveImage}
+            disabled={!invite || saving}
+            className="ui-btn ui-btn--secondary"
+            style={{ flex: 1, height: 52, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.white}`, borderRadius: 26, background: 'transparent', color: color.white, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            <Icon name="download" size={18} />
+            画像を保存
+          </button>
+          {canShare() && (
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={!invite}
+              className="ui-btn ui-btn--primary"
+              style={{ flex: 1, height: 52, border: 0, borderRadius: 26, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            >
+              <Icon name="share" size={18} />
+              LINE などで送る
+            </button>
+          )}
+        </div>
+      </div>
+      <canvas ref={canvasRef} width={POSTER_W} height={POSTER_H} style={{ display: 'none' }} />
+    </div>
+  );
+}
+
+// 画面の見た目に合わせて、保存用の1枚の画像をcanvasに描く（ボタンなどのUIは含めない）
+async function drawPosterToCanvas({ canvas, groupName, code, link }) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const loadImage = (src) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#F7EAD1';
+  ctx.fillRect(0, 0, w, h);
+
+  const outline = await loadImage(LOGO_OUTLINE);
+  const tile = 220;
+  ctx.globalAlpha = 0.5;
+  for (let y = -tile; y < h + tile; y += tile * 0.6) {
+    for (let x = -tile; x < w + tile; x += tile) {
+      ctx.drawImage(outline, x, y, tile, tile * (outline.height / outline.width));
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // 斜めの帯
+  const drawBand = (yFrac, fill) => {
+    ctx.save();
+    ctx.translate(w / 2, h * yFrac);
+    ctx.rotate((-8 * Math.PI) / 180);
+    ctx.fillStyle = fill;
+    ctx.fillRect(-w * 0.7, -34, w * 1.4, 68);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '700 32px "Dela Gothic One", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SCAN TO JOIN  •  SCAN TO JOIN  •  SCAN TO JOIN', 0, 2);
+    ctx.restore();
+  };
+  drawBand(0.16, '#2E2C2A');
+  drawBand(0.62, '#C08268');
+
+  // QR
+  const qrSize = w * 0.6;
+  const qrX = (w - qrSize) / 2;
+  const qrY = h * 0.42 - qrSize / 2;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#2E2C2A';
+  ctx.lineWidth = 4;
+  roundRect(ctx, qrX, qrY, qrSize, qrSize, 28);
+  ctx.fill();
+  ctx.stroke();
+  if (link) {
+    const qrImg = await loadImage(await QRCode.toDataURL(link, { width: qrSize, margin: 1, color: { dark: '#2E2C2A', light: '#FFFFFF' } }));
+    const pad = qrSize * 0.06;
+    ctx.drawImage(qrImg, qrX + pad, qrY + pad, qrSize - pad * 2, qrSize - pad * 2);
+  }
+
+  // グループ名のステッカー
+  ctx.save();
+  ctx.font = '400 30px "Dela Gothic One", sans-serif';
+  const textW = Math.min(w * 0.7, ctx.measureText(groupName).width + 48);
+  const stickerX = (w - textW) / 2;
+  const stickerY = h * 0.66 - 34;
+  ctx.translate(w / 2, stickerY + 34);
+  ctx.rotate((-2 * Math.PI) / 180);
+  ctx.translate(-w / 2, -(stickerY + 34));
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#2E2C2A';
+  roundRect(ctx, stickerX, stickerY, textW, 68, 16);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#2E2C2A';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(groupName, w / 2, stickerY + 36);
+  ctx.restore();
+
+  // 左下ロゴ・右下コード
+  const logo = await loadImage(LOGO.black);
+  const logoW = w * 0.14;
+  ctx.drawImage(logo, 36, h - 36 - logoW * (logo.height / logo.width), logoW, logoW * (logo.height / logo.width));
+  if (code) {
+    ctx.fillStyle = '#2E2C2A';
+    ctx.font = '400 24px "Dela Gothic One", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(code, w - 36, h - 36);
+  }
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, radius);
+  ctx.arcTo(x + width, y + height, x, y + height, radius);
+  ctx.arcTo(x, y + height, x, y, radius);
+  ctx.arcTo(x, y, x + width, y, radius);
+  ctx.closePath();
 }
 
 // コードで参加（確定版 Final-11 の 11・12）
@@ -1090,7 +1367,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRe
                 </span>
               </button>
               {members.map((m, i) => {
-                const t = getType(m.food_style);
+                const t = getType(m.mogu_type_code);
                 const g = t ? groupColor[groupOf(t.code)] : null;
                 const self = m.id === user?.id;
                 const row = (

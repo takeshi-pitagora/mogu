@@ -91,16 +91,16 @@ export async function markNotifPrompted() {
   if (error && !missingFunction(error)) console.warn('notif_prompted_at の記録に失敗:', error.message);
 }
 
-// 通知の中身を、お知らせ画面に出す文言に変える
+// 通知の中身を、お知らせ画面に出す文言に変える（確定版 Final-10 の行の文言。4回目 §3-4）
 export function notificationText(n) {
   const p = n.payload || {};
   switch (n.type) {
     case 'group_match':
-      return { title: 'マッチ！', body: `みんなが「${p.restaurant_name || 'お店'}」を選びました` };
+      return { title: `${p.group_name || 'グループ'}で、${p.restaurant_name || 'お店'}がマッチしました`, body: '' };
     case 'member_joined':
-      return { title: '新しいメンバー', body: `${p.display_name || '新しいメンバー'}さんがグループに参加しました` };
+      return { title: `${p.display_name || '新しいメンバー'}さんが${p.group_name || 'グループ'}に参加しました`, body: '' };
     case 'id_invite':
-      return { title: '招待が届いています', body: 'グループに招待されました' };
+      return { title: `${p.inviter_handle ? `@${p.inviter_handle} ` : p.inviter_name ? `${p.inviter_name} ` : ''}さんから、${p.group_name || 'グループ'}への招待`, body: '' };
     case 'announcement':
       return { title: p.title || 'お知らせ', body: p.body || '' };
     default:

@@ -3,8 +3,12 @@ import { color, font, stroke } from '../../theme/tokens';
 import { HeaderIconButton } from '../../components/ui/ScreenHeader';
 import Icon from '../../components/ui/Icon';
 import Button from '../../components/ui/Button';
+import MoguTypeCard from '../../components/ui/MoguTypeCard';
 import { LoadingState, ErrorState } from '../../components/ui/States';
+import { photoUrlOf } from '../../lib/profile';
+import { LOGO } from '../../lib/brand';
 import { fetchNotifications, markNotificationsRead, notificationText, respondInvite } from '../../lib/notifications';
+import OtherProfileScreen from '../profile/OtherProfileScreen';
 
 // お知らせ（確定版 Final-10）。3回目：通知の仕組みができたので、一覧（返事待ち／今日／今週／それ以前）を出す
 //   マッチ・新しいメンバー・IDでの招待（受諾/辞退）・運営のお知らせ の4種類（引き渡し書 §7-6）
@@ -39,11 +43,20 @@ function groupByWhen(list) {
   return { pending, ...buckets };
 }
 
+// 相対時刻（確定版 Final-10：「12分前」「3時間前」「昨日」「2日前」「10月26日」。4回目 §3-4）
 function timeLabel(iso) {
   const d = new Date(iso);
   const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  const diffMs = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'たった今';
+  if (diffMin < 60) return `${diffMin}分前`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24 && d.toDateString() === now.toDateString()) return `${diffHour}時間前`;
+  const startOfDay = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
+  if (diffDays === 1) return '昨日';
+  if (diffDays >= 2 && diffDays <= 6) return `${diffDays}日前`;
   return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
 }
 
@@ -62,8 +75,19 @@ function iconFor(type) {
   }
 }
 
+// 丸アイコンの中身：マッチはお店の写真、お知らせはmoguロゴ、参加・招待はその人のアバター（4回目 §3-4）
+function photoFor(n) {
+  const p = n.payload || {};
+  if (n.type === 'group_match' && p.restaurant_photo) return p.restaurant_photo;
+  if (n.type === 'announcement') return LOGO.black;
+  if (n.type === 'member_joined' && p.avatar_path) return photoUrlOf(p.avatar_path);
+  if (n.type === 'id_invite' && p.inviter_avatar_path) return photoUrlOf(p.inviter_avatar_path);
+  return null;
+}
+
 function Row({ n, onOpen }) {
   const { title, body: text } = notificationText(n);
+  const photo = photoFor(n);
   return (
     <button
       type="button"
@@ -83,8 +107,8 @@ function Row({ n, onOpen }) {
         textAlign: 'left',
       }}
     >
-      <span style={{ flex: 'none', width: 40, height: 40, borderRadius: '50%', background: color.white, border: `${stroke.shape}px solid ${color.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name={iconFor(n.type)} size={18} />
+      <span style={{ flex: 'none', width: 44, height: 44, borderRadius: '50%', background: color.white, border: `${stroke.shape}px solid ${color.ink}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={iconFor(n.type)} size={18} />}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{title}</span>
@@ -108,27 +132,89 @@ function Section({ title, items, onOpen }) {
   );
 }
 
-// 返事待ち（IDでの招待）の行：受諾・辞退をその場で押せる
-function PendingRow({ n, onRespond, busy }) {
-  const inviterName = n.payload?.inviter_name || '友達';
+// 返事待ち（IDでの招待）の行：タップで確認画面、その場でも受諾・辞退できる（4回目 §3-4：招待確認を追加）
+function PendingRow({ n, onRespond, onOpenConfirm, busy }) {
+  const p = n.payload || {};
+  const inviterLabel = p.inviter_handle ? `@${p.inviter_handle}` : p.inviter_name || '友達';
+  const avatar = p.inviter_avatar_path ? photoUrlOf(p.inviter_avatar_path) : null;
   return (
-    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${color.line}`, background: color.surface }}>
+    <button
+      type="button"
+      onClick={() => onOpenConfirm(n)}
+      className="ui-btn ui-press"
+      style={{ width: '100%', padding: '14px 20px', border: 0, borderBottom: `1px solid ${color.line}`, background: color.surface, color: color.ink, fontFamily: 'inherit', textAlign: 'left' }}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <span style={{ flex: 'none', width: 40, height: 40, borderRadius: '50%', background: color.white, border: `${stroke.shape}px solid ${color.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="key" size={18} />
+        <span style={{ flex: 'none', width: 40, height: 40, borderRadius: '50%', background: color.white, border: `${stroke.shape}px solid ${color.ink}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {avatar ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="key" size={18} />}
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>グループに招待されています</span>
-          <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: color.sub, lineHeight: 1.5 }}>{inviterName}さんから</span>
+          <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{p.group_name || 'グループ'}への招待</span>
+          <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: color.sub, lineHeight: 1.5 }}>{inviterLabel}さんから</span>
         </span>
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 10, marginLeft: 52 }}>
-        <Button variant="primary" disabled={busy} onClick={() => onRespond(n, true)} style={{ flex: 1 }}>
+        <Button variant="primary" disabled={busy} onClick={(e) => { e.stopPropagation(); onRespond(n, true); }} style={{ flex: 1 }}>
           参加する
         </Button>
-        <Button variant="secondary" disabled={busy} onClick={() => onRespond(n, false)} style={{ flex: 1 }}>
+        <Button variant="secondary" disabled={busy} onClick={(e) => { e.stopPropagation(); onRespond(n, false); }} style={{ flex: 1 }}>
           辞退する
         </Button>
+      </div>
+    </button>
+  );
+}
+
+// 招待の確認（4回目 §3-4：受け取った側がよく見て決められるように、専用の確認画面を追加）
+function InviteConfirmScreen({ n, busy, onBack, onRespond, onOpenProfile }) {
+  const p = n.payload || {};
+  const inviterLabel = p.inviter_handle ? `@${p.inviter_handle}` : '';
+  const hasType = !!p.inviter_mogu_type_code;
+  return (
+    <div style={page}>
+      <header style={{ paddingTop: 'var(--safe-top)', background: color.bg }}>
+        <div style={{ position: 'relative', height: 44, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <HeaderIconButton icon="back" label="戻る" onClick={onBack} />
+          <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', margin: 0, fontFamily: font.dela, fontSize: 16, fontWeight: 400, whiteSpace: 'nowrap' }}>グループへの招待</h1>
+          <button
+            type="button"
+            aria-label="その他（通報・ブロック）"
+            onClick={() => onOpenProfile(p.inviter_id)}
+            className="ui-btn ui-btn--text"
+            style={{ width: 44, height: 44, border: 0, padding: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="moreFill" size={22} />
+          </button>
+        </div>
+      </header>
+      <div style={body}>
+        <div style={{ padding: '20px 20px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7 }}>
+            {inviterLabel && <strong>{inviterLabel}</strong>}
+            さんから
+            <br />
+            <strong style={{ fontFamily: font.dela }}>{p.group_name || 'グループ'}</strong>
+            に招待されています
+          </p>
+          <div style={{ marginTop: 20 }}>
+            {hasType ? (
+              <MoguTypeCard code={p.inviter_mogu_type_code} characterName={p.inviter_mogu_type_character_name} nickname={p.inviter_mogu_type_nickname} />
+            ) : (
+              <div style={{ width: 280, padding: '40px 16px', border: `${stroke.shape}px solid ${color.line}`, borderRadius: 24, background: color.surface, textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 14, color: color.sub }}>？？？？</p>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: color.sub }}>まだ食スタイル診断をしていません</p>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 28, width: '100%', maxWidth: 320 }}>
+            <Button variant="secondary" disabled={busy} onClick={() => onRespond(n, false)} style={{ flex: 1 }}>
+              断る
+            </Button>
+            <Button variant="primary" disabled={busy} onClick={() => onRespond(n, true)} style={{ flex: 1 }}>
+              参加する
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -147,7 +233,16 @@ function AnnouncementDetail({ n, onBack }) {
       </header>
       <div style={body}>
         <div style={{ padding: '8px 20px 60px' }}>
-          <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 20, lineHeight: 1.4 }}>{n.payload?.title}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: 'none', width: 36, height: 36, borderRadius: '50%', background: color.white, border: `${stroke.shape}px solid ${color.ink}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={LOGO.black} alt="" style={{ width: '70%', height: '70%', objectFit: 'contain' }} />
+            </span>
+            <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>mogu 運営</span>
+              <span style={{ fontSize: 11, color: color.sub }}>{n.createdAt ? new Date(n.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' }) : ''}</span>
+            </span>
+          </div>
+          <h2 style={{ margin: '18px 0 0', fontFamily: font.dela, fontSize: 20, lineHeight: 1.4 }}>{n.payload?.title}</h2>
           <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{n.payload?.body}</p>
         </div>
       </div>
@@ -160,6 +255,8 @@ export default function NotificationsScreen({ onBack, onOpenGroup }) {
   const [status, setStatus] = useState('loading');
   const [busyId, setBusyId] = useState(null);
   const [detail, setDetail] = useState(null); // announcement
+  const [confirm, setConfirm] = useState(null); // 招待の確認（id_invite）
+  const [profileUserId, setProfileUserId] = useState(null); // 「…」→相手のプロフィール
 
   useEffect(() => {
     let alive = true;
@@ -187,6 +284,7 @@ export default function NotificationsScreen({ onBack, onOpenGroup }) {
     try {
       const res = await respondInvite(n.rawId, accept);
       setList((prev) => (prev || []).map((x) => (x.id === n.id ? { ...x, payload: { ...x.payload, responded: true } } : x)));
+      setConfirm(null);
       if (accept && res?.groupId) onOpenGroup?.(res.groupId);
     } catch (err) {
       console.error('招待への返事エラー:', err?.message || err);
@@ -200,11 +298,27 @@ export default function NotificationsScreen({ onBack, onOpenGroup }) {
       setDetail(n);
       return;
     }
+    if (n.type === 'id_invite') {
+      setConfirm(n);
+      return;
+    }
     if ((n.type === 'group_match' || n.type === 'member_joined') && n.payload?.group_id) {
       onOpenGroup?.(n.payload.group_id);
     }
   };
 
+  if (profileUserId) return <OtherProfileScreen userId={profileUserId} onBack={() => setProfileUserId(null)} />;
+  if (confirm) {
+    return (
+      <InviteConfirmScreen
+        n={confirm}
+        busy={busyId === confirm.id}
+        onBack={() => setConfirm(null)}
+        onRespond={respond}
+        onOpenProfile={(userId) => setProfileUserId(userId)}
+      />
+    );
+  }
   if (detail) return <AnnouncementDetail n={detail} onBack={() => setDetail(null)} />;
 
   const empty = status === 'ready' && (list || []).length === 0;
@@ -249,7 +363,7 @@ export default function NotificationsScreen({ onBack, onOpenGroup }) {
         <div style={body}>
           <div style={{ paddingBottom: 130 }}>
             {grouped.pending.map((n) => (
-              <PendingRow key={n.id} n={n} onRespond={respond} busy={busyId === n.id} />
+              <PendingRow key={n.id} n={n} onRespond={respond} onOpenConfirm={setConfirm} busy={busyId === n.id} />
             ))}
             <Section title="今日" items={grouped.today} onOpen={openItem} />
             <Section title="今週" items={grouped.thisWeek} onOpen={openItem} />

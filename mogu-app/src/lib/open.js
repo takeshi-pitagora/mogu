@@ -15,3 +15,15 @@ export async function shareText({ title, text, url }) {
     return false;
   }
 }
+
+// 画像ファイルの共有（③シェア画像など）。ファイルを共有できない端末では false
+export const canShareFiles = (files) => canShare() && typeof navigator.canShare === 'function' && navigator.canShare({ files });
+export async function shareFiles({ title, text, files }) {
+  if (!canShareFiles(files)) return false;
+  try {
+    await navigator.share({ title, text, files });
+    return true;
+  } catch {
+    return false;
+  }
+}

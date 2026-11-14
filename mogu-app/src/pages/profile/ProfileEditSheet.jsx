@@ -44,7 +44,8 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
   const [pendingPhoto, setPendingPhoto] = useState(null); // 保存前の新しい写真（Blob）。null のままなら変えない
   const [photoRemoved, setPhotoRemoved] = useState(false);
 
-  const type = getType(user?.foodStyle);
+  // 食スタイル診断は Mogu Type 連携の値（moguType.code）を見る。古い20問の列（foodStyle）は使わない（4回目 §3-1）
+  const type = getType(user?.moguType?.code);
   const ch = type ? chara(type.code) : null;
   const g = type ? groupColor[groupOf(type.code)] : null;
 

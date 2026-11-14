@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
-import { chara } from '../../lib/chara';
 import { getType } from '../../lib/mogutype';
+import { AXIS_LABELS, AXIS_META, axisHeading, axisPercent } from '../../lib/axis';
 import { DIAGNOSE_URL, fetchMoguTypeResult, MYPAGE_URL } from '../../lib/mogutypeApi';
 import { openExternal } from '../../lib/open';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
-import TypeLabel from '../../components/ui/TypeLabel';
+import MoguTypeCard from '../../components/ui/MoguTypeCard';
 import BottomSheet from '../../components/ui/BottomSheet';
 
 // 食スタイル診断（Mogu Type 連携 v2）。マイページの［診断］／アカウントの「食スタイル診断」は、どちらもここに入る（§4-1）
@@ -155,16 +155,33 @@ function UnlinkedView({ onDiagnose, onImport }) {
   );
 }
 
-// 連携済み（確定版 Final-06）。4軸カードとパスのNo.はAPIにまだ無いので出さない（§7-4・§10-2が決まるまで）
+// 連携済み（確定版 Final-06）。4軸カード4枚（軸名・番号・見出し・％・バー）。パスのNo.は出さない（4回目 §3-2・§4-2）
 function LinkedView({ user, busy, onRefresh, onUnlink }) {
   const type = getType(user.moguType.code);
   const detailUrl = user.moguType.detailUrl || MYPAGE_URL;
   const date = user.moguType.linkedAt ? new Date(user.moguType.linkedAt) : null;
   const dateText = date && !Number.isNaN(date.getTime()) ? `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日に連携` : '';
+  const g = type ? groupColor[groupOf(type.code)] : null;
+  const axes = user.moguType.axisValues;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
       <MoguTypeCard code={type?.code} characterName={user.moguType.characterName} nickname={user.moguType.nickname} />
       {dateText && <p style={{ margin: '10px 0 0', fontSize: 12, color: color.sub }}>{dateText}</p>}
+      {axes && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20, width: '100%' }}>
+          <h2 style={{ margin: 0, textAlign: 'left', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>4つの軸</h2>
+          {AXIS_META.map((m, i) => {
+            const label = AXIS_LABELS[i];
+            const { left, right } = axisPercent(axes[m.key] ?? 1.5);
+            const leftStrong = left >= right;
+            const strongLabel = leftStrong ? label.left : label.right;
+            const strongPercent = leftStrong ? left : right;
+            return (
+              <AxisCard key={m.key} badge={m.badge} number={m.number} heading={axisHeading(strongLabel, strongPercent)} label={label} left={left} right={right} leftStrong={leftStrong} g={g} />
+            );
+          })}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24, width: '100%' }}>
         <Button variant="secondary" onClick={onRefresh} disabled={busy}>
           結果を更新
@@ -216,35 +233,42 @@ function ErrorView({ error, busy, onRetryDiagnose, onRetry }) {
   );
 }
 
-// パス（タイプのコードを縦に積み、キャラの全身を右に大きく。4つの入口＝③④⑥⑩⑪⑬で共通に使う）
-function MoguTypeCard({ code, characterName, nickname, imageUrl, style }) {
-  const type = getType(code);
-  const g = type ? groupColor[groupOf(type.code)] : null;
-  const ch = !imageUrl && type ? chara(type.code) : null;
+// 4軸のカード（確定版 Final-06-4〜6）：色付きの軸名・白抜きの番号・見出し・強い側の大きな％・6つに区切ったバーと赤いピン
+function AxisCard({ badge, number, heading, label, left, right, leftStrong, g }) {
+  const dark = g ? g.dark : color.ink;
+  const light = g ? g.light : color.surface;
+  const strongPercent = leftStrong ? left : right;
+  const weakPercent = leftStrong ? right : left;
+  const strongLabel = leftStrong ? label.left : label.right;
+  const weakLabel = leftStrong ? label.right : label.left;
+  // 6つに区切ったバー：強い側の数（0〜6）だけ濃く塗り、そのすぐ右にピン
+  const filled = Math.min(6, Math.max(0, Math.round((strongPercent / 100) * 6)));
   return (
-    <div
-      style={{
-        width: '100%',
-        maxWidth: 280,
-        padding: '18px 16px',
-        boxSizing: 'border-box',
-        border: `${stroke.shape}px solid ${color.ink}`,
-        borderRadius: 24,
-        background: g ? g.light : color.surface,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        ...style,
-      }}
-    >
-      {imageUrl ? (
-        <img src={imageUrl} alt="" style={{ display: 'block', width: 140, height: 210, objectFit: 'contain', objectPosition: 'center bottom' }} />
-      ) : (
-        ch && <img src={ch.framed} alt="" style={{ display: 'block', width: 140, height: 210, objectFit: 'contain', objectPosition: 'center bottom' }} />
-      )}
-      <div style={{ marginTop: 8 }}>{type && <TypeLabel code={type.code} />}</div>
-      {!type && characterName && <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 700 }}>{characterName}</p>}
-      {nickname && <p style={{ margin: '4px 0 0', fontSize: 13, color: color.sub }}>{nickname}さんの結果</p>}
+    <div style={{ textAlign: 'left', padding: '16px 16px 18px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 24, background: color.white }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ display: 'inline-flex', height: 26, padding: '0 12px', alignItems: 'center', borderRadius: 13, background: dark, color: color.white, fontSize: 11, fontWeight: 700 }}>{badge}</span>
+        <span aria-hidden="true" style={{ fontFamily: font.dela, fontSize: 30, fontWeight: 400, WebkitTextStroke: `1.5px ${color.ink}`, color: light }}>{number}</span>
+      </div>
+      <p style={{ margin: '10px 0 0', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>{heading}</p>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10 }}>
+        <span>
+          <span style={{ fontWeight: 700 }}>{strongLabel}</span>{' '}
+          <span style={{ fontFamily: font.dela, fontSize: 26, color: dark }}>{strongPercent}%</span>
+        </span>
+        <span style={{ fontSize: 12, color: color.sub }}>
+          {weakPercent}% {weakLabel}
+        </span>
+      </div>
+      <div aria-hidden="true" style={{ display: 'flex', gap: 3, marginTop: 10 }}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} style={{ position: 'relative', flex: '1 1 0%', height: 10, borderRadius: 4, background: i < filled ? dark : color.surface }}>
+            {i === Math.max(0, filled - 1) && (
+              <span style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, borderRadius: '50%', background: color.red }} />
+            )}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
+
