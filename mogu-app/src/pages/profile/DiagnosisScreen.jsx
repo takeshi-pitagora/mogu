@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { color, font, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { getType } from '../../lib/mogutype';
-import { AXIS_CARD, AXIS_LABELS, AXIS_META, axisHeading, axisPercent } from '../../lib/axis';
+import { AXIS_CARD, AXIS_LABELS, AXIS_META, axisHeading, axisPercent, judge, scoreToSum } from '../../lib/axis';
 import { DIAGNOSE_URL, fetchMoguTypeResult, MYPAGE_URL } from '../../lib/mogutypeApi';
 import { openExternal } from '../../lib/open';
 import Button from '../../components/ui/Button';
@@ -170,11 +170,11 @@ function LinkedView({ user, busy, onRefresh, onUnlink }) {
           <h2 style={{ margin: '22px 0 -4px', textAlign: 'left', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>4つの軸</h2>
           {AXIS_META.map((m, i) => {
             const label = AXIS_LABELS[i];
-            const { left, right } = axisPercent(axes[m.key] ?? 1.5);
-            const leftStrong = left >= right;
-            return (
-              <AxisCard key={m.key} meta={m} label={label} left={left} right={right} leftStrong={leftStrong} heading={axisHeading(m.key, leftStrong, leftStrong ? left : right)} />
-            );
+            const value = axes[m.key] ?? 1.5;
+            const { left, right } = axisPercent(value);
+            // 左右どちらの文字かは、％ではなく合計点で決める（サイトと同じ：8点以上が右）
+            const leftStrong = !judge(scoreToSum(value) ?? 8).right;
+            return <AxisCard key={m.key} meta={m} label={label} left={left} right={right} leftStrong={leftStrong} heading={axisHeading(m.key, value)} />;
           })}
         </div>
       )}

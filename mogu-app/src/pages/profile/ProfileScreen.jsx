@@ -7,7 +7,7 @@ import { chara } from '../../lib/chara';
 import { photoUrlOf } from '../../lib/profile';
 import { AXIS_LABELS, axisPercent } from '../../lib/axis';
 import { LOGO } from '../../lib/brand';
-import { buildProfileLink } from '../../lib/links';
+import { APP_STORE_URL } from '../../lib/links';
 import { canShareFiles, shareFiles } from '../../lib/open';
 import Icon from '../../components/ui/Icon';
 import Avatar from '../../components/ui/Avatar';
@@ -134,8 +134,7 @@ function FindCharaSheet({ open, onClose, onDiagnose }) {
 // ③シェア画像（確定版 Final-03-7「BeReal 型」）。360×640（9:16）の形をそのまま3倍で描く
 //   地はグループの淡い色、上に写真のカード（下の黒い帯に名前と@ID）、
 //   その下の左にQRコード、右にモグキャラとタイプ・キャラ名、左下に mogu のロゴ
-//   【要確認】QRコードの飛び先は lib/links.js の buildProfileLink（プロフィールを見る用の公開ページ）。
-//   このURLの形は修正指示書・引き渡し書のどちらにも決まりがないため、けんとに確認する
+//   QRコードの飛び先は mogu の App Store のページ（lib/links.js の APP_STORE_URL）
 const SHARE_SCALE = 3;
 const SHARE_W = 360 * SHARE_SCALE;
 const SHARE_H = 640 * SHARE_SCALE;
@@ -199,11 +198,8 @@ async function drawShareImage({ user, type, ch, photoUrl }) {
   ctx.restore();
 
   // QRコード（136×136・left 24・top 384）
-  const link = user.handle ? buildProfileLink(user.handle) : '';
-  if (link) {
-    const qrImg = await loadImage(await QRCode.toDataURL(link, { width: 136 * k, margin: 0, color: { dark: '#2E2C2A', light: '#0000' } }));
-    ctx.drawImage(qrImg, 24 * k, 384 * k, 136 * k, 136 * k);
-  }
+  const qrImg = await loadImage(await QRCode.toDataURL(APP_STORE_URL, { width: 136 * k, margin: 0, color: { dark: '#2E2C2A', light: '#0000' } }));
+  ctx.drawImage(qrImg, 24 * k, 384 * k, 136 * k, 136 * k);
 
   // モグキャラ（148×226・left 186・top 340）とその下のタイプ・キャラ名
   if (ch) {
