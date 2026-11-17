@@ -60,6 +60,10 @@ export function AuthProvider({ children }) {
       bio: profile?.bio || '',
       avatarPath: profile?.avatar_path || null,
       inviteScope: profile?.invite_scope || 'anyone',
+      // 5回目（お店を登録する）で足した列
+      budgetGender: profile?.budget_gender || null, // 予算感を男女別に出すためだけに使う（§6-6）
+      showInRanking: profile?.show_in_ranking ?? true,
+      postingSuspendedUntil: profile?.posting_suspended_until || null,
       moguType: profile?.mogu_type_code
         ? {
             code: profile.mogu_type_code,

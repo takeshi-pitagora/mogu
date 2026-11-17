@@ -57,6 +57,16 @@ export async function fetchShopQuota() {
   return { used, limit, left: Math.max(0, limit - used), suspended: !!data?.suspended };
 }
 
+// 東京の駅をさがす（⑱-2。漢字でも「よみ」でも当たる。地図・外の検索は使わない）
+export async function searchStations(q, limit = 60) {
+  const { data, error } = await supabase.rpc('search_stations', {
+    p_q: String(q ?? '').trim() || null,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return data || [];
+}
+
 // 最寄駅と徒歩（⑰-2 の行・㉑）
 export function walkLabel(stationName, walkMin) {
   if (!stationName) return null;
