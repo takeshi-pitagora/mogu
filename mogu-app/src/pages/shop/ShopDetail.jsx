@@ -3,6 +3,7 @@ import { alpha, color, font, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import Icon from '../../components/ui/Icon';
+import ShopNameCopy from '../../components/ui/ShopNameCopy';
 import { Chip, OpenNow } from '../home/ShopCard';
 import { budgetLabel, closedDaysText, externalLinks, genreLabel, isOpenNow, nearestStation, RATING_SOURCE, ratingOf, shopPhotos, todayHoursText } from '../../lib/shop';
 import { fetchMyGroups, fetchSaved, saveShop, sendToGroup, setSavedHidden } from '../../lib/api';
@@ -152,7 +153,10 @@ export default function ShopDetail({ shop, from = 'saved', onClose, onSavedChang
                 {genre && <Chip>{genre}</Chip>}
               </div>
             )}
-            <h1 className="no-zoom" style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 30, fontWeight: 400, lineHeight: 1.2 }}>{shop.name}</h1>
+            {/* 店名（右に小さな［コピー］。店名を押してもコピーできる。確定版 Final-17 の8） */}
+            <div style={{ marginTop: 12 }}>
+              <ShopNameCopy name={shop.name} size={30} light />
+            </div>
             {rating && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, color: color.white }}>

@@ -23,7 +23,8 @@ export function EmptyState({ title, description, actions = [], style }) {
   return (
     <div style={{ ...centerBox, padding: '0 28px', ...style }}>
       <img src={h?.framed} alt="" style={{ display: 'block', width: 140, height: 214, objectFit: 'contain', objectPosition: 'center bottom' }} />
-      <h2 style={{ margin: '18px 0 0', fontFamily: font.dela, fontSize: 20, fontWeight: 400, lineHeight: 1.4, textAlign: 'center' }}>{title}</h2>
+      {/* 見出しは確定版どおり改行できる（「今日登録できるのは／5店までです」など） */}
+      <h2 style={{ margin: '18px 0 0', fontFamily: font.dela, fontSize: 20, fontWeight: 400, lineHeight: 1.4, textAlign: 'center', whiteSpace: 'pre-line' }}>{title}</h2>
       {description && <p style={{ margin: '6px 0 0', fontSize: 14, lineHeight: 1.65, color: color.sub, textAlign: 'center', whiteSpace: 'pre-line' }}>{description}</p>}
       {actions.length > 0 && (
         <div style={{ width: 240, marginTop: 22, display: 'flex', flexDirection: 'column', gap: 10 }}>
