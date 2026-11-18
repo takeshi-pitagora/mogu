@@ -168,7 +168,7 @@ export function AlreadyRegistered({ shop }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
               <Avatar size={26} photoUrl={photoUrlOf(shop.discovererAvatarPath)} name={shop.discovererName} label="見つけた人" />
               <span style={{ fontSize: 12, fontWeight: 500, color: color.sub }}>見つけた人</span>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>{shop.discovererName}</span>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>{shop.discovererName || '退会したユーザー'}</span>
             </div>
           )}
         </div>

@@ -62,6 +62,10 @@ Deno.serve(async (req) => {
       if (error) throw new Error(`[${label}] ${error.message}`);
     };
 
+    // 第5回（§9-1 の4）：お店は残し、見つけた人は「退会したユーザー」。
+    //   写真とひとことは消し、＋1・予算感・イチ押しは人にたどれない数だけ残す
+    await step('mogu_on_user_deleted', () => admin.rpc('mogu_on_user_deleted', { p_user_id: userId }));
+
     // 本人のスワイプ履歴・保存・グループ参加を削除
     await step('swipes', () => admin.from('swipes').delete().eq('user_id', userId));
     await step('saved_restaurants', () => admin.from('saved_restaurants').delete().eq('user_id', userId));

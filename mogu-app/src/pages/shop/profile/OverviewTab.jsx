@@ -33,8 +33,8 @@ export default function OverviewTab({ data, onTab, onOpenTag, onPlusTag, onBudge
             <Avatar size={48} photoUrl={photoUrlOf(discoverer.avatar_path)} name={discoverer.name} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 15, fontWeight: 700 }}>{discoverer.name}</span>
-                <span style={{ fontSize: 12, color: color.sub }}>@{discoverer.handle}</span>
+                <span style={{ fontSize: 15, fontWeight: 700 }}>{discoverer.name || '退会したユーザー'}</span>
+                {discoverer.handle && <span style={{ fontSize: 12, color: color.sub }}>@{discoverer.handle}</span>}
                 <DigBadge value={discoverer.dig} overlay={false} />
               </div>
               <div style={{ marginTop: 2, fontSize: 12, fontWeight: 700, color: color.sub }}>{foundMonth(discoverer.found_at)}</div>
