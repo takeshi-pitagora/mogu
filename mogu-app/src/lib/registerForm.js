@@ -84,6 +84,7 @@ export function emptyForm(name = '') {
     fields: {},
     tags: [],
     menu: [],
+    limited: [], // 期間限定メニュー
     comment: '',
     notRelated: false, // 「関係者ではありません」
   };

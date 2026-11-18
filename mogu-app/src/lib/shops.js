@@ -67,11 +67,56 @@ export async function searchStations(q, limit = 60) {
   return data || [];
 }
 
+// ハッシュタグ（⑲）
+//   さがす：ひらがな・カタカナ・英字のどれで打っても同じ候補
+export async function searchTags(q, limit = 20) {
+  const { data, error } = await supabase.rpc('search_tags', { p_q: String(q ?? '').trim(), p_limit: limit });
+  if (error) throw error;
+  return data || [];
+}
+
+// 何も打っていないときの候補（種類ごと・よく使われる順）
+export async function suggestTags(perCategory = 8) {
+  const { data, error } = await supabase.rpc('suggest_tags', { p_per_category: perCategory });
+  if (error) throw error;
+  return data || [];
+}
+
+// 新しいタグを作る（作った時点でアプリのタグになる）
+export async function createTag(name) {
+  const { data, error } = await supabase.rpc('create_tag', { p_name: String(name).trim() });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('tag_create_failed');
+  return row;
+}
+
 // 最寄駅と徒歩（⑰-2 の行・㉑）
 export function walkLabel(stationName, walkMin) {
   if (!stationName) return null;
   if (walkMin == null) return stationName;
   return `${stationName} 徒歩${walkMin}分`;
+}
+
+// 下書き（⑱-16・17。1人に1つ。写真は入れない＝端末に残らないため）
+export async function loadDraft() {
+  const { data, error } = await supabase.from('shop_drafts').select('body, updated_at').maybeSingle();
+  if (error) return null;
+  return data?.body || null;
+}
+
+export async function saveDraft(body) {
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u?.user?.id;
+  if (!uid) return;
+  await supabase.from('shop_drafts').upsert({ user_id: uid, body, updated_at: new Date().toISOString() });
+}
+
+export async function clearDraft() {
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u?.user?.id;
+  if (!uid) return;
+  await supabase.from('shop_drafts').delete().eq('user_id', uid);
 }
 
 // お店を登録する（⑱の最後。中身は supabase の register_shop が確かめる）
