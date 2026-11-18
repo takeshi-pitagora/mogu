@@ -10,6 +10,8 @@ import HomeScreen from './pages/home/HomeScreen';
 import SavedScreen from './pages/saved/SavedScreen';
 import ShopDetail from './pages/shop/ShopDetail';
 import ShopProfile from './pages/shop/profile/ShopProfile';
+import { AppealSheet, PenaltyFullScreen, PostRulesScreen, SuspendedSheet } from './pages/notifications/PenaltyScreens';
+import { fetchMyPenalty } from './lib/penalty';
 import RegisterShopSheet from './pages/shop/register/RegisterShopSheet';
 import GroupScreen from './pages/group/GroupScreen';
 import ProfileScreen from './pages/profile/ProfileScreen';
@@ -45,6 +47,12 @@ function Shell() {
   // 第5回：新しいお店（shops 表）のプロフィール㉑とお店の登録⑰⑱⑲
   const [shopProfileId, setShopProfileId] = useState(null);
   const [registerOpen, setRegisterOpen] = useState(false);
+  // ㉗ 投稿が止められているとき
+  const [penalty, setPenalty] = useState(null);
+  const [penaltySheet, setPenaltySheet] = useState(false);
+  const [penaltyFull, setPenaltyFull] = useState(false);
+  const [appeal, setAppeal] = useState(false);
+  const [rules, setRules] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [guideRequest, setGuideRequest] = useState(0);
   const [savedVersion, setSavedVersion] = useState(0);
@@ -136,6 +144,7 @@ function Shell() {
           <NotificationsScreen
             onBack={pop}
             onOpenGroup={(groupId) => openGroupTab(groupId)}
+            onOpenShop={(id) => setShopProfileId(id)}
           />
         );
       case 'settings':
@@ -227,7 +236,18 @@ function Shell() {
         onChange={changeTab}
         profile={{ name: user?.name, photoUrl: photoUrlOf(user?.avatarPath) }}
         guest={guest}
-        onPlus={() => (guest ? openGuestSheet() : setRegisterOpen(true))}
+        onPlus={() => {
+          if (guest) return openGuestSheet();
+          // 止められているときは⑰を開かず、㉗のシートで伝える
+          return fetchMyPenalty().then((p) => {
+            if (p) {
+              setPenalty(p);
+              setPenaltySheet(true);
+            } else {
+              setRegisterOpen(true);
+            }
+          });
+        }}
       />
 
       {/* ㉑ お店のプロフィール（新しい shops 表。⑯のタブからの入口は手順7） */}
@@ -271,6 +291,27 @@ function Shell() {
           onGuestLocked={openGuestSheet}
         />
       )}
+
+      {/* ㉗ 投稿が止められているとき（＋を押したとき） */}
+      <SuspendedSheet
+        open={penaltySheet && !penaltyFull}
+        penalty={penalty}
+        onDetail={() => setPenaltyFull(true)}
+        onClose={() => setPenaltySheet(false)}
+      />
+      {penaltyFull && penalty && (
+        <PenaltyFullScreen
+          penalty={penalty}
+          onAppeal={() => setAppeal(true)}
+          onRules={() => setRules(true)}
+          onClose={() => {
+            setPenaltyFull(false);
+            setPenaltySheet(false);
+          }}
+        />
+      )}
+      {appeal && <AppealSheet penalty={penalty} onClose={() => setAppeal(false)} />}
+      {rules && <PostRulesScreen onClose={() => setRules(false)} />}
 
       {guest && (
         <GuestRegisterSheet

@@ -9,6 +9,8 @@ import { LoadingState, ErrorState } from '../../components/ui/States';
 import { blockUser, photoUrlOf, submitReport } from '../../lib/profile';
 import { LOGO } from '../../lib/brand';
 import { useToast } from '../../components/ui/Toast';
+import { AppealSheet, PenaltyFullScreen, PenaltySheet, PostRulesScreen } from './PenaltyScreens';
+import { fetchPenalty } from '../../lib/penalty';
 import { fetchNotifications, markNotificationsRead, notificationText, respondInvite } from '../../lib/notifications';
 
 // お知らせ（確定版 Final-10）。一覧（返事待ち／今日／今週／それ以前）・招待の確認・お知らせの本文
@@ -388,6 +390,22 @@ function ReportSheet({ open, onClose, targetId, name, toast }) {
 }
 
 // 運営のお知らせの本文（⑩-6）
+// ㉗ 通知の payload から、お知らせのシートに出す形を作る
+function fromPayload(n) {
+  const p = n.payload || {};
+  return {
+    id: p.penalty_id || null,
+    stage: p.stage || 'notice',
+    reason: p.reason || '',
+    target: p.target || null,
+    headline: p.headline || p.title || null,
+    happened: p.happened || null,
+    next_text: p.next_text || null,
+    ends_at: p.ends_at || null,
+    created_at: n.createdAt,
+  };
+}
+
 function AnnouncementDetail({ n, onBack }) {
   return (
     <div style={page}>
@@ -417,13 +435,18 @@ function AnnouncementDetail({ n, onBack }) {
   );
 }
 
-export default function NotificationsScreen({ onBack, onOpenGroup }) {
+export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop }) {
   const toast = useToast();
   const [list, setList] = useState(null); // null = 読み込み中
   const [status, setStatus] = useState('loading');
   const [busyId, setBusyId] = useState(null);
   const [detail, setDetail] = useState(null); // announcement
   const [confirm, setConfirm] = useState(null); // 招待の確認（⑩-4）
+  // ㉗ 運営からの大事なお知らせ
+  const [penalty, setPenalty] = useState(null); // シートで短く
+  const [penaltyFull, setPenaltyFull] = useState(false);
+  const [appeal, setAppeal] = useState(false);
+  const [rules, setRules] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -470,6 +493,20 @@ export default function NotificationsScreen({ onBack, onOpenGroup }) {
       setDetail(n);
       return;
     }
+    // ㉗ 大事なお知らせ：シートで短く見せる
+    if (n.type === 'important') {
+      if (n.payload?.penalty_id) {
+        fetchPenalty(n.payload.penalty_id).then((p) => setPenalty(p || fromPayload(n)));
+      } else {
+        setPenalty(fromPayload(n));
+      }
+      return;
+    }
+    // お店のお知らせは、お店のページへ
+    if (['saved_bonus', 'edit_result', 'closed_result', 'shop_grew'].includes(n.type) && n.payload?.shop_id) {
+      onOpenShop?.(n.payload.shop_id);
+      return;
+    }
     if (n.type === 'id_invite') {
       if (!n.payload?.responded) setConfirm(n);
       return;
@@ -483,6 +520,20 @@ export default function NotificationsScreen({ onBack, onOpenGroup }) {
     return <InviteConfirmScreen n={confirm} busy={busyId === confirm.id} onBack={() => setConfirm(null)} onRespond={respond} toast={toast} />;
   }
   if (detail) return <AnnouncementDetail n={detail} onBack={() => setDetail(null)} />;
+  if (rules) return <PostRulesScreen onClose={() => setRules(false)} />;
+  if (penaltyFull && penalty) {
+    return (
+      <>
+        <PenaltyFullScreen
+          penalty={penalty}
+          onAppeal={() => setAppeal(true)}
+          onRules={() => setRules(true)}
+          onClose={() => setPenaltyFull(false)}
+        />
+        {appeal && <AppealSheet penalty={penalty} onClose={() => setAppeal(false)} />}
+      </>
+    );
+  }
 
   const empty = status === 'ready' && (list || []).length === 0;
   // 参加した招待は「今日」に「参加しました」の行で残す（⑩-8）
@@ -551,6 +602,14 @@ export default function NotificationsScreen({ onBack, onOpenGroup }) {
           </div>
         </div>
       )}
+
+      {/* ㉗ 大事なお知らせ：シートで短く → ［くわしく］で全画面 */}
+      <PenaltySheet
+        open={!!penalty && !penaltyFull}
+        penalty={penalty}
+        onDetail={() => setPenaltyFull(true)}
+        onClose={() => setPenalty(null)}
+      />
     </div>
   );
 }

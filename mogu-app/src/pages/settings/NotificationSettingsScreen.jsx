@@ -7,6 +7,17 @@ import Icon from '../../components/ui/Icon';
 
 // 通知の設定（引き渡し書 §7-6）：マスターのスイッチ・種類ごとのスイッチ
 //   マスターをオフにすると、種類ごとのスイッチは押せなくなる（オフのまま変わらない）
+// ㉗ オフにできない行（鍵と「いつもオン」）
+function LockedRow({ label }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 56, borderTop: `1px solid ${color.line}` }}>
+      <span style={{ flex: 1, fontSize: 15, fontWeight: 500 }}>{label}</span>
+      <Icon name="lockSmall" size={16} color={color.sub} />
+      <span style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>いつもオン</span>
+    </div>
+  );
+}
+
 function SwitchRow({ label, on, disabled, onChange, first }) {
   return (
     <button
@@ -61,7 +72,7 @@ export default function NotificationSettingsScreen({ onBack }) {
       .then((p) => alive && setPrefs(p))
       .catch((err) => {
         console.error('通知設定の取得エラー:', err?.message || err);
-        if (alive) setPrefs({ notif_master: true, notif_match: true, notif_member_joined: true, notif_id_invite: true, notif_announcement: false });
+        if (alive) setPrefs({ notif_master: true, notif_match: true, notif_member_joined: true, notif_id_invite: true, notif_announcement: false, notif_shop_coin: true });
       });
     return () => {
       alive = false;
@@ -93,7 +104,10 @@ export default function NotificationSettingsScreen({ onBack }) {
         <SwitchRow first label="マッチした（みんなが同じお店を選んだ）" on={!!prefs.notif_match} disabled={!master} onChange={(v) => update({ notif_match: v })} />
         <SwitchRow label="新しいメンバーがグループに参加した" on={!!prefs.notif_member_joined} disabled={!master} onChange={(v) => update({ notif_member_joined: v })} />
         <SwitchRow label="IDでグループに招待された" on={!!prefs.notif_id_invite} disabled={!master} onChange={(v) => update({ notif_id_invite: v })} />
+        <SwitchRow label="お店とコイン" on={!!prefs.notif_shop_coin} disabled={!master} onChange={(v) => update({ notif_shop_coin: v })} />
         <SwitchRow label="運営からのお知らせ" on={!!prefs.notif_announcement} disabled={!master} onChange={(v) => update({ notif_announcement: v })} />
+        {/* ㉗ 大事なお知らせはオフにできない（スイッチの代わりに鍵と「いつもオン」） */}
+        <LockedRow label="運営からの大事なお知らせ" />
       </RowGroup>
       <p style={{ margin: '16px 0 0', display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, lineHeight: 1.6, color: color.sub }}>
         <Icon name="info" size={16} color={color.sub} />

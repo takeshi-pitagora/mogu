@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PostRulesScreen } from '../notifications/PenaltyScreens';
 import { color, font, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { listBlocked, photoUrlOf } from '../../lib/profile';
@@ -65,6 +66,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
   const [confirm, setConfirm] = useState(false);
   const [report, setReport] = useState(false);
   const [blockedCount, setBlockedCount] = useState(null);
+  const [rules, setRules] = useState(false); // ㉗ 投稿のルール
 
   useEffect(() => {
     if (guest) return;
@@ -72,6 +74,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
   }, [guest]);
 
   if (!user) return null;
+  if (rules) return <PostRulesScreen onClose={() => setRules(false)} />;
   const diagnosed = !!getType(user.moguType?.code);
 
   const about = [
@@ -102,8 +105,10 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
 
       <GroupTitle>このアプリについて</GroupTitle>
       <RowGroup>
-        {about.map((a, i) => (
-          <Row key={a.label} first={i === 0} label={a.label} external={a.external} onClick={() => openExternal(a.url)} />
+        {/* ㉗-19 いちばん上に［投稿のルール］（アプリの中の画面なので external は付けない） */}
+        <Row first label="投稿のルール" onClick={() => setRules(true)} />
+        {about.map((a) => (
+          <Row key={a.label} label={a.label} external={a.external} onClick={() => openExternal(a.url)} />
         ))}
       </RowGroup>
 

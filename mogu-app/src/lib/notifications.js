@@ -65,10 +65,10 @@ export async function respondInvite(inviteId, accept) {
 export async function fetchNotifPrefs() {
   const { data, error } = await supabase
     .from('profiles')
-    .select('notif_master, notif_match, notif_member_joined, notif_id_invite, notif_announcement, notif_prompted_at')
+    .select('notif_master, notif_match, notif_member_joined, notif_id_invite, notif_announcement, notif_shop_coin, notif_prompted_at')
     .single();
   if (error) {
-    if (missingFunction(error)) return { notif_master: true, notif_match: true, notif_member_joined: true, notif_id_invite: true, notif_announcement: false };
+    if (missingFunction(error)) return { notif_master: true, notif_match: true, notif_member_joined: true, notif_id_invite: true, notif_announcement: false, notif_shop_coin: true };
     throw error;
   }
   return data;
@@ -125,6 +125,66 @@ export function notificationText(n) {
       ];
     case 'announcement':
       return [{ t: p.title || 'お知らせ', b: true }];
+
+    // ---- 第5回（㉗）で足した種類 ----
+    // 「サンプル食堂 渋谷店ほか2店のコインが確定しました ＋25」
+    case 'coin_confirmed': {
+      const more = Number(p.other_count || 0);
+      return [
+        { t: p.shop_name || 'お店', b: true },
+        ...(more > 0 ? [{ t: `ほか${more}店` }] : []),
+        { t: 'のコインが確定しました ' },
+        { t: `＋${p.amount ?? 0}`, b: true },
+      ];
+    }
+    // 「あなたが見つけたサンプル軒 代官山店が10人に保存されました ＋5」
+    case 'saved_bonus':
+      return [
+        { t: 'あなたが見つけた' },
+        { t: p.shop_name || 'お店', b: true },
+        { t: `が${p.saved_count ?? 0}人に保存されました ` },
+        { t: `＋${p.amount ?? 0}`, b: true },
+      ];
+    // 「サンプル苑 新宿店のコインは取り消されました」
+    case 'coin_cancelled':
+      return [{ t: p.shop_name || 'お店', b: true }, { t: 'のコインは取り消されました' }];
+    // 「修正依頼の結果：サンプル飯店 池袋店の営業時間を直しました ＋3」
+    case 'edit_result':
+      if (!p.accepted) {
+        return [
+          { t: '修正依頼の結果：' },
+          { t: p.shop_name || 'お店', b: true },
+          { t: 'は今回は直しませんでした' },
+        ];
+      }
+      return [
+        { t: '修正依頼の結果：' },
+        { t: p.shop_name || 'お店', b: true },
+        { t: `の${p.field_title || '情報'}を直しました ` },
+        { t: `＋${p.amount ?? 3}`, b: true },
+      ];
+    // 「報告したサンプル亭 恵比寿店を「閉店」にしました ＋3」
+    case 'closed_result':
+      return [
+        { t: '報告した' },
+        { t: p.shop_name || 'お店', b: true },
+        { t: `を「${p.result_label || '閉店'}」にしました ` },
+        { t: `＋${p.amount ?? 3}`, b: true },
+      ];
+    // 「あなたが見つけたサンプル珈琲 中目黒店に、写真が3枚足されました」
+    case 'shop_grew':
+      return [
+        { t: 'あなたが見つけた' },
+        { t: p.shop_name || 'お店', b: true },
+        { t: `に、${p.what || '写真'}が${p.count ?? 1}${p.unit || '枚'}足されました` },
+      ];
+    // 「dig14 になりました」
+    case 'dig_up':
+      return [{ t: `dig${p.dig ?? ''}`, b: true }, { t: ' になりました' }];
+    // 「［大事なお知らせ］投稿について大事なお知らせがあります」
+    case 'important':
+      return [{ t: p.title || '投稿について大事なお知らせがあります', b: true }];
+
     default:
       return [{ t: 'お知らせ' }];
   }
