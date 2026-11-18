@@ -216,7 +216,7 @@ function Shell() {
       )}
       {!top && tab === 'profile' && (
         <div style={{ position: 'absolute', inset: 0 }}>
-          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen onOpenSettings={() => push('settings')} onOpenDiagnosis={openDiagnosis} />}
+          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen onOpenSettings={() => push('settings')} onOpenDiagnosis={openDiagnosis} onOpenShop={(id) => setShopProfileId(id)} />}
         </div>
       )}
       {top && (

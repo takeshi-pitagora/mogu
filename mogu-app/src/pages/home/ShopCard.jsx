@@ -1,10 +1,12 @@
 import { useRef } from 'react';
 import { alpha, color, font, radius, stroke } from '../../theme/tokens';
-import { budgetLabel, genreLabel, isOpenNow, nearestStation, ratingOf, shopPhotos } from '../../lib/shop';
+import Icon from '../../components/ui/Icon';
+import { budgetLabel, genreLabel, isOpenNow, nearestStation, shopPhotos } from '../../lib/shop';
 
 // ホームのお店カード（確定版 Final-08 写真全面型の寸法のまま）
 //   角丸32・2ptの線・写真全面・下に向かって暗くなる重ね・上に写真の点（何枚目か）
-//   写真の下のほうに白い文字で：エリアとジャンルのラベル、店名、評価（数字と件数）、予算、最寄り駅と徒歩の分、営業中
+//   写真の下のほうに白い文字で：エリアとジャンルのラベル、店名、みんなのタグ3つ、
+//   「○人が保存」と予算感、最寄り駅と徒歩の分、営業中（㉔の確定版。星や点数は出さない）
 export function PhotoDots({ count, index }) {
   if (count <= 1) return null;
   return (
@@ -38,7 +40,9 @@ export function OpenNow({ onLight = false }) {
 export default function ShopCard({ shop, photoIndex = 0, onPhotoIndex, onOpen, interactive = true }) {
   const photos = shopPhotos(shop);
   const idx = Math.min(photoIndex, Math.max(0, photos.length - 1));
-  const rating = ratingOf(shop);
+  // ㉔ カードは星をやめて、みんなのタグ3つ・予算感・「○人が保存」にする
+  const tags = shop.tags || [];
+  const savedCount = shop.saved_count ?? null;
   const budget = budgetLabel(shop.price_level);
   const station = nearestStation(shop);
   const open = isOpenNow(shop.opening_hours) === true;
@@ -83,14 +87,30 @@ export default function ShopCard({ shop, photoIndex = 0, onPhotoIndex, onOpen, i
           </div>
         )}
         <h2 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 26, fontWeight: 400, lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{shop.name}</h2>
-        {(rating || budget) && (
+        {/* ㉔ みんなのタグ（上位3つ）。星や点数は出さない */}
+        {tags.length > 0 && (
+          <div aria-label="ハッシュタグ（上位3つ）" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {tags.slice(0, 3).map((t) => (
+              <span
+                key={t}
+                style={{ flex: 'none', height: 30, boxSizing: 'border-box', padding: '0 10px', border: `2px solid ${color.white}`, borderRadius: 22, background: 'rgba(46,44,42,0.48)', color: color.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
+        {(savedCount != null || budget) && (
           <dl style={{ margin: 0, display: 'flex', alignItems: 'flex-end', gap: 20 }}>
-            {rating && (
+            {savedCount != null && (
               <div>
-                <dt style={{ fontSize: 12, fontWeight: 500, color: color.line }}>評価</dt>
+                <dt style={{ fontSize: 12, fontWeight: 500, color: color.line }}>保存</dt>
                 <dd style={{ margin: '2px 0 0', display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
-                  <span className="no-zoom" style={{ fontFamily: font.dela, fontSize: 34, lineHeight: 1 }}>{rating.value}</span>
-                  {rating.count && <span style={{ fontSize: 12, color: color.line }}>{rating.count}</span>}
+                  <span style={{ alignSelf: 'center' }}>
+                    <Icon name="savedFill" size={20} color={color.white} />
+                  </span>
+                  <span className="no-zoom" style={{ fontFamily: font.dela, fontSize: 30, lineHeight: 1 }}>{savedCount}</span>
+                  <span style={{ fontSize: 12, color: color.line }}>人</span>
                 </dd>
               </div>
             )}

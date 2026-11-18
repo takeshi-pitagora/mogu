@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { fetchUserTags, saveUserTags } from '../../lib/shops';
+import TagPickSheet from '../shop/register/TagPickSheet';
 import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { getType } from '../../lib/mogutype';
@@ -30,6 +32,10 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
   const toast = useToast();
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
+  // ③ 自分のハッシュタグ
+  const [myTags, setMyTags] = useState([]);
+  const [tagsLoaded, setTagsLoaded] = useState(null);
+  const [tagPick, setTagPick] = useState(false);
   const [handle, setHandleInput] = useState(user?.handle || '');
   const [asyncHandleState, setAsyncHandleState] = useState(null); // サーバーに確認した結果（checking/ok/taken/...）
   const [bioBanned, setBioBanned] = useState(false);
@@ -48,6 +54,19 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
   const type = getType(user?.moguType?.code);
   const ch = type ? chara(type.code) : null;
   const g = type ? groupColor[groupOf(type.code)] : null;
+
+  // 自分のハッシュタグを読む
+  useEffect(() => {
+    let alive = true;
+    fetchUserTags(user?.id).then((rows) => {
+      if (!alive) return;
+      setMyTags(rows);
+      setTagsLoaded(rows.map((t) => t.id).join(','));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
 
   const handleTimer = useRef(null);
   const handleNorm = handle.trim().toLowerCase();
@@ -96,7 +115,8 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
   const handleChanged = handle.trim().toLowerCase() !== (user?.handle || '') && handleOk;
   const bioChanged = bio !== (user?.bio || '') && !bioBanned && bio.length <= BIO_MAX && countLines(bio) <= BIO_MAX_LINES;
   const photoChanged = !!pendingPhoto || photoRemoved;
-  const changed = nameChanged || handleChanged || bioChanged || photoChanged;
+  const tagsChanged = tagsLoaded != null && myTags.map((t) => t.id).join(',') !== tagsLoaded;
+  const changed = nameChanged || handleChanged || bioChanged || photoChanged || tagsChanged;
 
   const date = (() => {
     const d = user?.moguType?.linkedAt ? new Date(user.moguType.linkedAt) : null;
@@ -129,6 +149,14 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
     if (photoChanged) updates.avatarPath = newAvatarPath;
 
     const { error: e } = await updateProfile(updates);
+    if (tagsChanged) {
+      try {
+        await saveUserTags(myTags.map((t) => t.id));
+        setTagsLoaded(myTags.map((t) => t.id).join(','));
+      } catch {
+        /* タグが保存できなくても、ほかは保存されている */
+      }
+    }
     setSaving(false);
     if (e) {
       setError(e);
@@ -258,6 +286,36 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
             </div>
             {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 700, color: color.red }}>{error}</p>}
 
+            {/* ③ 自分のハッシュタグ（5つまで。⑲と同じ探し方で選ぶ） */}
+            <h3 style={{ margin: '28px 0 8px', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>自分のハッシュタグ</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {myTags.map((t) => (
+                <span key={t.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 36, padding: '0 10px', borderRadius: 10, background: color.surface, fontSize: 13, fontWeight: 700 }}>
+                  #{t.name}
+                  <button
+                    type="button"
+                    aria-label={`#${t.name} を外す`}
+                    onClick={() => setMyTags(myTags.filter((x) => x.id !== t.id))}
+                    className="ui-btn"
+                    style={{ width: 24, height: 24, padding: 0, border: 0, borderRadius: 12, background: 'transparent', color: color.sub, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Icon name="close" size={14} color={color.sub} />
+                  </button>
+                </span>
+              ))}
+              {myTags.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => setTagPick(true)}
+                  className="ui-btn"
+                  style={{ height: 36, padding: '0 12px', boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 18, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 13, fontWeight: 700 }}
+                >
+                  ＋ タグを選ぶ
+                </button>
+              )}
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 500, color: color.sub }}>5つまで。プロフィールに出ます</p>
+
             <h3 style={{ margin: '28px 0 8px', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>食スタイル診断</h3>
             <div style={{ borderTop: `${stroke.shape}px solid ${color.ink}`, borderBottom: `${stroke.shape}px solid ${color.ink}` }}>
               {type ? (
@@ -316,6 +374,16 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
         }}
         onCancel={() => setConfirm(false)}
       />
+      {tagPick && (
+        <TagPickSheet
+          picked={myTags}
+          onDone={(tags) => {
+            setMyTags(tags.slice(0, 5));
+            setTagPick(false);
+          }}
+          onCancel={() => setTagPick(false)}
+        />
+      )}
     </>
   );
 }

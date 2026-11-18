@@ -1,14 +1,25 @@
 // =============================================================
 // お店の表示に使う値（ホームのカード・保存・お店の詳細で共通）
-// 元のデータは restaurants 表（Google Places API (New) の Text Search）
+// 元のデータは restaurants 表（第5回からは shops の写し。Google は使わない）
 // =============================================================
 
+import { shopPhotoUrl } from './shops';
+
 // 写真：新しい photos 列（最大10枚）があればそれを、なければ今までの3枚
+// お店の写真。第5回からは、みんなが入れた写真（Storage の shop-photos）を使う
+//   restaurants.photos には写真の場所（path）が入っているので、URL に直す
 export function shopPhotos(row) {
   if (!row) return [];
   const list = Array.isArray(row.photos) ? row.photos.filter(Boolean) : [];
-  if (list.length > 0) return list;
-  return [row.photo_food, row.photo_interior, row.photo_exterior].filter(Boolean);
+  const all = list.length > 0 ? list : [row.photo_food, row.photo_interior, row.photo_exterior].filter(Boolean);
+  return all.map(toPhotoUrl).filter(Boolean);
+}
+
+function toPhotoUrl(v) {
+  const p = String(v || '');
+  if (p === '') return null;
+  if (/^https?:\/\//i.test(p)) return p; // 古いデータ（URLのまま）
+  return shopPhotoUrl(p);
 }
 
 // 予算（確定版の表記：〜¥1,000／¥1,000〜¥3,000／¥3,000〜¥5,000／¥5,000〜）

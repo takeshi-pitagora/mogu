@@ -173,3 +173,16 @@ export function registerErrorMessage(err) {
   const key = Object.keys(MESSAGES).find((k) => raw.includes(k));
   return key ? MESSAGES[key] : '登録できませんでした。少し待ってもう一度お願いします。';
 }
+
+// ③ 自分のハッシュタグ（プロフィール）
+export async function fetchUserTags(userId) {
+  if (!userId) return [];
+  const { data, error } = await supabase.rpc('user_tags_of', { p_user_id: userId });
+  if (error) return [];
+  return data || [];
+}
+
+export async function saveUserTags(tagIds) {
+  const { error } = await supabase.rpc('set_my_tags', { p_tag_ids: tagIds });
+  if (error) throw error;
+}

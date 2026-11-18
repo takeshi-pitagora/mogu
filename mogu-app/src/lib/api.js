@@ -23,20 +23,16 @@ export async function fetchDeck({ user, filters, group }) {
     swipedIds = (swiped || []).map((s) => s.restaurant_id);
   }
 
-  let data;
+  // 第5回：Google からお店を取ってくるのをやめた（§7）。
+  //   お店は、みんなが登録した shops だけ。shops は restaurants にも写してあるので、
+  //   グループのマッチなど今の仕組みはそのまま動く
+  const { data: qData, error } = await supabase.from('restaurants').select('*').eq('is_excluded', false);
+  if (error) throw error;
+  let data = qData || [];
   if (filters.areas.length > 0) {
-    const results = await Promise.all(filters.areas.map((area) => supabase.functions.invoke('places-search', { body: { area } })));
-    const merged = new Map();
-    results.forEach(({ data: fnData, error: fnError }) => {
-      if (fnError) throw fnError;
-      (fnData?.restaurants || []).forEach((r) => merged.set(r.id, r));
-    });
-    data = Array.from(merged.values());
-  } else {
-    const { data: qData, error } = await supabase.from('restaurants').select('*').eq('is_excluded', false);
-    if (error) throw error;
-    data = qData || [];
+    data = data.filter((r) => filters.areas.includes(r.area));
   }
+  data = await withShopCards(data);
 
   // 並び順「おすすめ」：ひとりのときは今のアプリの並びのまま。グループのときはメンバーのタイプで並べる（今の仕組み）
   if (filters.sort === 'mogu_type_popular' || filters.sort === 'trending') {
@@ -50,6 +46,29 @@ export async function fetchDeck({ user, filters, group }) {
   if (filters.genres.length > 0) list = list.filter((r) => filters.genres.includes(shopGenre(r)));
   if (filters.priceLevel != null) list = list.filter((r) => String(r.price_level) === String(filters.priceLevel));
   return list;
+}
+
+// カードに出すもの（みんなのタグ3つ・予算感・「○人が保存」）を足す（㉔）
+export async function withShopCards(rows) {
+  const ids = (rows || []).map((r) => r.id).filter(Boolean);
+  if (ids.length === 0) return rows || [];
+  const { data, error } = await supabase.rpc('shop_cards', { p_ids: ids });
+  if (error) return rows;
+  const byId = new Map((data || []).map((c) => [c.id, c]));
+  return (rows || []).map((r) => {
+    const c = byId.get(r.id);
+    if (!c) return r;
+    return {
+      ...r,
+      name: c.name || r.name,
+      tags: c.tags || [],
+      saved_count: c.saved_count ?? 0,
+      budget_label: c.budget_label || null,
+      station_name: c.station_name || null,
+      walk_min: c.walk_min ?? null,
+      cover_path: c.cover_path || null,
+    };
+  });
 }
 
 // 「同じモグタイプに人気」「急上昇中」（3回目 §7-7）：定期的に集計した表から並び順（restaurant_idの配列）をもらう
@@ -166,9 +185,11 @@ export async function fetchSaved(userId) {
     ({ data, error } = await base());
   }
   if (error) throw error;
-  return (data || [])
+  const rows = (data || [])
     .filter((r) => r.restaurants && !r.restaurants.is_excluded)
     .map((r) => ({ ...r.restaurants, saved_at: r.created_at || null }));
+  // ㉔ 保存のカードにも、みんなのタグ3つ・予算感・「○人が保存」を出す
+  return withShopCards(rows);
 }
 
 export async function setSavedHidden({ userId, restaurantId, hidden }) {

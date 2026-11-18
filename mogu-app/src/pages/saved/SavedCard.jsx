@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import { alpha, color, font, radius, stroke } from '../../theme/tokens';
-import { budgetLabel, genreLabel, isOpenNow, nearestStation, ratingOf, shopPhotos } from '../../lib/shop';
+import Icon from '../../components/ui/Icon';
+import { budgetLabel, genreLabel, isOpenNow, nearestStation, shopPhotos } from '../../lib/shop';
 import { OpenNow } from '../home/ShopCard';
 
 // 保存のカード（確定版 Final-09 大きなカード型の寸法のまま）
 //   高さ262・角丸32・2ptの線・写真全面（カードの中で左右に送れる）・下に向かって暗くなる重ね
-//   右上に「評価 4.2」の白いカプセル、左下に写真の点、店名（Dela 21）、エリア・ジャンル・予算、最寄り駅と徒歩・営業中
+//   右上に「○人が保存」の白いカプセル、左下に写真の点、店名（Dela 21）、
+//   みんなのタグ3つ、エリア・ジャンル・予算感、最寄り駅と徒歩・営業中（㉔の確定版）
 //   押すとお店の詳細、長押しでメニュー
 export const SAVED_CARD_H = 262;
 const LONG_PRESS_MS = 480;
@@ -13,7 +15,9 @@ const SLOP = 8;
 
 export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false }) {
   const photos = shopPhotos(shop);
-  const rating = ratingOf(shop);
+  // ㉔ 星をやめて、みんなのタグ3つ・予算感・「○人が保存」
+  const tags = shop.tags || [];
+  const savedCount = shop.saved_count ?? null;
   const budget = budgetLabel(shop.price_level);
   const station = nearestStation(shop);
   const open = isOpenNow(shop.opening_hours) === true;
@@ -38,14 +42,28 @@ export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false })
           ))}
         </div>
       )}
-      {rating && (
-        <span style={{ position: 'absolute', right: 14, top: 14, display: 'flex', alignItems: 'baseline', gap: 4, height: 32, boxSizing: 'border-box', padding: '0 12px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, background: color.white, fontSize: 11, fontWeight: 700, color: color.sub, lineHeight: '28px', zIndex: 2 }}>
-          評価
-          <span style={{ fontFamily: font.dela, fontSize: 15, color: color.ink }}>{rating.value}</span>
+      {/* ㉔ 星はやめて、右上は「○人が保存」 */}
+      {savedCount != null && (
+        <span style={{ position: 'absolute', right: 14, top: 14, display: 'flex', alignItems: 'center', gap: 4, height: 32, boxSizing: 'border-box', padding: '0 12px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, background: color.white, fontSize: 11, fontWeight: 700, color: color.sub, zIndex: 2 }}>
+          <Icon name="savedFill" size={14} color={color.accent} />
+          <span style={{ fontFamily: font.dela, fontSize: 15, color: color.ink }}>{savedCount}</span>
+          人
         </span>
       )}
       <div style={{ position: 'absolute', left: 18, right: 18, bottom: 16, color: color.white, zIndex: 2 }}>
         <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 21, fontWeight: 400, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shop.name}</h2>
+        {tags.length > 0 && (
+          <div style={{ marginTop: 6, display: 'flex', gap: 6, overflow: 'hidden' }}>
+            {tags.slice(0, 3).map((t) => (
+              <span
+                key={t}
+                style={{ flex: 'none', height: 26, boxSizing: 'border-box', padding: '0 9px', border: `2px solid ${color.white}`, borderRadius: 20, background: 'rgba(46,44,42,0.48)', color: color.white, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
         {(place || budget) && (
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: color.line, whiteSpace: 'nowrap', overflow: 'hidden' }}>
             {place && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{place}</span>}

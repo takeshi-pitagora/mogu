@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
+import VisitCalendar from './VisitCalendar';
+import { fetchUserTags } from '../../lib/shops';
 import { useAuth } from '../../context/AuthContext';
 import { getType } from '../../lib/mogutype';
 import { chara } from '../../lib/chara';
@@ -239,7 +241,29 @@ function roundRectPath(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
-export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis }) {
+// ③ 自分のハッシュタグ（プロフィールの編集で選んだもの）
+function MyTags({ userId }) {
+  const [tags, setTags] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    fetchUserTags(userId).then((rows) => alive && setTags(rows));
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+  if (tags.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+      {tags.map((t) => (
+        <span key={t.id} style={{ display: 'inline-flex', alignItems: 'center', height: 30, padding: '0 10px', borderRadius: 8, background: color.surface, fontSize: 13, fontWeight: 700 }}>
+          #{t.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenShop }) {
   const { user } = useAuth();
   const toast = useToast();
   const [edit, setEdit] = useState(false);
@@ -332,9 +356,12 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis }) {
               <Icon name="shareProfile" size={22} />
             </button>
           </div>
+          <MyTags userId={user.id} />
           <div ref={cardRef}>
             <DiagnosisCard user={user} type={type} onDiagnose={onOpenDiagnosis} />
           </div>
+          {/* ③ 行ったお店のカレンダー（第5回） */}
+          <VisitCalendar onOpenShop={onOpenShop} />
         </div>
       </div>
 
