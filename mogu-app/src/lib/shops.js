@@ -98,6 +98,13 @@ export function walkLabel(stationName, walkMin) {
   return `${stationName} 徒歩${walkMin}分`;
 }
 
+// ⑳ 登録が終わったときに出すもの（見つけたお店の手帳とコイン）
+export async function fetchRegisterResult(shopId, limit = 3) {
+  const { data, error } = await supabase.rpc('my_register_result', { p_shop_id: shopId, p_limit: limit });
+  if (error) throw error;
+  return data;
+}
+
 // 下書き（⑱-16・17。1人に1つ。写真は入れない＝端末に残らないため）
 export async function loadDraft() {
   const { data, error } = await supabase.from('shop_drafts').select('body, updated_at').maybeSingle();

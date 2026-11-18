@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { color, font } from '../../../theme/tokens';
 import { useAuth } from '../../../context/AuthContext';
-import { clearDraft, fetchShopQuota, loadDraft, registerErrorMessage, saveDraft } from '../../../lib/shops';
-import { emptyForm, missingLabels, stepDone, todayKey } from '../../../lib/registerForm';
+import { clearDraft, fetchRegisterResult, fetchShopQuota, loadDraft, registerErrorMessage, saveDraft } from '../../../lib/shops';
+import { emptyForm, missingLabels, stepDone, toDateKey, todayKey, yesterdayKey } from '../../../lib/registerForm';
 import RegisterSheet from '../../../components/ui/RegisterSheet';
 import ConfirmSheet from '../../../components/ui/ConfirmSheet';
 import BottomSheet, { SheetTitle } from '../../../components/ui/BottomSheet';
@@ -21,6 +21,7 @@ import { blockingLabels } from '../../../lib/registerBlocking';
 import TagPickSheet from './TagPickSheet';
 import { StepHint } from './StepFrame';
 import { draftBody, submitRegistration } from './submit';
+import RegisteredSheet from './RegisteredSheet';
 
 // =============================================================
 // お店を登録する（⑰⑱⑲）確定版 Final-17・Final-18・Final-19
@@ -45,6 +46,7 @@ export default function RegisterShopSheet({ onClose, onOpenShop, onAddPhoto, onR
   const [draft, setDraft] = useState(null); // 下書きがあります（⑰-17）
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
+  const [done, setDone] = useState(null); // ⑳ 登録が終わったとき
 
   const checked = checkedName != null && checkedName === form.name.trim();
   const search = useShopCandidates(form.name, checked);
@@ -118,6 +120,13 @@ export default function RegisterShopSheet({ onClose, onOpenShop, onAddPhoto, onR
     setSending(true);
     try {
       const shopId = await submitRegistration(user.id, form);
+      let result = null;
+      try {
+        result = await fetchRegisterResult(shopId, 3);
+      } catch {
+        /* 手帳が読めなくても登録は終わっている */
+      }
+      setDone({ shopId, result });
       onRegistered?.(shopId, form);
     } catch (e) {
       setSendError(e);
@@ -290,6 +299,37 @@ export default function RegisterShopSheet({ onClose, onOpenShop, onAddPhoto, onR
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>{body}</div>
       </RegisterSheet>
 
+      {done && (
+        <RegisteredSheet
+          shopName={form.name}
+          coins={{
+            total: done.result?.coins?.total ?? 0,
+            pending: done.result?.coins?.pending ?? 0,
+            gained: done.result?.coins?.gained ?? 0,
+            fullRegister: !!done.result?.coins?.full_register,
+          }}
+          found={(done.result?.found || []).map((f) => ({
+            no: f.no,
+            name: f.name,
+            when: whenLabel(f.created_at),
+            gained: f.gained,
+            pending: f.pending,
+          }))}
+          firstEver={!!done.result?.first_ever}
+          newAccount={!!done.result?.new_account}
+          onOpenShop={() => onOpenShop?.({ id: done.shopId })}
+          onAgain={() => {
+            setDone(null);
+            setForm(emptyForm());
+            setCheckedName(null);
+            setPicked(null);
+            setStep('name');
+            setReload((n) => n + 1);
+          }}
+          onClose={onClose}
+        />
+      )}
+
       {openPicker === 'station' && (
         <StationPicker
           onPick={(st) => {
@@ -354,6 +394,16 @@ export default function RegisterShopSheet({ onClose, onOpenShop, onAddPhoto, onR
       )}
     </>
   );
+}
+
+// 手帳の日付（今日・昨日・11月2日）
+function whenLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const key = toDateKey(d);
+  if (key === todayKey()) return '今日';
+  if (key === yesterdayKey()) return '昨日';
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 // ⑰-17 下書きがあります

@@ -1,11 +1,12 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import { color, font, stroke, tabBar as T, type } from '../../theme/tokens';
 import Icon from './Icon';
 import Avatar from './Avatar';
+import PlusSticker from './PlusSticker';
 
 // §4-10 浮いた下のタブ（確定版 Final-01-02-Tabs・Final-15 の見本のまま）
 //   バー：高さ66・角丸33・白の地に2ptの黒いふち・左右16・下28・内側3
-//   並び：ホーム／グループ／保存／プロフィール
+//   並び：ホーム／グループ／＋／保存／プロフィール（＋は⑯の確定版のステッカー）
 //   選択中のカプセル：高さ56・角丸28・グレー2 ペブル。選択中だけ幅が1.6倍。選択が移るとき横にすべって移る
 //   選択中：塗りのアイコン・Dela・ink／ほか：線のアイコン・Plex Medium・sub
 //   プロフィールはアイコンの代わりに本人の写真の丸（26）。ゲストはグループに小さな鍵、プロフィールは人の形の丸
@@ -16,24 +17,29 @@ const TABS = [
   { key: 'profile', label: 'プロフィール' },
 ];
 
-export default function TabBar({ active, onChange, profile = {}, guest = false }) {
+// ⑯ の＋（ステッカー）の幅。タブの幅の計算から外す
+const PLUS_W = 52;
+const PLUS_AFTER = 'group'; // この次に＋を置く
+
+export default function TabBar({ active, onChange, profile = {}, guest = false, onPlus }) {
   const navRef = useRef(null);
   const [inner, setInner] = useState(0);
 
   useLayoutEffect(() => {
     const el = navRef.current;
     if (!el) return undefined;
-    const measure = () => setInner(el.clientWidth - T.padding * 2);
+    const measure = () => setInner(el.clientWidth - T.padding * 2 - (onPlus ? PLUS_W : 0));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [onPlus]);
 
   const units = TABS.length - 1 + T.activeGrow;
   const unit = inner / units;
   const idx = Math.max(0, TABS.findIndex((t) => t.key === active));
-  const capsuleLeft = T.padding + unit * idx;
+  const plusIdx = TABS.findIndex((t) => t.key === PLUS_AFTER) + 1;
+  const capsuleLeft = T.padding + unit * idx + (onPlus && idx >= plusIdx ? PLUS_W : 0);
   const capsuleWidth = unit * T.activeGrow;
 
   return (
@@ -65,11 +71,12 @@ export default function TabBar({ active, onChange, profile = {}, guest = false }
           style={{ position: 'absolute', top: T.padding, left: capsuleLeft, width: capsuleWidth, height: T.capsuleHeight, borderRadius: T.capsuleRadius, background: color.tabActive }}
         />
       )}
-      {TABS.map((t) => {
+      {TABS.map((t, i) => {
         const on = t.key === active;
         return (
+          <Fragment key={t.key}>
+          {onPlus && i === plusIdx && <PlusSticker onClick={onPlus} />}
           <button
-            key={t.key}
             type="button"
             className="ui-tab-item"
             aria-current={on ? 'page' : undefined}
@@ -109,6 +116,7 @@ export default function TabBar({ active, onChange, profile = {}, guest = false }
             </span>
             <span style={{ ...(on ? type.tabActive : type.tab), fontFamily: on ? font.dela : font.plex, whiteSpace: 'nowrap' }}>{t.label}</span>
           </button>
+          </Fragment>
         );
       })}
     </nav>

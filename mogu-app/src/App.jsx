@@ -9,6 +9,8 @@ import LoginFlow from './pages/login/LoginFlow';
 import HomeScreen from './pages/home/HomeScreen';
 import SavedScreen from './pages/saved/SavedScreen';
 import ShopDetail from './pages/shop/ShopDetail';
+import ShopProfile from './pages/shop/profile/ShopProfile';
+import RegisterShopSheet from './pages/shop/register/RegisterShopSheet';
 import GroupScreen from './pages/group/GroupScreen';
 import ProfileScreen from './pages/profile/ProfileScreen';
 import NotificationsScreen from './pages/notifications/NotificationsScreen';
@@ -40,6 +42,9 @@ function Shell() {
   const [tab, setTab] = useState('home');
   const [stack, setStack] = useState([]); // 今のタブの中の画面 [{ name, props }]
   const [shop, setShop] = useState(null); // { shop, from }
+  // 第5回：新しいお店（shops 表）のプロフィール㉑とお店の登録⑰⑱⑲
+  const [shopProfileId, setShopProfileId] = useState(null);
+  const [registerOpen, setRegisterOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [guideRequest, setGuideRequest] = useState(0);
   const [savedVersion, setSavedVersion] = useState(0);
@@ -217,7 +222,45 @@ function Shell() {
         </div>
       )}
 
-      <TabBar active={tab} onChange={changeTab} profile={{ name: user?.name, photoUrl: photoUrlOf(user?.avatarPath) }} guest={guest} />
+      <TabBar
+        active={tab}
+        onChange={changeTab}
+        profile={{ name: user?.name, photoUrl: photoUrlOf(user?.avatarPath) }}
+        guest={guest}
+        onPlus={() => (guest ? openGuestSheet() : setRegisterOpen(true))}
+      />
+
+      {/* ㉑ お店のプロフィール（新しい shops 表。⑯のタブからの入口は手順7） */}
+      {shopProfileId && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 25 }}>
+          <ShopProfile
+            shopId={shopProfileId}
+            onBack={() => setShopProfileId(null)}
+            onSendToGroup={() => {}}
+            onReport={() => {}}
+            onShare={() => {}}
+            onEdit={() => {}}
+            onOpenTag={() => {}}
+          />
+        </div>
+      )}
+
+      {/* ⑰⑱⑲ お店を登録する */}
+      {registerOpen && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 26 }}>
+          <RegisterShopSheet
+            onClose={() => setRegisterOpen(false)}
+            onOpenShop={(s) => {
+              setRegisterOpen(false);
+              setShopProfileId(s.id);
+            }}
+            onAddPhoto={(s) => {
+              setRegisterOpen(false);
+              setShopProfileId(s.id);
+            }}
+          />
+        </div>
+      )}
 
       {shop && (
         <ShopDetail
