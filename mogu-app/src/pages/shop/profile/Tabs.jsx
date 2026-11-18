@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import useLongPress from '../../../lib/useLongPress';
 import { color, font, stroke } from '../../../theme/tokens';
 import { photoUrlOf } from '../../../lib/profile';
 import { PHOTO_KINDS, photoKindLabel } from '../../../lib/registerForm';
@@ -25,7 +26,7 @@ import { H3 } from './OverviewTab';
 // =============================================================
 
 // ---- ［写真］（㉑-5）種類で絞る・2列・撮った人と＋1 ----
-export function PhotosTab({ data, onOpenPhoto, onPlusPhoto }) {
+export function PhotosTab({ data, onOpenPhoto, onPlusPhoto, onReportPhoto }) {
   const [kind, setKind] = useState(null);
   const photos = (data.photos || []).filter((p) => !kind || p.kind === kind);
   const kinds = PHOTO_KINDS.filter((k) => (data.photos || []).some((p) => p.kind === k.value));
@@ -48,18 +49,7 @@ export function PhotosTab({ data, onOpenPhoto, onPlusPhoto }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
         {photos.map((p) => (
           <div key={p.id}>
-            <button
-              type="button"
-              aria-label={`${photoKindLabel(p.kind)}の写真`}
-              onClick={() => onOpenPhoto(p)}
-              className="ui-btn"
-              style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', padding: 0, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, overflow: 'hidden', background: color.surface }}
-            >
-              <img src={shopPhotoUrl(p.card_path || p.path)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-              <span style={{ position: 'absolute', left: 6, bottom: 6, height: 22, padding: '0 8px', borderRadius: 11, background: color.white, color: color.ink, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center' }}>
-                {photoKindLabel(p.kind)}
-              </span>
-            </button>
+            <PhotoCell photo={p} onOpen={() => onOpenPhoto(p)} onReport={onReportPhoto ? () => onReportPhoto(p) : null} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
               <Avatar size={22} photoUrl={photoUrlOf(p.user_avatar)} name={p.user_name} />
               <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.user_name}</span>
@@ -69,6 +59,86 @@ export function PhotosTab({ data, onOpenPhoto, onPlusPhoto }) {
         ))}
       </div>
     </div>
+  );
+}
+
+// 写真1枚のます（長押しで［通報する］。㉓-16）
+function PhotoCell({ photo, onOpen, onReport }) {
+  const [menu, setMenu] = useState(false);
+  const lp = useLongPress(onReport ? () => setMenu(true) : null);
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={`${photoKindLabel(photo.kind)}の写真`}
+        onClick={() => {
+          if (lp.swallowClick()) return;
+          onOpen();
+        }}
+        {...lp.handlers}
+        className="ui-btn"
+        style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', padding: 0, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, overflow: 'hidden', background: color.surface }}
+      >
+        <img src={shopPhotoUrl(photo.card_path || photo.path)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        <span style={{ position: 'absolute', left: 6, bottom: 6, height: 22, padding: '0 8px', borderRadius: 11, background: color.white, color: color.ink, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center' }}>
+          {photoKindLabel(photo.kind)}
+        </span>
+      </button>
+      {menu && (
+        <LongPressMenu
+          label={`${photoKindLabel(photo.kind)}の写真`}
+          actions={[{ label: '通報する', danger: true, onClick: () => { setMenu(false); onReport(); } }]}
+          onClose={() => setMenu(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// 長押しで出る小さなメニュー（㉓の入口。ふだんの画面にボタンは置かない）
+export function LongPressMenu({ label, actions, onClose }) {
+  return (
+    <>
+      <div aria-hidden="true" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(46,44,42,0.48)', zIndex: 17 }} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        style={{
+          position: 'absolute',
+          left: 20,
+          right: 20,
+          bottom: 'calc(28px + env(safe-area-inset-bottom))',
+          boxSizing: 'border-box',
+          padding: 6,
+          border: `${stroke.shape}px solid ${color.ink}`,
+          borderRadius: 24,
+          background: color.white,
+          zIndex: 18,
+        }}
+      >
+        <div style={{ padding: '8px 12px 6px', fontSize: 12, fontWeight: 700, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+        {actions.map((a) => (
+          <button
+            key={a.label}
+            type="button"
+            onClick={a.onClick}
+            className="ui-btn"
+            style={{ width: '100%', height: 52, border: 0, borderTop: `1px solid ${color.line}`, borderRadius: 0, background: 'transparent', color: a.danger ? color.red : color.ink, fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}
+          >
+            {a.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onClose}
+          className="ui-btn"
+          style={{ width: '100%', height: 52, marginTop: 2, border: 0, borderRadius: 20, background: color.surface, color: color.ink, fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}
+        >
+          キャンセル
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -141,7 +211,7 @@ export function MenuTab({ data }) {
 }
 
 // ---- ［情報］（㉑-8）予算感と、項目ごとの「最後に確認」 ----
-export function InfoTab({ data, canWrite, onWrite, onBudgetDetail }) {
+export function InfoTab({ data, canWrite, onWrite, onBudgetDetail, checking = [], onRequestEdit }) {
   const map = fieldMap(data.fields);
   const budget = data.budget || [];
   const rows = INFO_ROWS.map((r) => ({ ...r, field: r.key === '__hours' ? firstHoursField(map) : map.get(r.key) }));
@@ -184,7 +254,14 @@ export function InfoTab({ data, canWrite, onWrite, onBudgetDetail }) {
           <H3 top={26}>お店の情報</H3>
           <div style={{ marginTop: 4 }}>
             {filled.map((r, i) => (
-              <InfoRow key={r.key} row={r} map={map} first={i === 0} />
+              <InfoRow
+                key={r.key}
+                row={r}
+                map={map}
+                first={i === 0}
+                busy={checking.includes(r.key === '__hours' ? 'hours_0' : r.key)}
+                onRequestEdit={onRequestEdit}
+              />
             ))}
           </div>
         </>
@@ -236,7 +313,9 @@ const INFO_ICON = {
   [FREE_TEXT_KEY]: 'book',
 };
 
-function InfoRow({ row, map, first }) {
+function InfoRow({ row, map, first, busy, onRequestEdit }) {
+  const [menu, setMenu] = useState(false);
+  const lp = useLongPress(onRequestEdit && !busy ? () => setMenu(true) : null);
   const raw = row.key === '__hours' ? hoursText(map) : row.field?.value;
   // いくつでも選ぶ項目は「・」でつなぐ
   const value = raw && row.key !== '__hours' && row.key !== FREE_TEXT_KEY && row.key !== PHONE_KEY
@@ -244,18 +323,31 @@ function InfoRow({ row, map, first }) {
     : raw;
   if (!value) return null;
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderTop: first ? 0 : `1px solid ${color.line}` }}>
-      <span style={{ flex: 'none', paddingTop: 2 }}>
-        <Icon name={INFO_ICON[row.key] || 'info'} size={20} />
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>{row.title}</div>
-        <div style={{ marginTop: 2, fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-          {row.key === PHONE_KEY ? <a href={`tel:${value}`} style={{ color: color.ink }}>{value}</a> : value}
+    <>
+      <div {...lp.handlers} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderTop: first ? 0 : `1px solid ${color.line}` }}>
+        <span style={{ flex: 'none', paddingTop: 2 }}>
+          <Icon name={INFO_ICON[row.key] || 'info'} size={20} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: color.sub }}>{row.title}</div>
+          <div style={{ marginTop: 2, fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+            {row.key === PHONE_KEY ? <a href={`tel:${value}`} style={{ color: color.ink }}>{value}</a> : value}
+          </div>
+          {busy ? (
+            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: color.sub }}>今確かめているところです</div>
+          ) : (
+            <Confirmed f={row.field} />
+          )}
         </div>
-        <Confirmed f={row.field} />
       </div>
-    </div>
+      {menu && (
+        <LongPressMenu
+          label={row.title}
+          actions={[{ label: 'この情報の修正を依頼する', onClick: () => { setMenu(false); onRequestEdit(row.key); } }]}
+          onClose={() => setMenu(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -299,7 +391,7 @@ function Confirmed({ f }) {
 }
 
 // ---- ［ひとこと］（㉑-9）140字までを新しい順に ----
-export function CommentsTab({ data }) {
+export function CommentsTab({ data, onReportComment }) {
   const comments = data.comments || [];
   return (
     <div style={{ padding: '0 20px 150px' }}>
@@ -308,7 +400,20 @@ export function CommentsTab({ data }) {
       ) : (
         <div style={{ marginTop: 6 }}>
           {comments.map((c) => (
-            <div key={c.id} style={{ display: 'flex', gap: 10, padding: '12px 0', borderBottom: `1px solid ${color.line}` }}>
+            <CommentRow key={c.id} c={c} onReport={onReportComment ? () => onReportComment(c) : null} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommentRow({ c, onReport }) {
+  const [menu, setMenu] = useState(false);
+  const lp = useLongPress(onReport ? () => setMenu(true) : null);
+  return (
+    <>
+            <div {...lp.handlers} style={{ display: 'flex', gap: 10, padding: '12px 0', borderBottom: `1px solid ${color.line}` }}>
               <Avatar size={32} photoUrl={photoUrlOf(c.user_avatar)} name={c.user_name} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -318,10 +423,14 @@ export function CommentsTab({ data }) {
                 <p style={{ margin: '2px 0 0', fontSize: 14, lineHeight: 1.6 }}>{c.body}</p>
               </div>
             </div>
-          ))}
-        </div>
+      {menu && (
+        <LongPressMenu
+          label={`${c.user_name} さんのひとこと`}
+          actions={[{ label: '通報する', danger: true, onClick: () => { setMenu(false); onReport(); } }]}
+          onClose={() => setMenu(false)}
+        />
       )}
-    </div>
+    </>
   );
 }
 

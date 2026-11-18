@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { color, font, stroke } from '../../../theme/tokens';
+import useLongPress from '../../../lib/useLongPress';
+import { LongPressMenu } from './Tabs';
 import { tagFontSize } from '../../../lib/tags';
 import { PROFILE_TAG_SIZE } from '../../../lib/shopProfile';
 
@@ -6,7 +9,7 @@ import { PROFILE_TAG_SIZE } from '../../../lib/shopProfile';
 //   みんなのタグ：白に2ptの線。＋1の数を線で区切って右に。自分が＋1したらアクセント色
 //   知っておきたいこと：「!」の印つきの白いラベル
 //   お店の情報：角の四角いクリーム
-export default function ProfileTagLabel({ tag, onOpen, onPlus }) {
+export default function ProfileTagLabel({ tag, onOpen, onPlus, onReport }) {
   if (tag.kind === 'field') {
     return (
       <span
@@ -55,12 +58,20 @@ export default function ProfileTagLabel({ tag, onOpen, onPlus }) {
     );
   }
 
-  // みんなのタグ
+  return <PublicTag tag={tag} onOpen={onOpen} onPlus={onPlus} onReport={onReport} />;
+}
+
+// みんなのタグ（長押しで［通報する］。㉓-20）
+function PublicTag({ tag, onOpen, onPlus, onReport }) {
+  const [menu, setMenu] = useState(false);
+  const lp = useLongPress(onReport ? () => setMenu(true) : null);
   const size = tagFontSize(tag.count, PROFILE_TAG_SIZE);
   const mine = !!tag.voted;
   const ink = mine ? color.accent : color.ink;
   return (
+    <>
     <span
+      {...lp.handlers}
       style={{
         display: 'inline-flex',
         alignItems: 'stretch',
@@ -75,7 +86,10 @@ export default function ProfileTagLabel({ tag, onOpen, onPlus }) {
     >
       <button
         type="button"
-        onClick={() => onOpen?.(tag)}
+        onClick={() => {
+          if (lp.swallowClick()) return;
+          onOpen?.(tag);
+        }}
         className="ui-btn"
         style={{ padding: '0 14px', border: 0, background: 'transparent', color: 'inherit', fontFamily: 'inherit', fontSize: size, fontWeight: 700, display: 'inline-flex', alignItems: 'center' }}
       >
@@ -93,5 +107,13 @@ export default function ProfileTagLabel({ tag, onOpen, onPlus }) {
         {tag.count}
       </button>
     </span>
+    {menu && (
+      <LongPressMenu
+        label={`#${tag.name}`}
+        actions={[{ label: '通報する', danger: true, onClick: () => { setMenu(false); onReport(tag); } }]}
+        onClose={() => setMenu(false)}
+      />
+    )}
+    </>
   );
 }

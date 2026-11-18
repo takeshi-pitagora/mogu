@@ -17,6 +17,8 @@ import Button from '../../../components/ui/Button';
 import { EmptyState, LoadingState, ErrorState } from '../../../components/ui/States';
 import { useToast } from '../../../components/ui/Toast';
 import OverviewTab from './OverviewTab';
+import { ClosureSheet, EditRequestSheet, ReportSheet } from './ReportSheets';
+import { fetchCheckingFields } from '../../../lib/shopReport';
 import { BudgetDetail, CommentsTab, InfoTab, MenuTab, PhotosTab, PlusButton } from './Tabs';
 
 // =============================================================
@@ -44,6 +46,8 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [viewer, setViewer] = useState(null);
   const [reload, setReload] = useState(0);
+  const [checking, setChecking] = useState([]); // いま運営が確かめている項目（㉓-10・11）
+  const [sheet, setSheet] = useState(null); // { kind: 'edit'|'closure'|'report', ... }
   const scroller = useRef(null);
 
   useEffect(() => {
@@ -58,6 +62,16 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
       .catch(() => {
         if (alive) setFailed(true);
       });
+    return () => {
+      alive = false;
+    };
+  }, [shopId, reload]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchCheckingFields(shopId).then((f) => {
+      if (alive) setChecking(f);
+    });
     return () => {
       alive = false;
     };
@@ -218,12 +232,34 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
         </div>
 
         {tab === 'overview' && (
-          <OverviewTab data={data} onTab={setTab} onOpenTag={onOpenTag} onPlusTag={onPlusTag} onBudgetDetail={() => setBudgetOpen(true)} />
+          <OverviewTab data={data} onTab={setTab} onOpenTag={onOpenTag} onPlusTag={onPlusTag} onBudgetDetail={() => setBudgetOpen(true)}
+            onReportTag={(t) => setSheet({ kind: 'report', reportKind: 'tag', targetId: t.id, targetLabel: `#${t.name}` })} />
         )}
-        {tab === 'photos' && <PhotosTab data={data} onOpenPhoto={setViewer} onPlusPhoto={onPlusPhoto} />}
+        {tab === 'photos' && (
+          <PhotosTab
+            data={data}
+            onOpenPhoto={setViewer}
+            onPlusPhoto={onPlusPhoto}
+            onReportPhoto={(p) => setSheet({ kind: 'report', reportKind: 'photo', targetId: p.id, targetLabel: p.user_name ? `${p.user_name} さんの写真` : null })}
+          />
+        )}
         {tab === 'menu' && <MenuTab data={data} />}
-        {tab === 'info' && <InfoTab data={data} canWrite={SHOW_GROW} onWrite={() => {}} onBudgetDetail={() => setBudgetOpen(true)} />}
-        {tab === 'comments' && <CommentsTab data={data} />}
+        {tab === 'info' && (
+          <InfoTab
+            data={data}
+            canWrite={SHOW_GROW}
+            onWrite={() => {}}
+            onBudgetDetail={() => setBudgetOpen(true)}
+            checking={checking}
+            onRequestEdit={(key) => setSheet({ kind: 'edit', field: key })}
+          />
+        )}
+        {tab === 'comments' && (
+          <CommentsTab
+            data={data}
+            onReportComment={(c) => setSheet({ kind: 'report', reportKind: 'comment', targetId: c.id, targetLabel: c.user_name ? `${c.user_name} さんのひとこと` : null })}
+          />
+        )}
       </div>
 
       {/* 下に固定の［保存］［グループに送る］（⑨の確定のまま） */}
@@ -266,15 +302,39 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
         />
       )}
 
+      {sheet?.kind === 'edit' && (
+        <EditRequestSheet
+          shop={shop}
+          data={data}
+          checking={checking}
+          startField={sheet.field || null}
+          onClose={() => setSheet(null)}
+          onDone={() => setReload((n) => n + 1)}
+        />
+      )}
+      {sheet?.kind === 'closure' && (
+        <ClosureSheet shop={shop} onClose={() => setSheet(null)} onDone={() => setReload((n) => n + 1)} />
+      )}
+      {sheet?.kind === 'report' && (
+        <ReportSheet
+          kind={sheet.reportKind}
+          shop={shop}
+          target={sheet.targetId}
+          targetLabel={sheet.targetLabel}
+          onClose={() => setSheet(null)}
+          onBlock={sheet.blockUserId ? () => { setSheet(null); onReport?.('block', sheet.blockUserId); } : null}
+        />
+      )}
+
       <BottomSheet open={menu} onClose={() => setMenu(false)} ariaLabel="このお店について" minHeight={300}>
         <SheetTitle>このお店について</SheetTitle>
-        <Button variant="secondary" onClick={() => { setMenu(false); onReport?.(shop, 'edit'); }} style={{ marginTop: 14 }}>
-          修正を依頼する
+        <Button variant="secondary" onClick={() => { setMenu(false); setSheet({ kind: 'edit' }); }} style={{ marginTop: 14 }}>
+          情報の修正を依頼する
         </Button>
-        <Button variant="secondary" onClick={() => { setMenu(false); onReport?.(shop, 'closed'); }} style={{ marginTop: 10 }}>
-          閉店を報告する
+        <Button variant="secondary" onClick={() => { setMenu(false); setSheet({ kind: 'closure' }); }} style={{ marginTop: 10 }}>
+          閉店・移転を報告する
         </Button>
-        <Button variant="secondary" onClick={() => { setMenu(false); onReport?.(shop, 'report'); }} style={{ marginTop: 10 }}>
+        <Button variant="secondary" onClick={() => { setMenu(false); setSheet({ kind: 'report', reportKind: 'shop' }); }} style={{ marginTop: 10 }}>
           このお店を通報する
         </Button>
         <Button variant="text" onClick={() => setMenu(false)} style={{ marginTop: 6 }}>

@@ -18,7 +18,7 @@ import ProfileTagLabel from './ProfileTagLabel';
 // ㉑-2 ［概要］タブ（確定版 Final-21）
 //   見つけた人 → みんなのイチ押し → ハッシュタグ → 予算感
 //   → おすすめメニューの上位2つ → いちばん新しいひとこと → 予約・公式のページ
-export default function OverviewTab({ data, onTab, onOpenTag, onPlusTag, onBudgetDetail }) {
+export default function OverviewTab({ data, onTab, onOpenTag, onPlusTag, onBudgetDetail, onReportTag }) {
   const { discoverer, highlights, highlight_people: people, tags, budget, menu, comments } = data;
   const t = splitTags(tags || []);
   const [allTags, setAllTags] = useState(false); // 「ほか○つを見る」
@@ -75,7 +75,7 @@ export default function OverviewTab({ data, onTab, onOpenTag, onPlusTag, onBudge
           {t.top.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               {(allTags ? [...t.top, ...t.rest] : t.top).map((tag) => (
-                <ProfileTagLabel key={tag.id} tag={tag} onOpen={onOpenTag} onPlus={onPlusTag} />
+                <ProfileTagLabel key={tag.id} tag={tag} onOpen={onOpenTag} onPlus={onPlusTag} onReport={onReportTag} />
               ))}
             </div>
           )}
