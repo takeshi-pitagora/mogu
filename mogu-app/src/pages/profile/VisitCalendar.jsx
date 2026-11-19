@@ -50,6 +50,7 @@ export default function VisitCalendar({ onOpenShop }) {
   }, [result, range.from]);
 
   const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const canNext = month.getFullYear() < now.getFullYear()
     || (month.getFullYear() === now.getFullYear() && month.getMonth() < now.getMonth());
 
@@ -72,9 +73,9 @@ export default function VisitCalendar({ onOpenShop }) {
           <Arrow dir="next" disabled={!canNext} onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', rowGap: 4, marginTop: 2 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', rowGap: 8, marginTop: 6 }}>
           {WEEK.map((w) => (
-            <span key={w} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: color.sub }}>
+            <span key={w} style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, color: color.ink }}>
               {w}
             </span>
           ))}
@@ -82,8 +83,10 @@ export default function VisitCalendar({ onOpenShop }) {
             if (d == null) return <span key={`p${i}`} style={{ height: 47 }} />;
             const hit = byDay.get(d);
             if (!hit) {
+              // 行っていない日は数字だけ。これから来る日はうすく
+              const future = new Date(month.getFullYear(), month.getMonth(), d) > today;
               return (
-                <span key={d} style={{ width: 47, height: 47, margin: '0 auto', boxSizing: 'border-box', borderRadius: 12, background: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: color.sub }}>
+                <span key={d} style={{ width: 47, height: 47, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: future ? color.lineStrong : color.ink }}>
                   {d}
                 </span>
               );
@@ -99,9 +102,14 @@ export default function VisitCalendar({ onOpenShop }) {
                 style={{ position: 'relative', display: 'block', width: 47, height: 47, margin: '0 auto', padding: 0, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 12, overflow: 'hidden', background: color.surface }}
               >
                 {url && <img src={url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-                <span style={{ position: 'absolute', left: 3, top: 3, minWidth: 16, height: 16, padding: '0 3px', boxSizing: 'border-box', borderRadius: 8, background: color.white, color: color.ink, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ position: 'absolute', left: 3, top: 3, width: 18, height: 18, boxSizing: 'border-box', borderRadius: 9, background: color.white, color: color.ink, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {d}
                 </span>
+                {Number(hit.n) > 1 && (
+                  <span style={{ position: 'absolute', right: 0, bottom: 0, height: 17, padding: '0 4px', borderRadius: 9, background: color.ink, color: color.white, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center' }}>
+                    ＋{Number(hit.n) - 1}
+                  </span>
+                )}
               </button>
             );
           })}

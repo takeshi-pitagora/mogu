@@ -32,6 +32,10 @@ export const REPORT_DETAIL_MAX = 200;
 
 // 修正を依頼できる項目（㉓-4。予算感は「みんなの投票」なので入れない）
 export const EDITABLE_FIELDS = [
+  // お店そのものの3つ（shops の列。今の内容はサーバーが入れる）
+  { key: 'name', title: 'お店の名前', onShop: true },
+  { key: 'genre', title: 'ジャンル', onShop: true },
+  { key: 'station', title: '最寄り駅', onShop: true },
   { key: '__hours', title: '営業時間・定休日' },
   { key: 'reserve', title: '予約' },
   { key: 'payment', title: '支払い' },

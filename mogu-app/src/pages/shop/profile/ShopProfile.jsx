@@ -328,20 +328,64 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
 
       <BottomSheet open={menu} onClose={() => setMenu(false)} ariaLabel="このお店について" minHeight={300}>
         <SheetTitle>このお店について</SheetTitle>
-        <Button variant="secondary" onClick={() => { setMenu(false); setSheet({ kind: 'edit' }); }} style={{ marginTop: 14 }}>
-          情報の修正を依頼する
-        </Button>
-        <Button variant="secondary" onClick={() => { setMenu(false); setSheet({ kind: 'closure' }); }} style={{ marginTop: 10 }}>
-          閉店・移転を報告する
-        </Button>
-        <Button variant="secondary" onClick={() => { setMenu(false); setSheet({ kind: 'report', reportKind: 'shop' }); }} style={{ marginTop: 10 }}>
-          このお店を通報する
-        </Button>
+        <div style={{ marginTop: 6 }}>
+          <MenuRow
+            icon="pencil"
+            title="情報の修正を依頼する"
+            sub="まちがっている・古くなった情報を知らせる"
+            onClick={() => { setMenu(false); setSheet({ kind: 'edit' }); }}
+          />
+          <MenuRow
+            icon="home"
+            title="閉店・移転を報告する"
+            sub="閉店・移転・休業していることを知らせる"
+            onClick={() => { setMenu(false); setSheet({ kind: 'closure' }); }}
+          />
+          <MenuRow
+            icon="flag"
+            title="このお店を通報する"
+            sub="存在しないお店・宣伝など"
+            danger
+            onClick={() => { setMenu(false); setSheet({ kind: 'report', reportKind: 'shop' }); }}
+          />
+        </div>
         <Button variant="text" onClick={() => setMenu(false)} style={{ marginTop: 6 }}>
           キャンセル
         </Button>
       </BottomSheet>
     </div>
+  );
+}
+
+// ㉓-2 「このお店について」の行（しるし・見出し・小さな説明・右の〉）
+function MenuRow({ icon, title, sub, danger, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ui-btn"
+      style={{
+        width: '100%',
+        minHeight: 72,
+        padding: '12px 2px',
+        border: 0,
+        borderBottom: `1px solid ${color.line}`,
+        background: 'transparent',
+        color: color.ink,
+        fontFamily: 'inherit',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        textAlign: 'left',
+      }}
+    >
+      <Icon name={icon} size={24} color={danger ? color.red : color.ink} />
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: danger ? color.red : color.ink }}>{title}</span>
+        <span style={{ display: 'block', marginTop: 2, fontSize: 13, fontWeight: 500, color: color.sub }}>{sub}</span>
+      </span>
+      <Icon name="chevronRight" size={18} color={color.sub} />
+    </button>
   );
 }
 

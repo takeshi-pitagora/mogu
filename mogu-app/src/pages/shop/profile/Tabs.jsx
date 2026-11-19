@@ -11,6 +11,7 @@ import {
   fieldMap,
   hasAnyHours,
   hoursRows,
+  hoursText,
   limitedLabel,
   shopPhotoUrl,
   shortDate,
@@ -349,29 +350,6 @@ function InfoRow({ row, map, first, busy, onRequestEdit }) {
       )}
     </>
   );
-}
-
-// 曜日ごとの時間を、同じ時間のまとまりで1行にする
-//   例：「火〜木 17:00〜24:00」「金 17:00〜25:00」「定休日：月」
-function hoursText(map) {
-  const rows = hoursRows(map);
-  if (rows.every((r) => !r.value)) return null;
-  const lines = [];
-  let run = null;
-  rows.forEach((r) => {
-    const v = r.closed ? null : r.value;
-    if (v && run && run.value === v) {
-      run.end = r.day;
-    } else {
-      if (run) lines.push(run);
-      run = v ? { start: r.day, end: r.day, value: v } : null;
-    }
-  });
-  if (run) lines.push(run);
-  const closedDays = rows.filter((r) => r.closed).map((r) => r.day);
-  const out = lines.map((l) => (l.start === l.end ? `${l.start} ${l.value}` : `${l.start}〜${l.end} ${l.value}`));
-  if (closedDays.length > 0) out.push(`定休日：${closedDays.join('・')}`);
-  return out.join('\n');
 }
 
 function BudgetCell({ v }) {

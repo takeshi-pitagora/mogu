@@ -17,10 +17,13 @@ export function tagFontSize(count, { big, mid }) {
 //   2〜15文字。空白・記号は使えない（「ー」「・」「&」は使える）
 const ALLOWED = /^[0-9A-Za-zぁ-ゖァ-ヺ一-龯々〆ー・&]+$/u;
 
+export const TAG_NAME_MIN = 2;
+export const TAG_NAME_MAX = 15;
+
 export function tagNameError(name) {
   const t = String(name || '').trim().replace(/^#/, '');
-  if (t.length < 2) return 'tooShort';
-  if (t.length > 15) return 'tooLong';
+  if (t.length < TAG_NAME_MIN) return 'tooShort';
+  if (t.length > TAG_NAME_MAX) return 'tooLong';
   if (!ALLOWED.test(t)) return 'format';
   return null;
 }

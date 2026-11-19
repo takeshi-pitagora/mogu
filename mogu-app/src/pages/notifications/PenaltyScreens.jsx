@@ -23,7 +23,33 @@ function StageLabel({ stage }) {
 function dateLabel(iso) {
   if (!iso) return '';
   const d = new Date(iso);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  const head = sameYear ? '' : `${d.getFullYear()}年`;
+  return `${head}${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+// ㉗-3 「どの投稿か」のカード（しるし・名前・いつ・どうなったか）
+function TargetCard({ penalty }) {
+  if (!penalty.target_name && !penalty.target) return null;
+  if (!penalty.target_name) {
+    return <p style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 700, color: color.sub, textAlign: 'left' }}>{penalty.target}</p>;
+  }
+  return (
+    <div style={{ marginTop: 14, padding: '14px 16px', borderRadius: 20, background: color.surface, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left' }}>
+      <Icon name="pin" size={26} color={color.sub} />
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 16, fontWeight: 700 }}>{penalty.target_name}</span>
+        {penalty.target_when && (
+          <span style={{ display: 'block', marginTop: 2, fontSize: 13, fontWeight: 500, color: color.sub }}>{penalty.target_when}</span>
+        )}
+      </span>
+      {penalty.target_state && (
+        <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', height: 36, padding: '0 14px', borderRadius: 18, background: color.white, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap' }}>
+          {penalty.target_state}
+        </span>
+      )}
+    </div>
+  );
 }
 
 // ---- ㉗-3・9・10 通知の行を押したとき：シートで短く ----
@@ -35,12 +61,10 @@ export function PenaltySheet({ open, penalty, onDetail, onClose }) {
         <StageLabel stage={penalty.stage} />
         <span style={{ fontSize: 12, color: color.sub }}>{dateLabel(penalty.created_at)}</span>
       </div>
-      <SheetTitle style={{ marginTop: 10, textAlign: 'left' }}>{headline(penalty)}</SheetTitle>
-      {penalty.target && (
-        <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: color.sub, textAlign: 'left' }}>{penalty.target}</p>
-      )}
-      <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.7, textAlign: 'left' }}>{happened(penalty)}</p>
-      <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: 1.7, textAlign: 'left', color: color.sub }}>{next(penalty)}</p>
+      <SheetTitle size={26}>{headline(penalty)}</SheetTitle>
+      <TargetCard penalty={penalty} />
+      <p style={{ margin: '14px 0 0', fontSize: 17, fontWeight: 500, lineHeight: 1.7, textAlign: 'left' }}>{happened(penalty)}</p>
+      <p style={{ margin: '10px 0 0', fontSize: 15, fontWeight: 500, lineHeight: 1.7, textAlign: 'left', color: color.sub }}>{next(penalty)}</p>
       <div style={{ flex: 1, minHeight: 0 }} />
       <Button variant="primary" onClick={onDetail} style={{ marginTop: 18 }}>
         くわしく
@@ -104,7 +128,7 @@ export function PenaltyFullScreen({ penalty, onAppeal, onRules, onClose }) {
         <h1 style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 22, fontWeight: 400, lineHeight: 1.4 }}>{headline(penalty)}</h1>
 
         <Section title="理由">{penalty.reason}</Section>
-        {penalty.target && <Section title="どの投稿か">{penalty.target}</Section>}
+        {(penalty.target_name || penalty.target) && <Section title="どの投稿か">{penalty.target_name ? [penalty.target_name, penalty.target_when].filter(Boolean).join('・') : penalty.target}</Section>}
         <Section title="起きたこと">{happened(penalty)}</Section>
         <Section title="これから">{next(penalty)}</Section>
 

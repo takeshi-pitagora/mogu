@@ -138,7 +138,7 @@ export default function BottomSheet({
 export function SheetTitle({ children, size = 20, withChara = true }) {
   return (
     <div style={{ paddingRight: withChara ? sheet.titleRightSpace : 0 }}>
-      <h2 style={{ margin: '16px 0 0', fontFamily: font.dela, fontSize: size, fontWeight: 400, lineHeight: 1.4, textAlign: 'left' }}>{children}</h2>
+      <h2 style={{ margin: '16px 0 0', fontFamily: font.dela, fontSize: size, fontWeight: 400, lineHeight: 1.4, textAlign: 'left', whiteSpace: 'pre-line' }}>{children}</h2>
     </div>
   );
 }

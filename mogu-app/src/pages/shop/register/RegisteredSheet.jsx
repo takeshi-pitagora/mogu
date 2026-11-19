@@ -58,7 +58,11 @@ export default function RegisteredSheet({
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', margin: '0 -20px', padding: '0 20px' }}>
           {firstEver && (
-            <p style={{ margin: '0 0 10px', fontFamily: font.dela, fontSize: 16, lineHeight: 1.4 }}>はじめてお店を見つけました</p>
+            <p style={{ margin: '0 0 10px' }}>
+              <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: 999, background: color.surface, fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>
+                はじめてお店を見つけました
+              </span>
+            </p>
           )}
 
           {/* 見つけたお店の手帳 */}

@@ -12,8 +12,9 @@ import {
   submitEditRequest,
   submitShopReport,
 } from '../../../lib/shopReport';
-import { FIELD_GROUPS, groupOf, isPicked, toggleField } from '../../../lib/shopFields';
-import { fieldMap } from '../../../lib/shopProfile';
+import { FIELD_GROUPS, WEEKDAYS, groupOf, hoursLabel, isPicked, setHours, toggleField } from '../../../lib/shopFields';
+import HoursSheet from '../register/HoursSheet';
+import { fieldMap, hoursText } from '../../../lib/shopProfile';
 import ChoiceChip, { ChipRow } from '../../../components/ui/ChoiceChip';
 import TextField from '../../../components/ui/TextField';
 import Button from '../../../components/ui/Button';
@@ -25,7 +26,7 @@ import Icon from '../../../components/ui/Icon';
 //   シートの中身だけが入れかわる。うしろのお店のページはそのまま
 // =============================================================
 
-function Sheet({ title, sub, onBack, onClose, children, footer, top = 60 }) {
+function Sheet({ title, sub, onBack, onClose, hideClose, children, footer, top = 60 }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -71,9 +72,13 @@ function Sheet({ title, sub, onBack, onClose, children, footer, top = 60 }) {
             <span style={{ display: 'block', fontFamily: font.dela, fontSize: 18 }}>{title}</span>
             {sub && <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: color.sub }}>{sub}</span>}
           </span>
-          <button type="button" aria-label="閉じる" onClick={onClose} className="ui-btn" style={{ flex: 'none', width: 44, height: 44, padding: 0, border: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="close" size={24} />
-          </button>
+          <span style={{ flex: 'none', width: 44 }}>
+            {!hideClose && (
+              <button type="button" aria-label="閉じる" onClick={onClose} className="ui-btn" style={{ width: 44, height: 44, padding: 0, border: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="close" size={24} />
+              </button>
+            )}
+          </span>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', margin: '0 -20px', padding: '0 20px 12px' }}>
@@ -119,12 +124,21 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  const [hoursDay, setHoursDay] = useState(null);
 
   const row = EDITABLE_FIELDS.find((f) => f.key === fieldKey);
   const group = fieldKey && fieldKey !== '__hours' ? groupOf(fieldKey) : null;
-  const current = fieldKey === '__hours' ? hoursSummary(map) : map.get(fieldKey)?.value || null;
-  const value = group ? (fields[fieldKey] || '') : proposed;
+  const current = shopValue(data.shop, fieldKey) ?? (fieldKey === '__hours' ? hoursSummary(map) : showValue(map.get(fieldKey)?.value)) ?? null;
+  const value = fieldKey === '__hours' ? hoursProposed(map, fields) : group ? (fields[fieldKey] || '') : proposed;
   const changed = value.trim() !== '' && value.trim() !== (current || '');
+  // 「最後に確認：2026年11月・3人」
+  const confirmedLine = (() => {
+    const f = map.get(fieldKey === '__hours' ? 'hours_0' : fieldKey);
+    if (!f?.last_confirmed_at) return null;
+    const d = new Date(f.last_confirmed_at);
+    const who = f.confirm_count > 0 ? `・${f.confirm_count}人` : '';
+    return `最後に確認：${d.getFullYear()}年${d.getMonth() + 1}月${who}`;
+  })();
 
   if (done) {
     return (
@@ -141,10 +155,10 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
   // 項目の一覧（㉓-4）
   if (!fieldKey) {
     return (
-      <Sheet title="情報の修正を依頼する" onClose={onClose}>
-        <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 700, color: color.sub }}>どの項目を直しますか？</p>
+      <Sheet title="情報の修正を依頼する" sub={shop.name} onClose={onClose} hideClose>
+        <p style={{ margin: '4px 0 6px', fontSize: 16, fontWeight: 700 }}>どの項目を直しますか？</p>
         {EDITABLE_FIELDS.map((f) => {
-          const now = f.key === '__hours' ? hoursSummary(map) : map.get(f.key)?.value;
+          const now = shopValue(data.shop, f.key) ?? (f.key === '__hours' ? hoursSummary(map) : showValue(map.get(f.key)?.value));
           const busy = checking.includes(f.key);
           return (
             <button
@@ -206,8 +220,9 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
   return (
     <Sheet
       title={row?.title || '情報の修正'}
-      onBack={startField ? null : () => setFieldKey(null)}
+      onBack={() => setFieldKey(null)}
       onClose={onClose}
+      hideClose
       footer={
         <>
           {error && <p role="alert" style={{ margin: '0 0 8px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: color.red }}>{error}</p>}
@@ -218,13 +233,45 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
         </>
       }
     >
-      <div style={{ fontSize: 13, fontWeight: 700, color: color.sub }}>今の内容</div>
-      <div style={{ marginTop: 6, padding: '12px 14px', borderRadius: 16, background: color.surface, fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-        {current || 'まだ情報がありません'}
+      <div style={{ marginTop: 4, padding: '14px 18px', borderRadius: 20, background: color.surface }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: color.sub }}>今の内容</div>
+        <div style={{ marginTop: 4, fontSize: 17, fontWeight: 500, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+          {current || 'まだ情報がありません'}
+        </div>
+        {confirmedLine && <div style={{ marginTop: 6, fontSize: 12, fontWeight: 500, color: color.sub }}>{confirmedLine}</div>}
       </div>
 
-      <div style={{ marginTop: 16, fontSize: 13, fontWeight: 700 }}>正しい内容</div>
-      {group ? (
+      <h3 style={{ margin: '18px 0 0', display: 'flex', alignItems: 'baseline', gap: 8, fontFamily: font.dela, fontSize: 18, fontWeight: 400 }}>
+        正しい内容
+        <span style={{ fontFamily: font.body, fontSize: 13, fontWeight: 500, color: color.sub }}>変えた所に印</span>
+      </h3>
+      {fieldKey === '__hours' ? (
+        <div style={{ marginTop: 4 }}>
+          {WEEKDAYS.map((w, i) => {
+            const now = map.get(`hours_${i}`)?.value || null;
+            const next = hoursLabel(fields, i);
+            const shown = next || now;
+            return (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setHoursDay(i)}
+                className="ui-btn"
+                style={{ width: '100%', minHeight: 56, padding: '0 2px', border: 0, borderBottom: `1px solid ${color.line}`, background: 'transparent', color: color.ink, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left' }}
+              >
+                <span style={{ flex: 'none', width: 20, fontFamily: font.dela, fontSize: 15 }}>{w}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: next && next !== now ? 700 : 500 }}>
+                  {shown || 'まだ情報がありません'}
+                </span>
+                {next && next !== now && (
+                  <span aria-label="変えた所" style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: color.accent }} />
+                )}
+                <Icon name="chevronRight" size={18} color={color.sub} />
+              </button>
+            );
+          })}
+        </div>
+      ) : group ? (
         <ChipRow style={{ marginTop: 8 }}>
           {group.options.map((o) => (
             <ChoiceChip key={o} selected={isPicked(fields, fieldKey, o)} onClick={() => setFields(toggleField(fields, fieldKey, o))}>
@@ -263,20 +310,49 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
       <div style={{ marginTop: 8 }}>
         <TextField label="リンク" value={evidence} onChange={setEvidence} placeholder="https://…" inputMode="url" />
       </div>
+
+      {hoursDay !== null && (
+        <HoursSheet
+          day={hoursDay}
+          value={hoursLabel(fields, hoursDay) || map.get(`hours_${hoursDay}`)?.value || null}
+          onDone={(v) => {
+            setFields(setHours(fields, hoursDay, v));
+            setHoursDay(null);
+          }}
+          onCancel={() => setHoursDay(null)}
+        />
+      )}
     </Sheet>
   );
 }
 
+// 直したあとの営業時間（直していない曜日は今のまま）。今の内容と同じ形でまとめる
+function hoursProposed(map, fields) {
+  const merged = new Map(map);
+  WEEKDAYS.forEach((d, i) => {
+    const v = hoursLabel(fields, i);
+    if (v) merged.set(`hours_${i}`, { ...(map.get(`hours_${i}`) || {}), key: `hours_${i}`, value: v });
+  });
+  return hoursText(merged) || '';
+}
+
+// お店そのものの3つ（名前・ジャンル・最寄り駅）の今の内容
+function shopValue(shop, key) {
+  if (!shop) return undefined;
+  if (key === 'name') return shop.name || null;
+  if (key === 'genre') return [shop.genre_main, shop.genre_sub].filter(Boolean).join('・') || null;
+  if (key === 'station') return shop.station_name ? `${shop.station_name}駅 徒歩${shop.walk_min || '?'}分` : null;
+  return undefined;
+}
+
+// 選んだ項目は「・」でつなぐ（カード,電子マネー → カード・電子マネー）
+function showValue(v) {
+  return v ? String(v).split(',').join('・') : v;
+}
+
 // 営業時間を1つの文にまとめる（修正依頼の「今の内容」に出す）
 function hoursSummary(map) {
-  const days = ['月', '火', '水', '木', '金', '土', '日'];
-  const lines = days
-    .map((d, i) => {
-      const v = map.get(`hours_${i}`)?.value;
-      return v ? `${d} ${v}` : null;
-    })
-    .filter(Boolean);
-  return lines.length > 0 ? lines.join('\n') : null;
+  return hoursText(map);
 }
 
 // =============================================================

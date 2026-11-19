@@ -40,15 +40,21 @@ export async function submitAppeal({ penaltyId, body, photoPaths }) {
   return data;
 }
 
+// ends_at は「また投稿できるようになる時こく」。
+// 「◯月◯日まで」はその1つ前の日、「◯月◯日から」はその次の日。
+function lastDay(iso) {
+  return new Date(new Date(iso).getTime() - 1);
+}
+
 export function untilLabel(iso) {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = lastDay(iso);
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 export function nextDayLabel(iso) {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = lastDay(iso);
   d.setDate(d.getDate() + 1);
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }

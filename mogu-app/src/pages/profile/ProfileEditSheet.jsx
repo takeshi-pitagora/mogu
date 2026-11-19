@@ -20,6 +20,9 @@ import PhotoEditSheet from './PhotoEditSheet';
 //   写真（丸96・鉛筆の印）／名前（9文字）／ユーザーID（6つの状態）／自己紹介（70文字・改行4回）
 //   「食スタイル診断」：キャラの小さな画像・タイプ・名前・日付と［更新］／未診断は［診断を受ける］
 //   変更があるまま閉じようとしたら「変更を保存せずに閉じますか？」
+// ③ 好きなもの・よく行くエリアは8つまで（Final-03-Profile_16）
+export const MY_TAG_MAX = 8;
+
 const rowGrid = { display: 'grid', gridTemplateColumns: '84px minmax(0px, 1fr)', gap: 8, alignItems: 'center', minHeight: 56, margin: '0 -20px', padding: '0 20px' };
 const rowGridTop = { ...rowGrid, alignItems: 'start', padding: '14px 20px' };
 
@@ -286,35 +289,40 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
             </div>
             {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 700, color: color.red }}>{error}</p>}
 
-            {/* ③ 自分のハッシュタグ（5つまで。⑲と同じ探し方で選ぶ） */}
-            <h3 style={{ margin: '28px 0 8px', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>自分のハッシュタグ</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {myTags.map((t) => (
-                <span key={t.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 36, padding: '0 10px', borderRadius: 10, background: color.surface, fontSize: 13, fontWeight: 700 }}>
-                  #{t.name}
-                  <button
-                    type="button"
-                    aria-label={`#${t.name} を外す`}
-                    onClick={() => setMyTags(myTags.filter((x) => x.id !== t.id))}
-                    className="ui-btn"
-                    style={{ width: 24, height: 24, padding: 0, border: 0, borderRadius: 12, background: 'transparent', color: color.sub, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Icon name="close" size={14} color={color.sub} />
-                  </button>
-                </span>
-              ))}
-              {myTags.length < 5 && (
-                <button
-                  type="button"
-                  onClick={() => setTagPick(true)}
-                  className="ui-btn"
-                  style={{ height: 36, padding: '0 12px', boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 18, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 13, fontWeight: 700 }}
-                >
-                  ＋ タグを選ぶ
-                </button>
-              )}
+            {/* ③ 好きなもの・よく行くエリア（8つまで。⑲と同じ探し方で選ぶ） */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, margin: '28px 0 0' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>好きなもの・よく行くエリア</h3>
+              <span style={{ flex: 'none', fontSize: 14, fontWeight: 700, color: color.sub }}>{myTags.length}/{MY_TAG_MAX}</span>
             </div>
-            <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 500, color: color.sub }}>5つまで。プロフィールに出ます</p>
+            <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: color.sub }}>
+              自由にハッシュタグで。食事で大事にしていること、好きな食べもの、よく行く街など
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+              {myTags.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  aria-label={`#${t.name} を外す`}
+                  onClick={() => setMyTags(myTags.filter((x) => x.id !== t.id))}
+                  className="ui-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 10, height: 44, boxSizing: 'border-box', padding: '0 16px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 22, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap' }}
+                >
+                  #{t.name}
+                  <Icon name="close" size={15} strokeWidth={2.5} />
+                </button>
+              ))}
+            </div>
+            {myTags.length < MY_TAG_MAX && (
+              <button
+                type="button"
+                onClick={() => setTagPick(true)}
+                className="ui-btn"
+                style={{ width: '100%', minHeight: 56, marginTop: 10, boxSizing: 'border-box', padding: '0 16px', border: `${stroke.focus}px solid ${color.ink}`, borderRadius: 20, background: color.white, color: color.sub, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
+              >
+                <span aria-hidden="true" style={{ fontFamily: font.dela, fontSize: 17, color: color.ink }}>#</span>
+                <span style={{ fontSize: 16 }}>タグを探す・作る</span>
+              </button>
+            )}
 
             <h3 style={{ margin: '28px 0 8px', fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>食スタイル診断</h3>
             <div style={{ borderTop: `${stroke.shape}px solid ${color.ink}`, borderBottom: `${stroke.shape}px solid ${color.ink}` }}>
@@ -377,6 +385,8 @@ export default function ProfileEditSheet({ onClose, onDiagnose }) {
       {tagPick && (
         <TagPickSheet
           picked={myTags}
+          max={MY_TAG_MAX}
+          overMessage={`ハッシュタグは${MY_TAG_MAX}つまでです`}
           onDone={(tags) => {
             setMyTags(tags.slice(0, 5));
             setTagPick(false);
