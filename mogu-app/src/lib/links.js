@@ -25,8 +25,8 @@ export const buildInviteLink = (token) => `${SITE_BASE_URL}/invite.html?code=${t
 // ③シェア画像のQRコードの飛び先。今回は mogu の App Store のページにする（けんとの指示 2026-11-14）。
 //   プロフィールを誰でも見られるWebページは作らない（写真や自己紹介は同じグループの人などにだけ見せる決まり）。
 //   次の回に /u/<ユーザーID> の形（⑪の招待リンクと同じ仕組み）を足す予定。
-// 【要確認】下の数字は App Store Connect の「Apple ID」。本物の番号をもらったら、ここだけ差し替える。
-const APP_STORE_ID = '0000000000';
+// App Store Connect の「Apple ID」（けんとからもらった本物の番号）
+const APP_STORE_ID = '6803766940';
 export const APP_STORE_URL = `https://apps.apple.com/jp/app/id${APP_STORE_ID}`;
 export const hasAppStoreId = () => !/^0+$/.test(APP_STORE_ID);
 

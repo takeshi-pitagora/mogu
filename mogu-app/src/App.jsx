@@ -20,6 +20,7 @@ import NotebookScreen from './pages/notebook/NotebookScreen';
 import DigUpScreen from './pages/notebook/DigUpScreen';
 import OtherProfileScreen from './pages/profile/OtherProfileScreen';
 import { markDigShown, myDig } from './lib/dig';
+import { FEATURES } from './lib/features';
 import NotificationsScreen from './pages/notifications/NotificationsScreen';
 import SettingsScreen from './pages/settings/SettingsScreen';
 import AccountScreen from './pages/settings/AccountScreen';
@@ -117,7 +118,7 @@ function Shell() {
   // 通知の許可のお願い（引き渡し書 §7-6）：初めてグループタブを開いたとき、1度だけ
   // ㉖ アプリを開いたとき、dig が上がっていたら1回だけ全画面を出す
   useEffect(() => {
-    if (!user?.id || guest) return undefined;
+    if (!user?.id || guest || !FEATURES.round53) return undefined;   // 5-3 で開ける
     let alive = true;
     myDig()
       .then((d) => {

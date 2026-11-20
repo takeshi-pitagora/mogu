@@ -8,10 +8,12 @@ import Button from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
 import ConfirmSheet from '../../components/ui/ConfirmSheet';
 import ReportGeneralSheet from './ReportGeneralSheet';
+import StationDataScreen from './StationDataScreen';
 import { getType } from '../../lib/mogutype';
 import { HELP_URL, OPERATOR_URL, PRIVACY_POLICY_URL, SHOP_INFO_URL, SUPPORT_EMAIL, TERMS_URL } from '../../lib/links';
 import { openExternal } from '../../lib/open';
 import { setRankVisible } from '../../lib/notebook';
+import { FEATURES } from '../../lib/features';
 import { APP_VERSION } from '../../lib/version';
 import { GroupTitle, Row, RowGroup, SubPage, Tile } from './SettingsParts';
 
@@ -68,6 +70,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
   const [report, setReport] = useState(false);
   const [blockedCount, setBlockedCount] = useState(null);
   const [rules, setRules] = useState(false); // ㉗ 投稿のルール
+  const [stationData, setStationData] = useState(false); // ⑤ 駅のデータについて
   // ㉖-21 ランキングに名前を出す
   const [rankOn, setRankOn] = useState(user?.showInRanking ?? true);
 
@@ -87,6 +90,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
 
   if (!user) return null;
   if (rules) return <PostRulesScreen onClose={() => setRules(false)} />;
+  if (stationData) return <StationDataScreen onBack={() => setStationData(false)} />;
   const diagnosed = !!getType(user.moguType?.code);
 
   const about = [
@@ -108,7 +112,7 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
       </div>
 
       {/* ㉖-21 ランキングに名前を出す（オフでもコインはたまる） */}
-      {!guest && (
+      {FEATURES.round53 && !guest && (
         <>
           <GroupTitle>ランキング</GroupTitle>
           <RowGroup>
@@ -149,6 +153,8 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
       <RowGroup>
         {/* ㉗-19 いちばん上に［投稿のルール］（アプリの中の画面なので external は付けない） */}
         <Row first label="投稿のルール" onClick={() => setRules(true)} />
+        {/* ⑤ 駅のデータの出どころ（引き渡し書 §8-3） */}
+        <Row label="駅のデータについて" onClick={() => setStationData(true)} />
         {about.map((a) => (
           <Row key={a.label} label={a.label} external={a.external} onClick={() => openExternal(a.url)} />
         ))}

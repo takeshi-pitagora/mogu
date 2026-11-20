@@ -13,6 +13,7 @@ import { AppealSheet, PenaltyFullScreen, PenaltySheet, PostRulesScreen } from '.
 import { fetchPenalty } from '../../lib/penalty';
 import { fetchNotifications, markNotificationsRead, notificationText, respondInvite } from '../../lib/notifications';
 import { myNotebook } from '../../lib/notebook';
+import { FEATURES } from '../../lib/features';
 import CoinConfirmScreen from '../notebook/CoinConfirmScreen';
 import CoinReasonSheet from '../notebook/CoinReasonSheet';
 
@@ -34,7 +35,11 @@ function startOfWeek() {
   return d;
 }
 
-function groupByWhen(list) {
+// 5-3 で開ける分のお知らせ（コイン・dig）は、それまで一覧にも出さない（§2）
+const ROUND53_TYPES = ['coin_confirmed', 'coin_cancelled', 'dig_up'];
+
+function groupByWhen(all) {
+  const list = FEATURES.round53 ? all : all.filter((n) => !ROUND53_TYPES.includes(n.type));
   const pending = list.filter((n) => n.type === 'id_invite' && !n.payload?.responded);
   const rest = list.filter((n) => !(n.type === 'id_invite' && !n.payload?.responded));
   const today = startOfToday();
@@ -509,7 +514,7 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop, o
       return;
     }
     // ㉗-21・22 コインの確定は⑳の演出、取り消しは理由、dig は探検手帳
-    if (n.type === 'coin_confirmed') {
+    if (n.type === 'coin_confirmed' && FEATURES.round53) {
       myNotebook()
         .then((h) => {
           const amount = Number(n.payload?.amount || 0);
@@ -526,7 +531,7 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop, o
         .catch(() => {});
       return;
     }
-    if (n.type === 'coin_cancelled') {
+    if (n.type === 'coin_cancelled' && FEATURES.round53) {
       setReason({
         action: n.payload?.action || 'register',
         amount: n.payload?.amount || 0,
@@ -535,7 +540,7 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop, o
       });
       return;
     }
-    if (n.type === 'dig_up') {
+    if (n.type === 'dig_up' && FEATURES.round53) {
       onOpenNotebook?.();
       return;
     }

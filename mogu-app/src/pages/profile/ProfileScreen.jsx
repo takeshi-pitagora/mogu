@@ -5,6 +5,7 @@ import VisitCalendar from './VisitCalendar';
 import StampBookCard from './StampBookCard';
 import RecordReceipt from './RecordReceipt';
 import { myDig } from '../../lib/dig';
+import { FEATURES } from '../../lib/features';
 import Dig from '../../components/ui/Dig';
 import { fetchUserTags } from '../../lib/shops';
 import { useAuth } from '../../context/AuthContext';
@@ -248,6 +249,7 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ position: 'relative', flex: 'none' }}>
               <Avatar size={88} photoUrl={photoUrlOf(user.avatarPath)} name={user.name} label="写真" />
+              {FEATURES.round53 && (
               <button
                 type="button"
                 onClick={onOpenDig}
@@ -257,6 +259,7 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
               >
                 <Dig n={dig} size={14.6} outline />
               </button>
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 8px' }}>
               <h1 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 22, fontWeight: 400, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{user.name}</h1>
@@ -304,8 +307,8 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
           <StampBookCard onOpen={onOpenStampBook} />
           {/* ③ 行ったお店のカレンダー（第5回） */}
           <VisitCalendar onOpenShop={onOpenShop} />
-          {/* ③-3〜5 記録のレシート（第5回） */}
-          <RecordReceipt onRegister={onOpenRegister} />
+          {/* ③-3〜5 記録のレシート（5-3 で開ける） */}
+          {FEATURES.round53 && <RecordReceipt onRegister={onOpenRegister} />}
           <span ref={cardRef} />
         </div>
       </div>

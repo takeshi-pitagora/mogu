@@ -13,6 +13,7 @@ import Dig from '../../components/ui/Dig';
 import CompatCard from './CompatCard';
 import { useAuth } from '../../context/AuthContext';
 import { userDig, userFoundShops } from '../../lib/dig';
+import { FEATURES } from '../../lib/features';
 import { axesOf } from '../../lib/compat';
 import { AXIS_LABELS, AXIS_META, axisPercent } from '../../lib/axis';
 import { fetchUserTags, shopPhotoUrl } from '../../lib/shops';
@@ -282,9 +283,11 @@ export default function OtherProfileScreen({ userId, handle, onBack, onInvite, o
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ position: 'relative', flex: 'none' }}>
                 <Avatar size={88} photoUrl={photoUrlOf(data.avatar_path)} name={name} label="写真" />
+                {FEATURES.round53 && (
                 <span style={{ position: 'absolute', right: -14, bottom: -12, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', minWidth: 52, minHeight: 28, padding: '0 4px 2px 0' }}>
                   <Dig n={dig} size={14.6} outline />
                 </span>
+                )}
               </div>
               <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 8px' }}>
                 <h1 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 22, fontWeight: 400, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{name}</h1>
@@ -307,7 +310,7 @@ export default function OtherProfileScreen({ userId, handle, onBack, onInvite, o
             {data.bio && <p style={{ margin: '14px 0 0', fontSize: 15, lineHeight: 1.65, overflowWrap: 'anywhere' }}>{data.bio}</p>}
 
             {/* ㉖-15 見つけたお店（押すと、その人が見つけたお店） */}
-            {found > 0 && (
+            {FEATURES.round53 && found > 0 && (
               <button
                 type="button"
                 className="ui-btn"
@@ -343,8 +346,8 @@ export default function OtherProfileScreen({ userId, handle, onBack, onInvite, o
               </button>
             </div>
 
-            {/* ③-11〜14 あなたとの相性 */}
-            <CompatCard me={user} you={data} youName={name} onDiagnose={onDiagnose} />
+            {/* ③-11〜14 あなたとの相性（5-3 で開ける） */}
+            {FEATURES.round53 && <CompatCard me={user} you={data} youName={name} onDiagnose={onDiagnose} />}
 
             {/* ③-12 「○○さんの食スタイル」（4軸。押すとその人の結果） */}
             {type && (
