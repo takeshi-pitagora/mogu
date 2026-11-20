@@ -153,3 +153,31 @@ export function FirstGuide({ onStart }) {
     </>
   );
 }
+
+// ㉔-14 条件に合うお店が1店もないとき
+export function ZeroShops({ tags = [], best, onDropTag, onRegister }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, boxSizing: 'border-box', padding: '0 28px', border: `${stroke.shape}px dashed ${color.lineStrong}`, borderRadius: radius.card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontFamily: font.plex, color: color.ink }}>
+      <h2 style={{ margin: '0 0 10px', fontFamily: font.dela, fontSize: 20, fontWeight: 400, lineHeight: 1.4 }}>
+        この条件のお店は
+        <br />
+        まだありません
+      </h2>
+      {best && (
+        <>
+          <p style={{ margin: '6px 0 14px', fontSize: 15, fontWeight: 500, color: color.sub }}>
+            #{best.tag} を外すと {best.n}店
+          </p>
+          <button type="button" className="ui-btn" onClick={() => onDropTag?.(best.tag)} style={{ width: '100%', maxWidth: 260, height: 54, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 27, background: color.white, color: color.ink, fontFamily: font.plex, fontSize: 15, fontWeight: 700 }}>
+            #{best.tag} を外す
+          </button>
+        </>
+      )}
+      <p style={{ margin: '22px 0 12px', fontSize: 15, fontWeight: 500 }}>あなたが最初に登録しませんか？</p>
+      <button type="button" className="ui-btn ui-btn--primary" onClick={onRegister} style={{ width: '100%', maxWidth: 260, height: 56, border: 0, borderRadius: 28, background: color.ink, color: color.white, fontFamily: font.plex, fontSize: 16, fontWeight: 700 }}>
+        お店を登録する
+      </button>
+      {tags.length === 0 && null}
+    </div>
+  );
+}

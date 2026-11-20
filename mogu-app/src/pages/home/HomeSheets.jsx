@@ -11,6 +11,7 @@ import { SCENES, sceneOf } from '../../lib/scenes';
 import { chara } from '../../lib/chara';
 import { groupColor, groupOf } from '../../theme/tokens';
 import { popularTags } from '../../lib/shops';
+import AreaPickSheet from './AreaPickSheet';
 
 // ---------------------------------------------------------------
 // 絞り込みのシート（確定版 Final-08 の 5・6）
@@ -132,6 +133,7 @@ export function FilterSheet({ open, value, count, onCount, onApply, onClose }) {
   const [step, setStep] = useState(value.scene || value.tags?.length > 0 ? 'detail' : 'scene');
   const [q, setQ] = useState('');
   const [popular, setPopular] = useState([]);
+  const [pick, setPick] = useState(null); // ㉔-10〜12 'ward' | 'station'
   const toggle = (key, v) => setDraft((d) => ({ ...d, [key]: d[key].includes(v) ? d[key].filter((x) => x !== v) : [...d[key], v] }));
 
   useEffect(() => {
@@ -276,10 +278,19 @@ export function FilterSheet({ open, value, count, onCount, onApply, onClose }) {
             </div>
 
             <Group title="エリア" note="東京のどこでも・複数選択可">
+              <span style={{ width: '100%', fontSize: 13, fontWeight: 500, color: color.sub }}>よく使うエリア</span>
               {AREAS.map((a) => (
                 <FilterChip key={a} selected={draft.areas.includes(a)} onClick={() => toggle('areas', a)}>{a}</FilterChip>
               ))}
+              {/* よく使うエリア以外に選んだ駅 */}
+              {(draft.areas || []).filter((a) => !AREAS.includes(a)).map((a) => (
+                <FilterChip key={a} selected onClick={() => toggle('areas', a)}>{a}</FilterChip>
+              ))}
             </Group>
+            <div style={{ marginTop: -8 }}>
+              <AreaRow icon="pin" title="区から選ぶ" note="東京23区・市部" onClick={() => setPick('ward')} />
+              <AreaRow icon="train" title="駅名で探す" onClick={() => setPick('station')} last />
+            </div>
             <Group title="ジャンル" note="複数選択可">
               {GENRES.map((g) => (
                 <FilterChip key={g} selected={draft.genres.includes(g)} onClick={() => toggle('genres', g)}>{g}</FilterChip>
@@ -309,7 +320,36 @@ export function FilterSheet({ open, value, count, onCount, onApply, onClose }) {
         )}
       </div>
       {footer}
+
+      {pick && (
+        <AreaPickSheet
+          mode={pick}
+          picked={draft.areas}
+          onPick={(st) => {
+            setDraft((d) => ({ ...d, areas: d.areas.includes(st.name) ? d.areas : [...d.areas, st.name] }));
+            setPick(null);
+          }}
+          onClose={() => setPick(null)}
+        />
+      )}
     </BottomSheet>
+  );
+}
+
+// ㉔-9 ［区から選ぶ］［駅名で探す］の行
+function AreaRow({ icon, title, note, onClick, last }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ui-btn"
+      style={{ width: '100%', minHeight: 60, padding: '0 2px', border: 0, borderTop: `1px solid ${color.line}`, borderBottom: last ? `1px solid ${color.line}` : 0, background: 'transparent', color: color.ink, fontFamily: font.plex, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}
+    >
+      <Icon name={icon} size={22} />
+      <span style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 700 }}>{title}</span>
+      {note && <span style={{ fontSize: 14, fontWeight: 500, color: color.sub }}>{note}</span>}
+      <Icon name="chevronRight" size={18} color={color.sub} />
+    </button>
   );
 }
 

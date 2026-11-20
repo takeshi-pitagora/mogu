@@ -388,3 +388,37 @@ as $$
 $$;
 revoke all on function public.popular_tags(int) from public, anon;
 grant execute on function public.popular_tags(int) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 11. ㉔-10・11 区から選ぶ（東京23区・市部 → その区の駅）
+-- ---------------------------------------------------------------------
+create or replace function public.station_wards()
+returns table (ward text, n int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select s.ward, count(*)::int
+    from public.stations s
+   where s.ward is not null and s.ward <> ''
+   group by s.ward
+   order by s.ward
+$$;
+revoke all on function public.station_wards() from public, anon;
+grant execute on function public.station_wards() to authenticated;
+
+create or replace function public.stations_in_ward(p_ward text)
+returns table (id uuid, name text, ward text, line text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select distinct on (s.name) s.id, s.name, s.ward, s.line
+    from public.stations s
+   where s.ward = p_ward
+   order by s.name, s.id
+$$;
+revoke all on function public.stations_in_ward(text) from public, anon;
+grant execute on function public.stations_in_ward(text) to authenticated;

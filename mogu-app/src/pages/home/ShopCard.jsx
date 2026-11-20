@@ -37,7 +37,48 @@ export function OpenNow({ onLight = false }) {
   );
 }
 
-export default function ShopCard({ shop, photoIndex = 0, onPhotoIndex, onOpen, interactive = true }) {
+export default function ShopCard({ shop, photoIndex = 0, onPhotoIndex, onOpen, interactive = true, onBeFirst }) {
+  // ㉔-19 まだプロフィールがないお店（お店の名前と場所だけ。写真もタグもない）
+  if (shop && !shop.is_shop) return <NoProfileCard shop={shop} onBeFirst={onBeFirst} />;
+  return <PhotoCard shop={shop} photoIndex={photoIndex} onPhotoIndex={onPhotoIndex} onOpen={onOpen} interactive={interactive} />;
+}
+
+// ㉔-19 写真の代わりにクリームの地と点線の内枠
+function NoProfileCard({ shop, onBeFirst }) {
+  const station = nearestStation(shop);
+  const genre = genreLabel(shop);
+  return (
+    <div
+      style={{ position: 'relative', width: '100%', height: '100%', boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: radius.card, overflow: 'hidden', background: color.surface, fontFamily: font.plex, color: color.ink }}
+    >
+      <div style={{ position: 'absolute', inset: 10, border: `2px dashed ${color.lineStrong}`, borderRadius: radius.card - 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', textAlign: 'center' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', height: 40, padding: '0 18px', borderRadius: 20, background: color.ink, color: color.white, fontSize: 15, fontWeight: 700 }}>
+          まだプロフィールがありません
+        </span>
+        <span aria-hidden="true" style={{ width: 128, height: 128, margin: '26px 0 22px', borderRadius: 64, background: color.white, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="home" size={56} />
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 500, color: color.sub }}>
+          {[genre, station].filter(Boolean).join('・')}
+        </span>
+        <span className="no-zoom" style={{ marginTop: 6, fontFamily: font.dela, fontSize: 26, fontWeight: 400, lineHeight: 1.25 }}>{shop.name}</span>
+        <span style={{ marginTop: 10, fontSize: 15, fontWeight: 500, lineHeight: 1.6, color: color.sub }}>
+          お店の名前と場所だけ、公開されている情報から出しています。写真やタグはまだありません
+        </span>
+        <button
+          type="button"
+          onClick={onBeFirst}
+          className="ui-btn"
+          style={{ width: '100%', maxWidth: 280, height: 60, marginTop: 26, border: 0, borderRadius: 30, background: color.ink, color: color.white, fontFamily: font.plex, fontSize: 17, fontWeight: 700 }}
+        >
+          最初の1人になる
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PhotoCard({ shop, photoIndex = 0, onPhotoIndex, onOpen, interactive = true }) {
   const photos = shopPhotos(shop);
   const idx = Math.min(photoIndex, Math.max(0, photos.length - 1));
   // ㉔ カードは星をやめて、みんなのタグ3つ・予算感・「○人が保存」にする

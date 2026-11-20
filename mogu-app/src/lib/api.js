@@ -45,6 +45,8 @@ export async function fetchDeck({ user, filters, group }) {
   let list = data.filter((r) => !swiped.has(r.id) && !r.is_excluded);
   if (filters.genres.length > 0) list = list.filter((r) => filters.genres.includes(shopGenre(r)));
   if (filters.priceLevel != null) list = list.filter((r) => String(r.price_level) === String(filters.priceLevel));
+  // ㉔-19 まだプロフィールがないお店（登録されていない古い行）は、タグで絞るときは出さない
+  if (filters.tags?.length > 0) list = list.filter((r) => r.is_shop);
   // ㉔ 選んだタグを「すべて」持つお店だけを出す
   if (filters.tags?.length > 0) {
     list = list.filter((r) => {

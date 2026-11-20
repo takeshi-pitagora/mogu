@@ -211,3 +211,16 @@ export async function popularTags(limit = 8) {
   if (error) throw error;
   return data || [];
 }
+
+// ㉔-10・11 区から選ぶ
+export async function stationWards() {
+  const { data, error } = await supabase.rpc('station_wards');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function stationsInWard(ward) {
+  const { data, error } = await supabase.rpc('stations_in_ward', { p_ward: ward });
+  if (error) throw error;
+  return data || [];
+}

@@ -9,7 +9,7 @@ import AvatarStack from '../../components/ui/AvatarStack';
 import { HeaderIconButton } from '../../components/ui/ScreenHeader';
 import { ErrorState } from '../../components/ui/States';
 import ShopCard from './ShopCard';
-import { SwipeButtons, SwipeSticker, SwipeGlow, EndOfDeck, LoadingCard, FirstGuide } from './SwipeParts';
+import { SwipeButtons, SwipeSticker, SwipeGlow, EndOfDeck, ZeroShops, LoadingCard, FirstGuide } from './SwipeParts';
 import { FilterSheet, SearchModeSheet } from './HomeSheets';
 import { sceneOf } from '../../lib/scenes';
 import { chara } from '../../lib/chara';
@@ -46,6 +46,7 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [reloadKey, setReloadKey] = useState(0);
   const [draftCount, setDraftCount] = useState(null); // ㉔ 絞り込みのシートの［○店を見る］
+  const [zeroBest, setZeroBest] = useState(null); // ㉔-14「#夜景 を外すと 24店」
   const [photoIndex, setPhotoIndex] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -87,6 +88,25 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, selectedGroup?.id, filters, reloadKey]);
+
+  // ㉔-14 0店のとき、どのタグを外すといちばん増えるかを数える
+  useEffect(() => {
+    const tags = filters.tags || [];
+    if (!(status === 'ready' && shops.length === 0 && tags.length > 0)) return undefined;
+    let alive = true;
+    Promise.all(tags.map((t) => fetchDeck({
+      user,
+      filters: { ...filters, tags: tags.filter((x) => x !== t) },
+      group: selectedGroup,
+    }).then((l) => ({ tag: t, n: l.length })).catch(() => ({ tag: t, n: 0 }))))
+      .then((rows) => {
+        if (!alive) return;
+        const top = rows.sort((a, b) => b.n - a.n)[0];
+        setZeroBest(top && top.n > 0 ? { ...top, key: tags.join('|') } : null);
+      });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, shops.length, filters, user?.id, selectedGroup?.id]);
 
   // ㉔ 条件を変えるたびに、合うお店の数を数える（選ぶたびに数が変わる）
   const countFor = useCallback((draft) => {
@@ -202,6 +222,8 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
   const modeTitle = selectedGroup ? selectedGroup.name : 'ひとりで探す';
   const showDeck = status === 'ready' && current;
   const ended = status === 'ready' && !current;
+  // ㉔-14 条件に合うお店が1店もないとき
+  const zero = status === 'ready' && shops.length === 0 && (fCount > 0 || (filters.tags?.length || 0) > 0);
 
   return (
     <div style={{ position: 'relative', height: '100%', overflow: 'hidden', background: color.bg, fontFamily: font.plex, color: color.ink }}>
@@ -250,7 +272,15 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
       <div style={{ position: 'absolute', left: layout.screenXTight, right: layout.screenXTight, top: 'calc(var(--safe-top) + 96px)', bottom: 152 }}>
         {status === 'loading' && <LoadingCard />}
         {status === 'error' && <ErrorState onRetry={reload} style={{ position: 'absolute', inset: 0 }} />}
-        {ended && (
+        {zero && (
+          <ZeroShops
+            tags={filters.tags || []}
+            best={zeroBest?.key === (filters.tags || []).join('|') ? zeroBest : null}
+            onDropTag={(t) => { setStatus('loading'); setFilters({ ...filters, tags: (filters.tags || []).filter((x) => x !== t) }); }}
+            onRegister={onOpenRegister}
+          />
+        )}
+        {!zero && ended && (
           <EndOfDeck
             onWiden={() => setSheet('filter')}
             onClearTags={filters.tags?.length > 0 ? () => { setStatus('loading'); setFilters({ ...filters, scene: null, tags: [] }); } : null}
@@ -281,7 +311,7 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
               WebkitUserSelect: 'none',
             }}
           >
-            <ShopCard shop={current} photoIndex={photoIndex} onPhotoIndex={setPhotoIndex} onOpen={() => onOpenShop?.(current, { from: 'home' })} />
+            <ShopCard shop={current} photoIndex={photoIndex} onPhotoIndex={setPhotoIndex} onOpen={() => onOpenShop?.(current, { from: 'home' })} onBeFirst={() => onOpenRegister?.(current)} />
             {dir && strength > 0 && <SwipeSticker kind={dir} opacity={strength} />}
           </div>
         )}
