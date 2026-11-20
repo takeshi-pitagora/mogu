@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
 import VisitCalendar from './VisitCalendar';
+import StampBookCard from './StampBookCard';
 import { fetchUserTags } from '../../lib/shops';
 import { useAuth } from '../../context/AuthContext';
 import { getType } from '../../lib/mogutype';
@@ -263,7 +264,7 @@ function MyTags({ userId }) {
   );
 }
 
-export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenShop }) {
+export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenShop, onOpenStampBook }) {
   const { user } = useAuth();
   const toast = useToast();
   const [edit, setEdit] = useState(false);
@@ -357,6 +358,8 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
             </button>
           </div>
           <MyTags userId={user.id} />
+          {/* ③スタンプ帳-1 ［プロフィールを編集する］の下・「行ったお店」の上 */}
+          <StampBookCard onOpen={onOpenStampBook} />
           <div ref={cardRef}>
             <DiagnosisCard user={user} type={type} onDiagnose={onOpenDiagnosis} />
           </div>

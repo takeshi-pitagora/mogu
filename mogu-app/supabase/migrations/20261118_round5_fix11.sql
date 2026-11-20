@@ -21,6 +21,9 @@ create unique index if not exists shop_visits_one_a_day
 --    キャラは16体から同じ確率でランダムに1体。えらぶのはサーバー。
 --    コインはスタンプ＋1（1店1回）とひとこと＋1。
 -- ---------------------------------------------------------------------
+-- 予算の段は数（1〜8）。古い下書きの text 版が残っていると、どちらを呼ぶか決められなくなるので消す
+drop function if exists public.submit_visit_stamp(uuid, date, text[], text, text, text);
+
 create or replace function public.submit_visit_stamp(
   p_shop_id uuid,
   p_visited_on date,

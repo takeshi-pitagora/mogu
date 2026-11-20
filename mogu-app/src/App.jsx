@@ -15,6 +15,7 @@ import { fetchMyPenalty } from './lib/penalty';
 import RegisterShopSheet from './pages/shop/register/RegisterShopSheet';
 import GroupScreen from './pages/group/GroupScreen';
 import ProfileScreen from './pages/profile/ProfileScreen';
+import StampBook from './pages/profile/StampBook';
 import NotificationsScreen from './pages/notifications/NotificationsScreen';
 import SettingsScreen from './pages/settings/SettingsScreen';
 import AccountScreen from './pages/settings/AccountScreen';
@@ -170,6 +171,9 @@ function Shell() {
             onRegister={() => setGuestFlow('signup')}
           />
         );
+      // ③ スタンプ帳（自分だけ。プロフィールの入口のカードから）
+      case 'stampBook':
+        return <StampBook onBack={pop} onOpenShop={(id) => setShopProfileId(id)} />;
       case 'account':
         return <AccountScreen onBack={pop} onOpenPassword={() => push('password')} />;
       case 'password':
@@ -239,7 +243,7 @@ function Shell() {
       )}
       {!top && tab === 'profile' && (
         <div style={{ position: 'absolute', inset: 0 }}>
-          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen onOpenSettings={() => push('settings')} onOpenDiagnosis={openDiagnosis} onOpenShop={(id) => setShopProfileId(id)} />}
+          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen onOpenSettings={() => push('settings')} onOpenDiagnosis={openDiagnosis} onOpenShop={(id) => setShopProfileId(id)} onOpenStampBook={() => push('stampBook')} />}
         </div>
       )}
       {top && (
