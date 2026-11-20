@@ -51,6 +51,27 @@ export const appIconBg = { light: '#F7EAD1', dark: '#2E2C2A' };
 export const font = {
   dela: "'Dela Gothic One', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif", // 見出しと数字（極太・400のみ）
   plex: "'IBM Plex Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif", // 本文
+  // §4 紙の中の字。スタンプ帳（③）と探検手帳（㉖）の中だけで使う
+  mincho: "'Shippori Mincho B1', 'Hiragino Mincho ProN', serif", // 見出しとしおりのタブ（800）
+  fraunces: "'Fraunces', 'Hiragino Mincho ProN', serif", // 日付・数・ページの番号（Italic 600/700）
+};
+
+// §4 紙の色（③スタンプ帳・㉖ 探検手帳）
+export const paper = {
+  page: '#F6EEDF', // ページ・台紙
+  slotLine: '#CDBFA6', // 空いているマスの点線と番号
+  grid: '#DACBB0', // 方眼の点
+  rule: '#D6C6AA', // ページの線
+  cover: '#2E2C2A', // 表紙
+  ribbon: '#C08268', // しおり紐
+  sticky: '#FBE3D6', // 付箋
+  tab: {
+    kiroku: '#FBE3D6', // 記録
+    banzuke: '#F7EAD1', // 番付
+    iine: '#F6E1E7', // いいね
+    mitsuketa: '#E2EDE5', // 見つけた
+    moraikata: '#EFEBE4', // もらい方
+  },
 };
 
 export const type = {
