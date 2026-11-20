@@ -18,6 +18,7 @@ import ProfileScreen from './pages/profile/ProfileScreen';
 import StampBook from './pages/profile/StampBook';
 import NotebookScreen from './pages/notebook/NotebookScreen';
 import DigUpScreen from './pages/notebook/DigUpScreen';
+import OtherProfileScreen from './pages/profile/OtherProfileScreen';
 import { markDigShown, myDig } from './lib/dig';
 import NotificationsScreen from './pages/notifications/NotificationsScreen';
 import SettingsScreen from './pages/settings/SettingsScreen';
@@ -61,6 +62,7 @@ function Shell() {
   const [guideRequest, setGuideRequest] = useState(0);
   const [homeTag, setHomeTag] = useState(null); // ㉕-15 保存から「ホームで #○○ のお店を探す」
   const [digUp, setDigUp] = useState(null); // ㉖-17〜20 dig が上がった
+  const [viewUserId, setViewUserId] = useState(null); // ㉖-15 番付の人のプロフィール
   const [savedVersion, setSavedVersion] = useState(0);
   const [guestSheet, setGuestSheet] = useState(false);
   const [guestFlow, setGuestFlow] = useState(null); // null | 'signup' | { welcome: true, pendingEmail }
@@ -203,6 +205,7 @@ function Shell() {
             onOpenShop={(id) => setShopProfileId(id)}
             onOpenSettings={() => push('notificationSettings')}
             onOpenRegister={openRegister}
+            onOpenUser={(r) => setViewUserId(r.user_id)}
             initialTab={item.props?.tab || 'log'}
           />
         );
@@ -404,6 +407,15 @@ function Shell() {
           pendingFriendCode={pendingFriendCode}
           onConsumedPendingCode={() => setPendingFriendCode(null)}
           onClose={() => setDiagnosis(null)}
+        />
+      )}
+
+      {/* ㉖-15 番付の人を押したとき（コインは出さない） */}
+      {viewUserId && (
+        <OtherProfileScreen
+          userId={viewUserId}
+          onBack={() => setViewUserId(null)}
+          onDiagnose={() => { setViewUserId(null); openDiagnosis('diagnose'); }}
         />
       )}
 

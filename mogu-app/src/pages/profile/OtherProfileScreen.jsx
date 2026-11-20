@@ -9,7 +9,13 @@ import Button from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
 import { Radio } from '../../components/ui/Radio';
 import BottomSheet from '../../components/ui/BottomSheet';
-import TypeLabel from '../../components/ui/TypeLabel';
+import Dig from '../../components/ui/Dig';
+import CompatCard from './CompatCard';
+import { useAuth } from '../../context/AuthContext';
+import { userDig, userFoundShops } from '../../lib/dig';
+import { axesOf } from '../../lib/compat';
+import { AXIS_LABELS, AXIS_META, axisPercent } from '../../lib/axis';
+import { fetchUserTags, shopPhotoUrl } from '../../lib/shops';
 
 // 他の人のプロフィール（確定版 f03-5・f03-6）＋「…」の通報・ブロック（f13-1〜f13-20の、相手を指定するほう）
 //   同じグループのメンバーの行から開く（userId）。IDの完全一致（handle）でも開ける
@@ -171,8 +177,13 @@ function ReportSheet({ open, onClose, targetId, name, onBlockAfter }) {
   );
 }
 
-export default function OtherProfileScreen({ userId, handle, onBack }) {
+export default function OtherProfileScreen({ userId, handle, onBack, onInvite, onShare, onDiagnose, onOpenTypeResult }) {
   const toast = useToast();
+  const { user } = useAuth();
+  const [dig, setDig] = useState(1);
+  const [found, setFound] = useState(0);
+  const [foundList, setFoundList] = useState(null); // ㉖-16 その人が見つけたお店
+  const [tags, setTags] = useState([]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
@@ -190,6 +201,15 @@ export default function OtherProfileScreen({ userId, handle, onBack }) {
       alive = false;
     };
   }, [userId, handle]);
+
+  // ③-11 dig は見るだけ。自分のハッシュタグと同じ出し方でその人のタグも出す
+  useEffect(() => {
+    if (!data?.id) return undefined;
+    let alive = true;
+    userDig(data.id).then((d) => { if (alive) { setDig(d?.dig || 1); setFound(d?.found || 0); } }).catch(() => {});
+    fetchUserTags(data.id).then((r) => alive && setTags(r || [])).catch(() => {});
+    return () => { alive = false; };
+  }, [data?.id]);
 
   const doBlock = async () => {
     setBlockConfirm(false);
@@ -216,11 +236,14 @@ export default function OtherProfileScreen({ userId, handle, onBack }) {
     setData((d) => ({ ...d, blocked: false, blocked_by_me: false }));
   };
 
+  const handleShown = data?.handle || handle || '';
   const header = (
-    <header style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 98, padding: '54px 8px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: color.bg, zIndex: 4 }}>
+    <header style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(var(--safe-top) + 44px)', paddingTop: 'var(--safe-top)', paddingLeft: 8, paddingRight: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: color.bg, zIndex: 4 }}>
       <button type="button" aria-label="戻る" onClick={onBack} className="ui-btn ui-btn--text" style={{ width: 44, height: 44, border: 0, padding: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="back" size={24} />
       </button>
+      {/* ③-11 まん中に @ID */}
+      <span style={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: 17, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>@{handleShown}</span>
       <button type="button" aria-label="その他（通報・ブロック）" onClick={() => setMore(true)} className="ui-btn ui-btn--text" style={{ width: 44, height: 44, border: 0, padding: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="moreFill" size={24} />
       </button>
@@ -239,12 +262,11 @@ export default function OtherProfileScreen({ userId, handle, onBack }) {
   const type = getType(data.type_code);
   const ch = type ? chara(type.code) : null;
   const g = type ? groupColor[groupOf(type.code)] : null;
-  const bubbleBg = type ? (g ? g.light : color.surface) : color.surface;
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, overflowY: 'auto', background: color.bg, fontFamily: font.plex, color: color.ink }}>
       {header}
-      <div style={{ padding: 'calc(var(--safe-top) + 44px + 12px) 20px 130px' }}>
+      <div style={{ padding: 'calc(var(--safe-top) + 44px + 14px) 20px 130px' }}>
         {data.blocked ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 60 }}>
             <Avatar size={72} blocked name={data.handle} />
@@ -255,32 +277,111 @@ export default function OtherProfileScreen({ userId, handle, onBack }) {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
-            <div style={{ flex: 'none', width: 129, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-              {ch ? (
-                <img src={ch.framed} alt="" style={{ display: 'block', width: 129, height: 197, objectFit: 'contain', objectPosition: 'center bottom' }} />
-              ) : (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 129, height: 197, fontFamily: font.dela, fontSize: 120, lineHeight: 1, color: color.ink }}>？</span>
-              )}
-              {type && <TypeLabel code={type.code} />}
-            </div>
-            <div style={{ flex: '0 0 auto', width: 220 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Avatar size={40} photoUrl={photoUrlOf(data.avatar_path)} name={name} label="写真" />
-                <span style={{ minWidth: 0, fontSize: 13, color: color.sub, overflowWrap: 'anywhere' }}>@{data.handle || ''}</span>
-              </div>
-              <h1 className="no-zoom" style={{ margin: '8px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</h1>
-              <div style={{ position: 'relative', marginTop: 12, width: 220, padding: '10px 10px 12px', border: `${stroke.shape}px solid ${type ? color.ink : color.surface}`, borderRadius: 22, background: bubbleBg }}>
-                {type && (
-                  <span aria-hidden="true" style={{ position: 'absolute', left: -11, top: 22, width: 18, height: 18, borderLeft: `${stroke.shape}px solid ${color.ink}`, borderBottom: `${stroke.shape}px solid ${color.ink}`, background: bubbleBg, transform: 'rotate(45deg)' }} />
-                )}
-                <span style={{ position: 'relative', display: 'block', fontSize: 12, fontWeight: 700, color: type ? color.ink : color.sub }}>
-                  {type ? `${type.name}が紹介します` : '自己紹介'}
+          <>
+            {/* ③-11 写真（88）の右下に dig（見るだけ）・名前・モグキャラのふだ */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ position: 'relative', flex: 'none' }}>
+                <Avatar size={88} photoUrl={photoUrlOf(data.avatar_path)} name={name} label="写真" />
+                <span style={{ position: 'absolute', right: -14, bottom: -12, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', minWidth: 52, minHeight: 28, padding: '0 4px 2px 0' }}>
+                  <Dig n={dig} size={14.6} outline />
                 </span>
-                {data.bio ? <p style={{ position: 'relative', width: '14em', margin: '4px 0 0', fontSize: 14, lineHeight: 1.65, overflowWrap: 'anywhere' }}>{data.bio}</p> : null}
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 8px' }}>
+                <h1 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 22, fontWeight: 400, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{name}</h1>
+                {type && (
+                  <button
+                    type="button"
+                    className="ui-btn"
+                    onClick={() => onOpenTypeResult?.(data)}
+                    aria-label={`モグキャラ ${type.code} ${type.name}（押すと診断の結果）`}
+                    style={{ flex: 'none', height: 34, padding: '0 12px 0 5px', border: 0, borderRadius: 17, background: g ? g.light : color.surface, color: color.ink, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    {ch?.display && <img src={ch.display} alt="" style={{ display: 'block', width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />}
+                    <span style={{ fontFamily: font.dela, fontSize: 13, color: g ? g.dark : color.ink }}>{type.code}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>{type.name}</span>
+                  </button>
+                )}
               </div>
             </div>
-          </div>
+
+            {data.bio && <p style={{ margin: '14px 0 0', fontSize: 15, lineHeight: 1.65, overflowWrap: 'anywhere' }}>{data.bio}</p>}
+
+            {/* ㉖-15 見つけたお店（押すと、その人が見つけたお店） */}
+            {found > 0 && (
+              <button
+                type="button"
+                className="ui-btn"
+                onClick={() => userFoundShops(data.id).then(setFoundList).catch(() => setFoundList([]))}
+                style={{ width: '100%', minHeight: 56, marginTop: 14, padding: '0 14px', boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 18, background: color.white, color: color.ink, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
+              >
+                <Icon name="dig" size={20} />
+                <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700 }}>見つけたお店</span>
+                <span style={{ fontFamily: font.dela, fontSize: 17 }}>{found}</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>店</span>
+                <Icon name="chevronRight" size={20} />
+              </button>
+            )}
+
+            {/* ③-11 その人のハッシュタグ */}
+            {tags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                {tags.map((t) => (
+                  <span key={t.id || t.name} style={{ height: 40, padding: '0 14px', borderRadius: 20, background: color.surface, color: color.ink, fontSize: 15, fontWeight: 500, display: 'inline-flex', alignItems: 'center' }}>
+                    #{t.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button type="button" className="ui-btn ui-btn--primary" onClick={() => onInvite?.(data)} style={{ flex: '1 1 0%', height: 56, border: 0, borderRadius: 28, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Icon name="personAdd" size={20} color={color.white} />
+                グループに招待する
+              </button>
+              <button type="button" aria-label="シェア" className="ui-btn" onClick={() => onShare?.(data)} style={{ flex: 'none', width: 56, height: 56, border: `${stroke.shape}px solid ${color.ink}`, borderRadius: '50%', padding: 0, background: color.white, color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="shareProfile" size={22} />
+              </button>
+            </div>
+
+            {/* ③-11〜14 あなたとの相性 */}
+            <CompatCard me={user} you={data} youName={name} onDiagnose={onDiagnose} />
+
+            {/* ③-12 「○○さんの食スタイル」（4軸。押すとその人の結果） */}
+            {type && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 26, paddingBottom: 6, borderBottom: `${stroke.shape}px solid ${color.ink}` }}>
+                  <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 18, fontWeight: 400 }}>{name}さんの食スタイル</h2>
+                  <button type="button" className="ui-btn ui-btn--text" onClick={() => onOpenTypeResult?.(data)} style={{ flex: 'none', height: 44, padding: '0 2px', border: 0, background: 'transparent', color: color.ink, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    診断の結果
+                    <Icon name="chevronRight" size={18} />
+                  </button>
+                </div>
+                {AXIS_LABELS.map((ax) => {
+                  const v = axesOf(data)[ax.key];
+                  const pc = axisPercent(v);
+                  const right = pc.right >= 50;
+                  return (
+                    <div key={ax.key} style={{ marginTop: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                        <span style={{ fontSize: 13, color: color.sub }}>{AXIS_META.find((m) => m.key === ax.key)?.badge}</span>
+                        <span style={{ fontFamily: font.dela, fontSize: 17 }}>
+                          {right ? ax.right : ax.left} {right ? pc.right : pc.left}%
+                        </span>
+                      </div>
+                      <div style={{ position: 'relative', height: 10, marginTop: 8, borderRadius: 5, background: color.surface }}>
+                        {/* 多いほうの側から伸ばす（「映え 80%」なら左から80%） */}
+                        <span style={{ position: 'absolute', [right ? 'right' : 'left']: 0, top: 0, bottom: 0, width: `${right ? pc.right : pc.left}%`, borderRadius: 5, background: AXIS_META.find((m) => m.key === ax.key)?.main || color.ink }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, color: color.sub }}>
+                        <span>{ax.left}</span>
+                        <span>{ax.right}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </>
         )}
       </div>
       <MoreSheet
@@ -296,6 +397,31 @@ export default function OtherProfileScreen({ userId, handle, onBack }) {
           setBlockConfirm(true);
         }}
       />
+      {/* ㉖-16 その人が見つけたお店 */}
+      {foundList && (
+        <BottomSheet open onClose={() => setFoundList(null)} ariaLabel={`${name}さんが見つけたお店`} maxHeight="86%">
+          <h2 style={{ margin: '12px 0 0', fontFamily: font.dela, fontSize: 20, fontWeight: 400 }}>{name}さんが見つけたお店</h2>
+          <div style={{ marginTop: 12 }}>
+            {foundList.map((f) => (
+              <div key={f.shop_id} style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 72, borderTop: `1px solid ${color.line}` }}>
+                <span style={{ flex: 'none', width: 56, height: 56, borderRadius: 14, background: `#5E4B3C center/cover no-repeat url(${shopPhotoUrl(f.photo) || ''})` }} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+                  <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: color.sub }}>
+                    {[f.genre_main, f.station_name && `${f.station_name}駅`].filter(Boolean).join('・')}
+                  </span>
+                </span>
+                <span style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: color.sub }}>
+                  <Icon name="heartFill" size={14} color={color.accent} />
+                  {f.saved_count}
+                </span>
+              </div>
+            ))}
+            {foundList.length === 0 && <p style={{ margin: '16px 0 0', fontSize: 14, color: color.sub }}>まだありません</p>}
+          </div>
+        </BottomSheet>
+      )}
+
       <ReportSheet open={report} onClose={() => setReport(false)} targetId={data.id} name={name} onBlockAfter={() => setBlockConfirm(true)} />
       <BottomSheet open={blockConfirm} onClose={() => setBlockConfirm(false)} ariaLabel={`${name} さんをブロックしますか？`} minHeight={230}>
         <h2 style={{ margin: '16px 0 0', fontFamily: font.dela, fontSize: 20, fontWeight: 400, lineHeight: 1.4, textAlign: 'center' }}>

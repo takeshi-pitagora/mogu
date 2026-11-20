@@ -1480,7 +1480,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRe
       {report && <ReportGroupSheet group={group} onClose={() => setReport(false)} onSent={() => setReport(false)} />}
       {rename && <RenameSheet group={group} onClose={() => setRename(false)} onRenamed={(name) => { setRename(false); onRenamed(name); }} />}
       <ConfirmSheet open={leave} title="グループから抜けますか？" actionLabel="グループから抜ける" danger busy={busy} onConfirm={doLeave} onCancel={() => setLeave(false)} />
-      {viewProfile && <OtherProfileScreen userId={viewProfile} onBack={() => setViewProfile(null)} />}
+      {viewProfile && <OtherProfileScreen userId={viewProfile} onBack={() => setViewProfile(null)} onInvite={() => setViewProfile(null)} onDiagnose={() => setViewProfile(null)} />}
     </div>
   );
 }

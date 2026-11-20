@@ -221,3 +221,28 @@ as $$
 $$;
 revoke all on function public.set_rank_visible(boolean) from public, anon;
 grant execute on function public.set_rank_visible(boolean) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 7. ㉖-15・16 ほかの人が見つけたお店（コインは出さない）
+-- ---------------------------------------------------------------------
+create or replace function public.user_found_shops(p_user uuid)
+returns table (shop_id uuid, name text, photo text, genre_main text, station_name text, saved_count int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select s.id, s.name,
+         (select ph.card_path from public.shop_photos ph
+           where ph.shop_id = s.id and ph.status = 'open'
+           order by ph.plus_count desc, ph.created_at limit 1),
+         s.genre_main,
+         (select st.name from public.stations st where st.id = s.station_id),
+         s.saved_count
+    from public.shops s
+   where s.discoverer_id = p_user and s.status = 'open'
+   order by s.saved_count desc, s.created_at desc
+   limit 100
+$$;
+revoke all on function public.user_found_shops(uuid) from public, anon;
+grant execute on function public.user_found_shops(uuid) to authenticated;

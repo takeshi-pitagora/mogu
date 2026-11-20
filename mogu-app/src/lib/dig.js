@@ -16,6 +16,12 @@ export async function markDigShown() {
   if (error) throw error;
 }
 
+export async function userFoundShops(userId) {
+  const { data, error } = await supabase.rpc('user_found_shops', { p_user: userId });
+  if (error) throw error;
+  return data || [];
+}
+
 export async function userDig(userId) {
   const { data, error } = await supabase.rpc('user_dig', { p_user: userId });
   if (error) throw error;
