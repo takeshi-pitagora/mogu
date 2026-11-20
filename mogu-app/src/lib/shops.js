@@ -188,6 +188,15 @@ export async function saveUserTags(tagIds) {
 }
 
 // ⑤ 予算感の性別（§9-1 の3）。予算を男女別に出すためだけに使う
+// ⑱-24 自分の予算感を入れる（昼・夜それぞれ1つ。入れ直すと入れ替わる）
+export async function setMyBudget(shopId, timeOfDay, bucket, gender = null) {
+  const { data, error } = await supabase.rpc('set_my_budget', {
+    p_shop_id: shopId, p_time_of_day: timeOfDay, p_bucket: bucket, p_gender: gender,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function myBudgetGender() {
   const { data, error } = await supabase.rpc('my_budget_gender');
   if (error) throw error;

@@ -417,8 +417,9 @@ function Empty({ children }) {
 }
 
 // ---- ㉑-11 予算感のくわしく（金額ごとの人数） ----
-export function BudgetDetail({ data, onClose }) {
+export function BudgetDetail({ data, onClose, onEnter }) {
   const [tab, setTab] = useState('dinner');
+  const mine = data.my_budget || {};
   const rows = budgetByBucket(data.budget, tab);
   const max = Math.max(1, ...rows.map((r) => r.count));
 
@@ -472,17 +473,36 @@ export function BudgetDetail({ data, onClose }) {
           {rows.length === 0 ? (
             <Empty>まだ予算感がありません</Empty>
           ) : (
-            rows.map((r) => (
-              <div key={r.bucket} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
-                <span style={{ flex: 'none', width: 118, fontSize: 13, fontWeight: 700 }}>{r.label}</span>
-                <span style={{ flex: 1, minWidth: 0, height: 12, borderRadius: 6, background: color.line, overflow: 'hidden' }}>
-                  <span style={{ display: 'block', width: `${Math.round((r.count / max) * 100)}%`, height: '100%', background: color.accent }} />
-                </span>
-                <span style={{ flex: 'none', width: 44, textAlign: 'right', fontSize: 12, fontWeight: 700, color: color.sub }}>{r.count}人</span>
-              </div>
-            ))
+            rows.map((r) => {
+              // ⑱-25 入れたあとは、自分の金額に色を付ける
+              const isMine = Number(mine[tab]) === r.bucket;
+              return (
+                <div key={r.bucket} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
+                  <span style={{ flex: 'none', width: 118, fontSize: 13, fontWeight: 700, color: isMine ? color.ink : color.ink }}>
+                    {r.label}
+                    {isMine && <span style={{ marginLeft: 6, fontSize: 11, color: color.accent }}>あなた</span>}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0, height: 12, borderRadius: 6, background: color.line, overflow: 'hidden' }}>
+                    <span style={{ display: 'block', width: `${Math.round((r.count / max) * 100)}%`, height: '100%', background: isMine ? color.ink : color.accent }} />
+                  </span>
+                  <span style={{ flex: 'none', width: 44, textAlign: 'right', fontSize: 12, fontWeight: 700, color: color.sub }}>{r.count}人</span>
+                </div>
+              );
+            })
           )}
         </div>
+
+        {/* ⑱-23〜25 2人目からは、自分の予算感を入れられる */}
+        {onEnter && (
+          <button
+            type="button"
+            className="ui-btn ui-btn--primary"
+            onClick={onEnter}
+            style={{ flex: 'none', width: '100%', height: 56, marginTop: 12, border: 0, borderRadius: 28, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 16, fontWeight: 700 }}
+          >
+            {mine.lunch || mine.dinner ? '自分の予算感を変える' : '自分の予算感を入れる'}
+          </button>
+        )}
       </section>
     </>
   );

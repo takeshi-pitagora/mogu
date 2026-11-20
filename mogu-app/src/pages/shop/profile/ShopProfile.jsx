@@ -20,6 +20,7 @@ import OverviewTab from './OverviewTab';
 import { ClosureSheet, EditRequestSheet, ReportSheet } from './ReportSheets';
 import { fetchCheckingFields } from '../../../lib/shopReport';
 import { BudgetDetail, CommentsTab, InfoTab, MenuTab, PhotosTab, PlusButton } from './Tabs';
+import MyBudgetSheet from './MyBudgetSheet';
 import HarryCorner from './HarryCorner';
 import VisitSheet from '../visit/VisitSheet';
 import AddSheet from '../add/AddSheet';
@@ -49,6 +50,7 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
   const [tab, setTab] = useState('overview');
   const [menu, setMenu] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [myBudgetOpen, setMyBudgetOpen] = useState(false);
   const [viewer, setViewer] = useState(null);
   const [reload, setReload] = useState(0);
   const [checking, setChecking] = useState([]); // いま運営が確かめている項目（㉓-10・11）
@@ -300,7 +302,35 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
         <RoundButton label="閉じる" icon="close" onClick={onBack} />
       </div>
 
-      {budgetOpen && <BudgetDetail data={data} onClose={() => setBudgetOpen(false)} />}
+      {budgetOpen && (
+        <BudgetDetail
+          data={data}
+          onClose={() => setBudgetOpen(false)}
+          onEnter={async () => {
+            if (await onNeedAccount?.()) return;
+            setBudgetOpen(false);
+            setMyBudgetOpen(true);
+          }}
+        />
+      )}
+      {/* ⑱-24・25 自分の予算感を入れる（2人目から。性別ははじめの1回だけ聞く） */}
+      {myBudgetOpen && (
+        <MyBudgetSheet
+          shopId={shop.id}
+          mine={data.my_budget || {}}
+          onClose={() => setMyBudgetOpen(false)}
+          onDone={(res) => {
+            if (res) {
+              setData((d) => ({
+                ...d,
+                budget: res.budget || d.budget,
+                my_budget: { ...(d.my_budget || {}), [res.time_of_day]: res.bucket },
+              }));
+            }
+            setBudgetOpen(true);
+          }}
+        />
+      )}
       {/* ㉒-1〜3 右下のハリーと左下の［＋ 足す］。どのタブ・どこまでスクロールしてもそこにいる */}
       {SHOW_GROW && !viewer && !sheet && !menu && !visit && !add && (
         <HarryCorner
