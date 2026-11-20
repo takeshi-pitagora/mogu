@@ -16,6 +16,9 @@ import RegisterShopSheet from './pages/shop/register/RegisterShopSheet';
 import GroupScreen from './pages/group/GroupScreen';
 import ProfileScreen from './pages/profile/ProfileScreen';
 import StampBook from './pages/profile/StampBook';
+import NotebookScreen from './pages/notebook/NotebookScreen';
+import DigUpScreen from './pages/notebook/DigUpScreen';
+import { markDigShown, myDig } from './lib/dig';
 import NotificationsScreen from './pages/notifications/NotificationsScreen';
 import SettingsScreen from './pages/settings/SettingsScreen';
 import AccountScreen from './pages/settings/AccountScreen';
@@ -57,6 +60,7 @@ function Shell() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [guideRequest, setGuideRequest] = useState(0);
   const [homeTag, setHomeTag] = useState(null); // ㉕-15 保存から「ホームで #○○ のお店を探す」
+  const [digUp, setDigUp] = useState(null); // ㉖-17〜20 dig が上がった
   const [savedVersion, setSavedVersion] = useState(0);
   const [guestSheet, setGuestSheet] = useState(false);
   const [guestFlow, setGuestFlow] = useState(null); // null | 'signup' | { welcome: true, pendingEmail }
@@ -109,6 +113,18 @@ function Shell() {
   }, [user?.id, guest, tab, stack.length]);
 
   // 通知の許可のお願い（引き渡し書 §7-6）：初めてグループタブを開いたとき、1度だけ
+  // ㉖ アプリを開いたとき、dig が上がっていたら1回だけ全画面を出す
+  useEffect(() => {
+    if (!user?.id || guest) return undefined;
+    let alive = true;
+    myDig()
+      .then((d) => {
+        if (alive && d?.pending_from) setDigUp({ from: d.pending_from, to: d.dig });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user?.id, guest]);
+
   useEffect(() => {
     if (guest || !user?.id || tab !== 'group') return;
     fetchNotifPrefs()
@@ -176,6 +192,17 @@ function Shell() {
               setGuideRequest((n) => n + 1);
             }}
             onRegister={() => setGuestFlow('signup')}
+          />
+        );
+      // ㉖ 探検手帳（コインの数を見るのはここだけ）
+      case 'notebook':
+        return (
+          <NotebookScreen
+            onBack={pop}
+            onOpenShop={(id) => setShopProfileId(id)}
+            onOpenSettings={() => push('notificationSettings')}
+            onOpenRegister={openRegister}
+            initialTab={item.props?.tab || 'log'}
           />
         );
       // ③ スタンプ帳（自分だけ。プロフィールの入口のカードから）
@@ -376,6 +403,18 @@ function Shell() {
           pendingFriendCode={pendingFriendCode}
           onConsumedPendingCode={() => setPendingFriendCode(null)}
           onClose={() => setDiagnosis(null)}
+        />
+      )}
+
+      {/* ㉖-17〜20 dig が上がったとき。次に開いたときに1回だけ */}
+      {digUp && (
+        <DigUpScreen
+          from={digUp.from}
+          to={digUp.to}
+          onClose={() => {
+            setDigUp(null);
+            markDigShown().catch(() => {});
+          }}
         />
       )}
 

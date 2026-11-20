@@ -11,6 +11,7 @@ import ReportGeneralSheet from './ReportGeneralSheet';
 import { getType } from '../../lib/mogutype';
 import { HELP_URL, OPERATOR_URL, PRIVACY_POLICY_URL, SHOP_INFO_URL, SUPPORT_EMAIL, TERMS_URL } from '../../lib/links';
 import { openExternal } from '../../lib/open';
+import { setRankVisible } from '../../lib/notebook';
 import { APP_VERSION } from '../../lib/version';
 import { GroupTitle, Row, RowGroup, SubPage, Tile } from './SettingsParts';
 
@@ -67,11 +68,22 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
   const [report, setReport] = useState(false);
   const [blockedCount, setBlockedCount] = useState(null);
   const [rules, setRules] = useState(false); // ㉗ 投稿のルール
+  // ㉖-21 ランキングに名前を出す
+  const [rankOn, setRankOn] = useState(user?.showInRanking ?? true);
 
   useEffect(() => {
     if (guest) return;
     listBlocked().then((r) => setBlockedCount((r.data || []).length));
   }, [guest]);
+
+  const toggleRank = () => {
+    const next = !rankOn;
+    setRankOn(next);
+    setRankVisible(next).catch((err) => {
+      console.error('ランキングの設定エラー:', err?.message || err);
+      setRankOn(!next);
+    });
+  };
 
   if (!user) return null;
   if (rules) return <PostRulesScreen onClose={() => setRules(false)} />;
@@ -94,6 +106,36 @@ export default function SettingsScreen({ onBack, onOpenAccount, onOpenInviteScop
         {!guest && <Tile icon="bell" label="通知" value="設定する" onClick={onOpenNotificationSettings} />}
         <Tile icon="link" label="食スタイル診断" value={diagnosed ? '診断済み' : '未診断'} onClick={() => onOpenDiagnosis?.()} />
       </div>
+
+      {/* ㉖-21 ランキングに名前を出す（オフでもコインはたまる） */}
+      {!guest && (
+        <>
+          <GroupTitle>ランキング</GroupTitle>
+          <RowGroup>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 68, padding: '6px 0', boxSizing: 'border-box' }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 15, fontWeight: 500 }}>ランキングに名前を出す</span>
+                <span style={{ display: 'block', marginTop: 2, fontSize: 12, lineHeight: 1.5, color: color.sub }}>
+                  オフにしてもコインはたまります。オフのあいだは、ランキングにあなたの名前は出ません
+                </span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={rankOn}
+                aria-label="ランキングに名前を出す"
+                onClick={toggleRank}
+                className="ui-btn"
+                style={{ flex: 'none', width: 56, height: 44, border: 0, padding: 0, background: 'transparent', display: 'flex', alignItems: 'center' }}
+              >
+                <span style={{ position: 'relative', display: 'block', width: 56, height: 32, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, background: rankOn ? color.accent : color.white, transition: 'background 0.15s' }}>
+                  <span style={{ position: 'absolute', top: 2, left: rankOn ? 26 : 2, width: 24, height: 24, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: '50%', background: color.white, transition: 'left 0.15s' }} />
+                </span>
+              </button>
+            </div>
+          </RowGroup>
+        </>
+      )}
 
       <GroupTitle>サポート</GroupTitle>
       <RowGroup>

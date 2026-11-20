@@ -38,3 +38,12 @@ body,
 .safe-top {
   padding-top: var(--safe-top);
 }
+/* ㉖-19 dig が上がったときの放射の線（出るときに1回だけ。位置は動かさない） */
+@keyframes mogu-ray {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mogu-ray { animation: none; }
+}
