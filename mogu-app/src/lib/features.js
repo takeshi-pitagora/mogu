@@ -9,5 +9,5 @@
 //            出すのを止めているだけなので、5-3 ではここを true にするだけで開きます。
 export const FEATURES = {
   sendToGroup: false,
-  round53: false,
+  round53: true,
 };
