@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { color, font, layout } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { LOGO } from '../../lib/brand';
@@ -11,6 +11,8 @@ import { ErrorState } from '../../components/ui/States';
 import ShopCard from './ShopCard';
 import { SwipeButtons, SwipeSticker, SwipeGlow, EndOfDeck, LoadingCard, FirstGuide } from './SwipeParts';
 import { FilterSheet, SearchModeSheet } from './HomeSheets';
+import { sceneOf } from '../../lib/scenes';
+import { chara } from '../../lib/chara';
 
 // ホーム（確定版 Final-08 写真全面型・ボタンは Final-01-02-Buttons の C）
 // 見本の画面（393×852）の位置：上部は時計の帯の下、カードは上から96・下から152、ボタンは下から114・高さ76
@@ -36,13 +38,14 @@ const writeGuideSeen = () => {
   }
 };
 
-export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, onOpenNotifications, unread = false, guideRequest = 0, guestSlot, onGuestLocked }) {
+export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, onOpenNotifications, unread = false, guideRequest = 0, guestSlot, onGuestLocked, onOpenRegister }) {
   const { user } = useAuth();
   const [shops, setShops] = useState([]);
   const [index, setIndex] = useState(0);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [reloadKey, setReloadKey] = useState(0);
+  const [draftCount, setDraftCount] = useState(null); // ㉔ 絞り込みのシートの［○店を見る］
   const [photoIndex, setPhotoIndex] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -84,6 +87,14 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, selectedGroup?.id, filters, reloadKey]);
+
+  // ㉔ 条件を変えるたびに、合うお店の数を数える（選ぶたびに数が変わる）
+  const countFor = useCallback((draft) => {
+    fetchDeck({ user, filters: draft, group: selectedGroup })
+      .then((list) => setDraftCount(list.length))
+      .catch(() => setDraftCount(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, selectedGroup?.id]);
 
   useEffect(() => {
     if (!user?.id || user.isGuest) return undefined;
@@ -187,6 +198,7 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
   };
 
   const fCount = filterCount(filters);
+  const scene = sceneOf(filters.scene);
   const modeTitle = selectedGroup ? selectedGroup.name : 'ひとりで探す';
   const showDeck = status === 'ready' && current;
   const ended = status === 'ready' && !current;
@@ -209,11 +221,42 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
         </button>
       </div>
 
+      {/* ㉔-15・18 絞ったあと：カードの左上に小さなキャラとシーンの名前（タグだけなら「#○○ のお店」）。×で外す */}
+      {(scene || filters.tags?.length > 0) && (
+        <div style={{ position: 'absolute', left: layout.screenXTight, top: 'calc(var(--safe-top) + 96px)', zIndex: 5 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 40, padding: scene ? '0 6px 0 6px' : '0 6px 0 14px', borderRadius: 20, background: color.ink, color: color.white }}>
+            {scene && (
+              <span aria-hidden="true" style={{ flex: 'none', width: 28, height: 28, borderRadius: 14, background: color.white, overflow: 'hidden' }}>
+                <img src={chara(scene.chara)?.framed} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />
+              </span>
+            )}
+            <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              {scene ? scene.label : `#${filters.tags[0]} のお店`}
+            </span>
+            <button
+              type="button"
+              aria-label="この絞り込みを外す"
+              onClick={() => { setStatus('loading'); setFilters({ ...filters, scene: null, tags: [] }); }}
+              className="ui-btn"
+              style={{ flex: 'none', width: 28, height: 28, padding: 0, border: 0, borderRadius: 14, background: 'transparent', color: color.white, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Icon name="close" size={15} color={color.white} strokeWidth={2.5} />
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* カード */}
       <div style={{ position: 'absolute', left: layout.screenXTight, right: layout.screenXTight, top: 'calc(var(--safe-top) + 96px)', bottom: 152 }}>
         {status === 'loading' && <LoadingCard />}
         {status === 'error' && <ErrorState onRetry={reload} style={{ position: 'absolute', inset: 0 }} />}
-        {ended && <EndOfDeck onWiden={() => setSheet('filter')} />}
+        {ended && (
+          <EndOfDeck
+            onWiden={() => setSheet('filter')}
+            onClearTags={filters.tags?.length > 0 ? () => { setStatus('loading'); setFilters({ ...filters, scene: null, tags: [] }); } : null}
+            onRegister={onOpenRegister}
+          />
+        )}
         {showDeck && next && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
             <ShopCard shop={next} interactive={false} />
@@ -273,6 +316,8 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
         <FilterSheet
           open
           value={filters}
+          count={draftCount}
+          onCount={countFor}
           onClose={() => setSheet(null)}
           onApply={(f) => {
             setSheet(null);

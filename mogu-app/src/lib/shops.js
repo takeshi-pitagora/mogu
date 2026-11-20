@@ -204,3 +204,10 @@ export async function attachShopTags(shopId, tagIds) {
   const { error } = await supabase.rpc('add_shop_tags', { p_shop_id: shopId, p_tag_ids: tagIds });
   if (error) throw error;
 }
+
+// ㉔-4 人気のタグ（＋1の多い順）
+export async function popularTags(limit = 8) {
+  const { data, error } = await supabase.rpc('popular_tags', { p_limit: limit });
+  if (error) throw error;
+  return data || [];
+}

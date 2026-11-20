@@ -369,3 +369,22 @@ end;
 $$;
 revoke all on function public.add_shop_tags(uuid, uuid[]) from public, anon;
 grant execute on function public.add_shop_tags(uuid, uuid[]) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 10. ㉔-4 人気のタグ（お店に付いている数の多い順）
+-- ---------------------------------------------------------------------
+create or replace function public.popular_tags(p_limit int default 8)
+returns table (id uuid, name text, shop_count int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select t.id, t.name, t.shop_count
+    from public.tags t
+   where t.status = 'open' and t.shop_count > 0
+   order by t.shop_count desc, t.name
+   limit greatest(1, least(coalesce(p_limit, 8), 30))
+$$;
+revoke all on function public.popular_tags(int) from public, anon;
+grant execute on function public.popular_tags(int) to authenticated;

@@ -166,5 +166,5 @@ export const SORTS = [
 ];
 
 // ホームの絞り込み（並び順・エリア・ジャンル・予算）
-export const EMPTY_FILTERS = { sort: 'recommend', areas: [], genres: [], priceLevel: null };
-export const filterCount = (f) => (f.areas.length > 0 ? 1 : 0) + (f.genres.length > 0 ? 1 : 0) + (f.priceLevel != null ? 1 : 0);
+export const EMPTY_FILTERS = { sort: 'recommend', areas: [], genres: [], priceLevel: null, tags: [], scene: null };
+export const filterCount = (f) => (f.areas.length > 0 ? 1 : 0) + (f.genres.length > 0 ? 1 : 0) + (f.priceLevel != null ? 1 : 0) + ((f.tags?.length || 0) > 0 ? 1 : 0);

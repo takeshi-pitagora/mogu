@@ -72,7 +72,7 @@ export function SwipeGlow({ kind, opacity }) {
 }
 
 // 見終わり（点線のふちの箱・アイコンの丸・見出し・［条件を広げる］）
-export function EndOfDeck({ onWiden }) {
+export function EndOfDeck({ onWiden, onClearTags, onRegister }) {
   return (
     <div style={{ position: 'absolute', inset: 0, boxSizing: 'border-box', padding: '0 32px', border: `${stroke.shape}px dashed ${color.lineStrong}`, borderRadius: radius.card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontFamily: font.plex, color: color.ink }}>
       <span style={{ width: 96, height: 96, borderRadius: '50%', background: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -83,10 +83,21 @@ export function EndOfDeck({ onWiden }) {
         <br />
         見終わりました
       </h2>
-      <div style={{ width: '100%', maxWidth: 240 }}>
+      {/* ㉔-20 ［タグを外す］［お店を登録する］を足す */}
+      <div style={{ width: '100%', maxWidth: 240, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <button type="button" className="ui-btn ui-btn--primary" onClick={onWiden} style={{ width: '100%', height: 56, border: 0, borderRadius: 28, background: color.ink, color: color.white, fontFamily: font.plex, fontSize: 16, fontWeight: 700 }}>
           条件を広げる
         </button>
+        {onClearTags && (
+          <button type="button" className="ui-btn" onClick={onClearTags} style={{ width: '100%', height: 52, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 26, background: color.white, color: color.ink, fontFamily: font.plex, fontSize: 15, fontWeight: 700 }}>
+            タグを外す
+          </button>
+        )}
+        {onRegister && (
+          <button type="button" className="ui-btn" onClick={onRegister} style={{ width: '100%', height: 52, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 26, background: color.white, color: color.ink, fontFamily: font.plex, fontSize: 15, fontWeight: 700 }}>
+            お店を登録する
+          </button>
+        )}
       </div>
     </div>
   );

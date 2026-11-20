@@ -197,6 +197,12 @@ function Shell() {
           guideRequest={guideRequest}
           guestSlot={guest ? (close) => <GuestSampleGroupRow onRegister={() => { close(); setGuestFlow('signup'); }} /> : undefined}
           onGuestLocked={openGuestSheet}
+          onOpenRegister={() => {
+            if (guest) return openGuestSheet();
+            return fetchMyPenalty().then((pen) => {
+              if (pen) { setPenalty(pen); setPenaltySheet(true); } else setRegisterOpen(true);
+            });
+          }}
         />
       </div>
       {!top && tab === 'group' && (

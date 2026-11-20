@@ -45,6 +45,13 @@ export async function fetchDeck({ user, filters, group }) {
   let list = data.filter((r) => !swiped.has(r.id) && !r.is_excluded);
   if (filters.genres.length > 0) list = list.filter((r) => filters.genres.includes(shopGenre(r)));
   if (filters.priceLevel != null) list = list.filter((r) => String(r.price_level) === String(filters.priceLevel));
+  // ㉔ 選んだタグを「すべて」持つお店だけを出す
+  if (filters.tags?.length > 0) {
+    list = list.filter((r) => {
+      const has = (r.tags || []).map((t) => (typeof t === 'string' ? t : t.name));
+      return filters.tags.every((t) => has.includes(t));
+    });
+  }
   return list;
 }
 
