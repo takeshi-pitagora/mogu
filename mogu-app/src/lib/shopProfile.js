@@ -8,7 +8,7 @@ import { ADDRESS_KEY, CLOSED, LAST_ORDER_KEY, FREE_TEXT_KEY, HOURS_KEYS, LINK_KE
 //   5-1 では㉒（2人目以降が足す・来店スタンプ）の入口は出さない
 // =============================================================
 
-export const SHOW_GROW = false; // ㉒ができたら true（§8-2）
+export const SHOW_GROW = true; // ㉒（右下のハリーと［＋ 足す］）ができたので出す
 
 export async function fetchShopProfile(shopId) {
   const { data, error } = await supabase.rpc('get_shop_profile', { p_shop_id: shopId });

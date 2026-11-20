@@ -266,6 +266,15 @@ function Shell() {
             onShare={() => {}}
             onEdit={() => {}}
             onOpenTag={() => {}}
+            // ㉒-23・24 ゲストは⑭の登録の案内、止められている人は㉗の知らせ
+            onNeedAccount={() => (guest
+              ? (openGuestSheet(), true)
+              : fetchMyPenalty().then((p) => {
+                if (!p) return false;
+                setPenalty(p);
+                setPenaltySheet(true);
+                return true;
+              }))}
           />
         </div>
       )}

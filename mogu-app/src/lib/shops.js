@@ -198,3 +198,9 @@ export async function setMyBudgetGender(gender) {
   const { error } = await supabase.rpc('set_my_budget_gender', { p_gender: gender });
   if (error) throw error;
 }
+
+// ㉒-19 ［＋ 足す］からハッシュタグを付ける（あるタグは＋1、ないものは足す）
+export async function attachShopTags(shopId, tagIds) {
+  const { error } = await supabase.rpc('add_shop_tags', { p_shop_id: shopId, p_tag_ids: tagIds });
+  if (error) throw error;
+}

@@ -20,6 +20,11 @@ import OverviewTab from './OverviewTab';
 import { ClosureSheet, EditRequestSheet, ReportSheet } from './ReportSheets';
 import { fetchCheckingFields } from '../../../lib/shopReport';
 import { BudgetDetail, CommentsTab, InfoTab, MenuTab, PhotosTab, PlusButton } from './Tabs';
+import HarryCorner from './HarryCorner';
+import VisitSheet from '../visit/VisitSheet';
+import AddSheet from '../add/AddSheet';
+import TagPickSheet from '../register/TagPickSheet';
+import { attachShopTags } from '../../../lib/shops';
 
 // =============================================================
 // ㉑ お店のプロフィール（確定版 Final-21）
@@ -37,7 +42,7 @@ const TABS = [
   { key: 'comments', label: 'ひとこと' },
 ];
 
-export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, onReport, onEdit, onShare }) {
+export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, onReport, onEdit, onShare, onNeedAccount }) {
   const toast = useToast();
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -48,6 +53,9 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
   const [reload, setReload] = useState(0);
   const [checking, setChecking] = useState([]); // いま運営が確かめている項目（㉓-10・11）
   const [sheet, setSheet] = useState(null); // { kind: 'edit'|'closure'|'report', ... }
+  const [visit, setVisit] = useState(false); // ㉒ ハリーのアンケート
+  const [add, setAdd] = useState(null); // ㉒ ［＋ 足す］
+  const [tagPick, setTagPick] = useState(false); // ㉒ ［＋ 足す］→ ハッシュタグ（⑲のシート）
   const scroller = useRef(null);
 
   useEffect(() => {
@@ -248,7 +256,7 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
           <InfoTab
             data={data}
             canWrite={SHOW_GROW}
-            onWrite={() => {}}
+            onWrite={() => setAdd({ start: 'field' })}
             onBudgetDetail={() => setBudgetOpen(true)}
             checking={checking}
             onRequestEdit={(key) => setSheet({ kind: 'edit', field: key })}
@@ -293,6 +301,60 @@ export default function ShopProfile({ shopId, onBack, onOpenTag, onSendToGroup, 
       </div>
 
       {budgetOpen && <BudgetDetail data={data} onClose={() => setBudgetOpen(false)} />}
+      {/* ㉒-1〜3 右下のハリーと左下の［＋ 足す］。どのタブ・どこまでスクロールしてもそこにいる */}
+      {SHOW_GROW && !viewer && !sheet && !menu && !visit && !add && (
+        <HarryCorner
+          onAsk={async () => { if (!(await onNeedAccount?.())) setVisit(true); }}
+          onAdd={async () => { if (!(await onNeedAccount?.())) setAdd({}); }}
+        />
+      )}
+
+      {visit && (
+        <VisitSheet
+          shop={shop}
+          onClose={() => setVisit(false)}
+          onAskEdit={(key) => { setVisit(false); setSheet({ kind: 'edit', field: key }); }}
+          onDone={(r) => {
+            setVisit(false);
+            setReload((n) => n + 1);
+            toast?.show('来店スタンプを押しました', { withTabBar: false });
+            if (r?.addPhoto) setAdd({ start: 'photo' });
+          }}
+        />
+      )}
+
+      {add && (
+        <AddSheet
+          shop={shop}
+          start={add.start}
+          onClose={() => setAdd(null)}
+          onOpenTags={() => setTagPick(true)}
+          onAdded={(what) => {
+            setReload((n) => n + 1);
+            toast?.show(what === 'photo' ? '写真を足しました' : what === 'menu' ? 'メニューを足しました' : '情報を足しました', { withTabBar: false });
+          }}
+        />
+      )}
+
+      {tagPick && (
+        <TagPickSheet
+          picked={[]}
+          onCancel={() => setTagPick(false)}
+          onDone={async (tags) => {
+            setTagPick(false);
+            if (tags.length > 0) {
+              try {
+                await attachShopTags(shop.id, tags.map((t) => t.id));
+                setReload((n) => n + 1);
+                toast?.show('ハッシュタグを付けました', { withTabBar: false });
+              } catch {
+                toast?.show('いまは付けられませんでした', { withTabBar: false });
+              }
+            }
+          }}
+        />
+      )}
+
       {viewer && (
         <PhotoViewer
           photos={photos}
