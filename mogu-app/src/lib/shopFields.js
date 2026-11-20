@@ -126,6 +126,8 @@ export const LINK_KEYS = ['link_1', 'link_2', 'link_3'];
 export const PHONE_KEY = 'phone';
 // 住所は任意の項目の文字（§3・§6-1）。地図には使わない
 export const ADDRESS_KEY = 'address';
+// ラストオーダー（確定版 ㉑-8・㉓-5。営業時間の行に（L.O. 22:00）で出す）
+export const LAST_ORDER_KEY = 'last_order';
 export const FREE_TEXT_KEY = 'free_text';
 
 export function linkList(fields) {

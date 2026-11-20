@@ -12,8 +12,9 @@ import {
   submitEditRequest,
   submitShopReport,
 } from '../../../lib/shopReport';
-import { FIELD_GROUPS, WEEKDAYS, groupOf, hoursLabel, isPicked, setHours, toggleField } from '../../../lib/shopFields';
+import { FIELD_GROUPS, LAST_ORDER_KEY, WEEKDAYS, groupOf, hoursLabel, isPicked, setHours, toggleField } from '../../../lib/shopFields';
 import HoursSheet from '../register/HoursSheet';
+import LastOrderSheet from '../register/LastOrderSheet';
 import { fieldMap, hoursText } from '../../../lib/shopProfile';
 import ChoiceChip, { ChipRow } from '../../../components/ui/ChoiceChip';
 import TextField from '../../../components/ui/TextField';
@@ -125,6 +126,7 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
   const [hoursDay, setHoursDay] = useState(null);
+  const [lastOrder, setLastOrder] = useState(false);
 
   const row = EDITABLE_FIELDS.find((f) => f.key === fieldKey);
   const group = fieldKey && fieldKey !== '__hours' ? groupOf(fieldKey) : null;
@@ -270,6 +272,28 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
               </button>
             );
           })}
+          {(() => {
+            const now = map.get(LAST_ORDER_KEY)?.value || null;
+            const next = fields[LAST_ORDER_KEY] || null;
+            const shown = next || now;
+            return (
+              <button
+                type="button"
+                onClick={() => setLastOrder(true)}
+                className="ui-btn"
+                style={{ width: '100%', minHeight: 56, padding: '0 2px', border: 0, borderBottom: `1px solid ${color.line}`, background: 'transparent', color: color.ink, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left' }}
+              >
+                <span style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 700 }}>ラストオーダー</span>
+                <span style={{ flex: 'none', fontSize: 17, fontWeight: next && next !== now ? 700 : 500, color: shown ? color.ink : color.sub }}>
+                  {shown || 'まだ情報がありません'}
+                </span>
+                {next && next !== now && (
+                  <span aria-label="変えた所" style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: color.accent }} />
+                )}
+                <Icon name="chevronRight" size={18} color={color.sub} />
+              </button>
+            );
+          })()}
         </div>
       ) : group ? (
         <ChipRow style={{ marginTop: 8 }}>
@@ -311,6 +335,17 @@ export function EditRequestSheet({ shop, data, checking, startField = null, onCl
         <TextField label="リンク" value={evidence} onChange={setEvidence} placeholder="https://…" inputMode="url" />
       </div>
 
+      {lastOrder && (
+        <LastOrderSheet
+          value={fields[LAST_ORDER_KEY] || map.get(LAST_ORDER_KEY)?.value || null}
+          onDone={(v) => {
+            setFields({ ...fields, [LAST_ORDER_KEY]: v });
+            setLastOrder(false);
+          }}
+          onCancel={() => setLastOrder(false)}
+        />
+      )}
+
       {hoursDay !== null && (
         <HoursSheet
           day={hoursDay}
@@ -333,6 +368,9 @@ function hoursProposed(map, fields) {
     const v = hoursLabel(fields, i);
     if (v) merged.set(`hours_${i}`, { ...(map.get(`hours_${i}`) || {}), key: `hours_${i}`, value: v });
   });
+  if (fields[LAST_ORDER_KEY]) {
+    merged.set(LAST_ORDER_KEY, { key: LAST_ORDER_KEY, value: fields[LAST_ORDER_KEY] });
+  }
   return hoursText(merged) || '';
 }
 

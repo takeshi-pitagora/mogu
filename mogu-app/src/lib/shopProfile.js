@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { shopPhotoUrl } from './shops';
 import { HIGHLIGHTS, budgetBucketLabel } from './registerForm';
-import { ADDRESS_KEY, CLOSED, FREE_TEXT_KEY, HOURS_KEYS, LINK_KEYS, PHONE_KEY, WEEKDAYS } from './shopFields';
+import { ADDRESS_KEY, CLOSED, LAST_ORDER_KEY, FREE_TEXT_KEY, HOURS_KEYS, LINK_KEYS, PHONE_KEY, WEEKDAYS } from './shopFields';
 
 // =============================================================
 // ㉑ お店のプロフィール
@@ -166,7 +166,16 @@ export function hoursText(map) {
   });
   if (run) lines.push(run);
   const closedDays = rows.filter((r) => r.closed).map((r) => r.day);
-  const out = lines.map((l) => (l.start === l.end ? `${l.start} ${l.value}` : `${l.start}〜${l.end} ${l.value}`));
-  if (closedDays.length > 0) out.push(`定休日：${closedDays.join('・')}`);
+  // ラストオーダーは営業時間のうしろに（L.O. 22:00）（確定版 ㉑-8・㉓-5）
+  const lo = map.get(LAST_ORDER_KEY)?.value;
+  const withLo = (v) => (lo ? `${v}（L.O. ${lo}）` : v);
+  // 開いている曜日がぜんぶ同じ時間なら、曜日は書かずに時間だけ（㉑-8）
+  const out = lines.length === 1 && lines[0].start !== lines[0].end
+    ? [withLo(lines[0].value)]
+    : lines.map((l) => (l.start === l.end ? `${l.start} ${withLo(l.value)}` : `${l.start}〜${l.end} ${withLo(l.value)}`));
+  if (lines.length === 1 && lines[0].start === lines[0].end && closedDays.length === 6) {
+    out[0] = withLo(lines[0].value);
+  }
+  if (closedDays.length > 0) out.push(`定休日：${closedDays.map((d) => `${d}曜`).join('・')}`);
   return out.join('\n');
 }

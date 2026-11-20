@@ -19,11 +19,12 @@ import SendToGroupSheet from '../shop/SendToGroupSheet';
 // 保存（確定版 Final-09 大きなカード型）
 //   上部「保存」と並べ替え、検索「キーワードを検索」、「36件 ・ 新しい順」、大きなカードの1列
 //   保存に出すのは、ひとりでいいねしたお店だけ
-//   1回目の並べ替えは「新しい順・評価の高い順・予算の安い順」。年代別の評価順は Coming Soon（押せない）。
+//   1回目の並べ替えは「新しい順・保存が多い順・予算の安い順」（評価は第5回でやめた。引き渡し書 §3）。
+//   年代別の評価順は Coming Soon（押せない）。
 //   「同じモグタイプに人気順」「急上昇中」は3回目まで出さない
 const SORTS = [
   { key: 'new', label: '新しい順' },
-  { key: 'rating', label: '評価の高い順（全年代）' },
+  { key: 'saved', label: '保存が多い順' },
   { key: 'budget', label: '予算の安い順' },
   { key: 'mogu_type_popular', label: '同じモグタイプに人気' },
   { key: 'trending', label: '急上昇中' },
@@ -31,7 +32,7 @@ const SORTS = [
 
 function sortShops(list, key) {
   const arr = [...list];
-  if (key === 'rating') arr.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0) || (Number(b.user_ratings_total) || 0) - (Number(a.user_ratings_total) || 0));
+  if (key === 'saved') arr.sort((a, b) => (Number(b.saved_count) || 0) - (Number(a.saved_count) || 0) || (b._order ?? 0) - (a._order ?? 0));
   else if (key === 'budget') arr.sort((a, b) => (a.price_level == null ? 99 : Number(a.price_level)) - (b.price_level == null ? 99 : Number(b.price_level)));
   else if (key !== 'mogu_type_popular' && key !== 'trending') arr.sort((a, b) => (b._order ?? 0) - (a._order ?? 0));
   return arr;
