@@ -180,7 +180,7 @@ export function notificationText(n) {
       ];
     // 「dig14 になりました」
     case 'dig_up':
-      return [{ t: `dig${p.dig ?? ''}`, b: true }, { t: ' になりました' }];
+      return [{ t: `dig${p.to ?? p.dig ?? ''}`, b: true }, { t: ' になりました' }];
     // 「［大事なお知らせ］投稿について大事なお知らせがあります」
     case 'important':
       return [{ t: p.title || '投稿について大事なお知らせがあります', b: true }];

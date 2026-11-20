@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { color, font, layout, paper, stroke } from '../../theme/tokens';
 import { BackHeader } from '../../components/ui/ScreenHeader';
 import { LoadingState, ErrorState } from '../../components/ui/States';
-import BottomSheet from '../../components/ui/BottomSheet';
 import Avatar from '../../components/ui/Avatar';
 import Dig from '../../components/ui/Dig';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +14,7 @@ import {
 import NotebookCover from './NotebookCover';
 import { Coin, CoinStamp, Mincho, Num, Page, PageTitle, Tape } from './NotebookParts';
 import { TABS } from './tabs';
+import CoinReasonSheet from './CoinReasonSheet';
 
 // =============================================================
 // ㉖ 探検手帳（確定版 Final-26）
@@ -475,22 +475,8 @@ export default function NotebookScreen({ onBack, onOpenShop, onOpenSettings, onO
         </div>
       )}
 
-      {/* ㉖-4 取り消しの理由 */}
-      {reason && (
-        <BottomSheet open onClose={() => setReason(null)} ariaLabel="コインの取り消し">
-          <h2 style={{ margin: '14px 0 0', fontFamily: font.dela, fontSize: 20, fontWeight: 400 }}>コインの取り消し</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-            <CoinStamp state="cancelled" />
-            <span style={{ fontSize: 15, fontWeight: 700 }}>{actionLabel(reason.action, reason.amount)}</span>
-            <Num size={18} muted strike>−{reason.amount}</Num>
-          </div>
-          {reason.shop_name && <div style={{ marginTop: 4, fontSize: 13, color: color.sub }}>{reason.shop_name}</div>}
-          <p style={{ margin: '14px 0 0', fontSize: 15, lineHeight: 1.7 }}>{reason.reason || '運営が確かめたうえで取り消しました'}</p>
-          <button type="button" className="ui-btn ui-btn--primary" onClick={() => setReason(null)} style={{ width: '100%', height: 56, marginTop: 20, border: 0, borderRadius: 28, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 16, fontWeight: 700 }}>
-            閉じる
-          </button>
-        </BottomSheet>
-      )}
+      <CoinReasonSheet row={reason} onClose={() => setReason(null)} />
+
     </div>
   );
 }

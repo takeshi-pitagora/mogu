@@ -175,6 +175,7 @@ function Shell() {
             onBack={pop}
             onOpenGroup={(groupId) => openGroupTab(groupId)}
             onOpenShop={(id) => setShopProfileId(id)}
+            onOpenNotebook={() => push('notebook')}
           />
         );
       case 'settings':

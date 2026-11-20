@@ -12,6 +12,9 @@ import { useToast } from '../../components/ui/Toast';
 import { AppealSheet, PenaltyFullScreen, PenaltySheet, PostRulesScreen } from './PenaltyScreens';
 import { fetchPenalty } from '../../lib/penalty';
 import { fetchNotifications, markNotificationsRead, notificationText, respondInvite } from '../../lib/notifications';
+import { myNotebook } from '../../lib/notebook';
+import CoinConfirmScreen from '../notebook/CoinConfirmScreen';
+import CoinReasonSheet from '../notebook/CoinReasonSheet';
 
 // お知らせ（確定版 Final-10）。一覧（返事待ち／今日／今週／それ以前）・招待の確認・お知らせの本文
 //   マッチ・新しいメンバー・IDでの招待（受諾/辞退）・運営のお知らせ の4種類（引き渡し書 §7-6）
@@ -435,7 +438,7 @@ function AnnouncementDetail({ n, onBack }) {
   );
 }
 
-export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop }) {
+export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop, onOpenNotebook }) {
   const toast = useToast();
   const [list, setList] = useState(null); // null = 読み込み中
   const [status, setStatus] = useState('loading');
@@ -447,6 +450,9 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop })
   const [penaltyFull, setPenaltyFull] = useState(false);
   const [appeal, setAppeal] = useState(false);
   const [rules, setRules] = useState(false);
+  // ⑳-8〜12 コインの確定の演出と、取り消しの理由
+  const [coin, setCoin] = useState(null);
+  const [reason, setReason] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -502,6 +508,37 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop })
       }
       return;
     }
+    // ㉗-21・22 コインの確定は⑳の演出、取り消しは理由、dig は探検手帳
+    if (n.type === 'coin_confirmed') {
+      myNotebook()
+        .then((h) => {
+          const amount = Number(n.payload?.amount || 0);
+          setCoin({
+            amount,
+            shopName: n.payload?.shop_name,
+            shopPhoto: n.payload?.shop_photo,
+            note: n.payload?.note || 'あなたが見つけたお店が、ほかの人に保存されました',
+            from: Math.max(0, (h?.coins ?? amount) - amount),
+            to: h?.coins ?? amount,
+            shopId: n.payload?.shop_id,
+          });
+        })
+        .catch(() => {});
+      return;
+    }
+    if (n.type === 'coin_cancelled') {
+      setReason({
+        action: n.payload?.action || 'register',
+        amount: n.payload?.amount || 0,
+        shop_name: n.payload?.shop_name,
+        reason: n.payload?.reason,
+      });
+      return;
+    }
+    if (n.type === 'dig_up') {
+      onOpenNotebook?.();
+      return;
+    }
     // お店のお知らせは、お店のページへ
     if (['saved_bonus', 'edit_result', 'closed_result', 'shop_grew'].includes(n.type) && n.payload?.shop_id) {
       onOpenShop?.(n.payload.shop_id);
@@ -515,6 +552,22 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop })
       onOpenGroup?.(n.payload.group_id);
     }
   };
+
+  // ⑳-8/9 コインが確定した知らせを押したとき（黒い地にコインが出てくる）
+  if (coin) {
+    return (
+      <CoinConfirmScreen
+        amount={coin.amount}
+        shopName={coin.shopName}
+        shopPhoto={coin.shopPhoto}
+        note={coin.note}
+        from={coin.from}
+        to={coin.to}
+        onOpenShop={coin.shopId ? () => { setCoin(null); onOpenShop?.(coin.shopId); } : undefined}
+        onClose={() => setCoin(null)}
+      />
+    );
+  }
 
   if (confirm) {
     return <InviteConfirmScreen n={confirm} busy={busyId === confirm.id} onBack={() => setConfirm(null)} onRespond={respond} toast={toast} />;
@@ -610,6 +663,9 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop })
         onDetail={() => setPenaltyFull(true)}
         onClose={() => setPenalty(null)}
       />
+
+      {/* ⑳-11/12 コインの取り消しの理由 */}
+      <CoinReasonSheet row={reason} onClose={() => setReason(null)} />
     </div>
   );
 }
