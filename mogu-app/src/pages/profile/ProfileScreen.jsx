@@ -3,19 +3,20 @@ import QRCode from 'qrcode';
 import { color, font, groupColor, groupOf, stroke } from '../../theme/tokens';
 import VisitCalendar from './VisitCalendar';
 import StampBookCard from './StampBookCard';
+import RecordReceipt from './RecordReceipt';
+import { myDig } from '../../lib/dig';
+import Dig from '../../components/ui/Dig';
 import { fetchUserTags } from '../../lib/shops';
 import { useAuth } from '../../context/AuthContext';
 import { getType } from '../../lib/mogutype';
 import { chara } from '../../lib/chara';
 import { photoUrlOf } from '../../lib/profile';
-import { AXIS_LABELS, axisPercent } from '../../lib/axis';
 import { LOGO } from '../../lib/brand';
 import { APP_STORE_URL } from '../../lib/links';
 import { canShareFiles, shareFiles } from '../../lib/open';
 import Icon from '../../components/ui/Icon';
 import Avatar from '../../components/ui/Avatar';
 import BottomSheet from '../../components/ui/BottomSheet';
-import TypeLabel from '../../components/ui/TypeLabel';
 import ProfileEditSheet from './ProfileEditSheet';
 import { useToast } from '../../components/ui/Toast';
 
@@ -24,102 +25,6 @@ import { useToast } from '../../components/ui/Toast';
 //   ［プロフィールを編集］、食スタイル診断のカード。右上に歯車（設定）
 //   写真・@ID・自己紹介の吹き出し・［シェア］・［診断結果を取り込む］は2回目
 //   食スタイル診断は1回目は今のアプリの20問（2回目でサイトの診断に置き換える）
-
-const formatJa = (iso, withYear = true) => {
-  const d = iso ? new Date(iso) : null;
-  if (!d || Number.isNaN(d.getTime())) return '';
-  return withYear ? `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日` : `${d.getMonth() + 1}月${d.getDate()}日`;
-};
-
-function AxisBar({ label, value, g }) {
-  // value：0（左そのもの）〜3（右そのもの）
-  const { left, right } = axisPercent(value);
-  const leftStrong = left >= right;
-  const strong = { fontWeight: 700, color: color.ink };
-  const weak = { fontWeight: 500, color: color.sub };
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-        <span style={leftStrong ? strong : weak}>
-          <span>{label.left}</span> <span style={{ fontFamily: font.dela }}>{left}%</span>
-        </span>
-        <span style={leftStrong ? weak : strong}>
-          <span style={{ fontFamily: font.dela }}>{right}%</span> <span>{label.right}</span>
-        </span>
-      </div>
-      <div aria-hidden="true" style={{ display: 'flex', height: 16, marginTop: 6, boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 8, overflow: 'hidden' }}>
-        <span style={{ width: `${left}%`, background: leftStrong ? g.dark : g.light }} />
-        <span style={{ width: 2, background: color.ink }} />
-        <span style={{ flex: '1 1 0%', background: leftStrong ? g.light : g.dark }} />
-      </div>
-    </div>
-  );
-}
-
-function DiagnosisCard({ user, type, onDiagnose }) {
-  if (!type) {
-    return (
-      <section style={{ marginTop: 20, padding: '22px 20px 20px', borderRadius: 32, background: color.surface, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 22, fontWeight: 400 }}>あなたのモグキャラは？</h2>
-        <p style={{ margin: 0, fontSize: 13, color: color.sub }}>Mogu Typeで診断すると、キャラがあなたを紹介し始めます</p>
-        <button type="button" className="ui-btn ui-btn--primary" onClick={() => onDiagnose('diagnose')} style={{ height: 52, marginTop: 4, border: 0, borderRadius: 26, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
-          診断を受ける
-        </button>
-        <button type="button" className="ui-btn ui-btn--secondary" onClick={() => onDiagnose('import')} style={{ height: 52, border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 26, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
-          診断結果を取り込む
-        </button>
-      </section>
-    );
-  }
-  const g = groupColor[groupOf(type.code)] || { dark: color.ink, light: color.surface };
-  // 2回目：食スタイル診断は Mogu Type 連携の値（mogu_type_axis_values）を使う。今までの20問の結果（food_axes）は使わない
-  const axes = user.moguType?.axisValues;
-  const date = formatJa(user.moguType?.linkedAt);
-  return (
-    <section id="profile-diagnosis" style={{ marginTop: 20, padding: '20px 18px 18px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 32 }}>
-      <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 18, fontWeight: 400 }}>食スタイル診断</h2>
-      {axes && (
-        <div role="img" aria-label={AXIS_LABELS.map((a) => `${a.left} ${axisPercent(axes[a.key] ?? 1.5).left}%`).join('、')} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-          {AXIS_LABELS.map((a) => (
-            <AxisBar key={a.key} label={a} value={Number.isFinite(Number(axes[a.key])) ? Number(axes[a.key]) : 1.5} g={g} />
-          ))}
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
-        <span style={{ fontSize: 12, color: color.sub }}>{date ? `${date}に連携` : ''}</span>
-        <button type="button" className="ui-btn ui-btn--small" onClick={onDiagnose} style={{ height: 44, padding: '0 16px', boxSizing: 'border-box', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 22, background: color.white, color: color.ink, fontFamily: 'inherit', fontSize: 13, fontWeight: 700 }}>
-          結果を更新
-        </button>
-      </div>
-    </section>
-  );
-}
-
-// 名前の横の写真・@ID・自己紹介の吹き出し（確定版 Final-03。連携済みはキャラ名の吹き出し、未診断は「自己紹介」の灰色の箱）
-function IntroBlock({ user, type, g }) {
-  const charaName = type?.name;
-  const bubbleBg = type ? (g ? g.light : color.surface) : color.surface;
-  return (
-    <div style={{ flex: '0 0 auto', width: 220 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Avatar size={40} photoUrl={photoUrlOf(user.avatarPath)} name={user.name} label="写真" />
-        <span style={{ minWidth: 0, fontSize: 13, color: color.sub, overflowWrap: 'anywhere' }}>@{user.handle || ''}</span>
-      </div>
-      <h1 className="no-zoom" style={{ margin: '8px 0 0', fontFamily: font.dela, fontSize: 24, fontWeight: 400, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</h1>
-      <div style={{ position: 'relative', marginTop: 12, width: 220, padding: '10px 10px 12px', border: `${stroke.shape}px solid ${type ? color.ink : color.surface}`, borderRadius: 22, background: bubbleBg }}>
-        {type && (
-          <span aria-hidden="true" style={{ position: 'absolute', left: -11, top: 22, width: 18, height: 18, borderLeft: `${stroke.shape}px solid ${color.ink}`, borderBottom: `${stroke.shape}px solid ${color.ink}`, background: bubbleBg, transform: 'rotate(45deg)' }} />
-        )}
-        <span style={{ position: 'relative', display: 'block', fontSize: 12, fontWeight: 700, color: type ? color.ink : color.sub }}>
-          {type ? `${charaName}が紹介します` : '自己紹介'}
-        </span>
-        {user.bio ? (
-          <p style={{ position: 'relative', width: '14em', margin: '4px 0 0', fontSize: 14, lineHeight: 1.65, overflowWrap: 'anywhere' }}>{user.bio}</p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 // 未診断の「？」を押したとき（確定版 Final-03 の 7）。1回目は［診断結果を取り込む］とフレンドコードの一文を出さない
 function FindCharaSheet({ open, onClose, onDiagnose }) {
@@ -264,7 +169,7 @@ function MyTags({ userId }) {
   );
 }
 
-export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenShop, onOpenStampBook }) {
+export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenShop, onOpenStampBook, onOpenRegister, onOpenNotebook }) {
   const { user } = useAuth();
   const toast = useToast();
   const [edit, setEdit] = useState(false);
@@ -272,11 +177,23 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
   const [hop, setHop] = useState(false);
   const [sharing, setSharing] = useState(false);
   const cardRef = useRef(null);
+  // ③-1 写真の右下の dig（押すと㉖ 探検手帳）
+  const [dig, setDig] = useState(1);
+  useEffect(() => {
+    let alive = true;
+    myDig()
+      .then((d) => alive && setDig(d?.dig || 1))
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const onOpenDig = () => onOpenNotebook?.();
+
   if (!user) return null;
   const type = getType(user.moguType?.code);
   const ch = type ? chara(type.code) : null;
   const g = type ? groupColor[groupOf(type.code)] : null;
 
+  // ③-10 名前の横のモグキャラを押す → 食スタイル診断の結果。まだのときは案内のシート
   const onChara = () => {
     if (!type) {
       setFind(true);
@@ -284,7 +201,7 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
     }
     setHop(true);
     setTimeout(() => setHop(false), 260);
-    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    onOpenDiagnosis?.();
   };
 
   const onShare = async () => {
@@ -317,8 +234,9 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: color.bg, fontFamily: font.plex, color: color.ink }}>
       <header style={{ flex: 'none', paddingTop: 'var(--safe-top)', background: color.bg }}>
-        <div style={{ height: 44, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ width: 44 }} />
+        <div style={{ height: 44, padding: '0 8px 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* ③-1 いちばん上に @ID（確定版 Final-03-Profile） */}
+          <span style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>@{user.handle || ''}</span>
           <button type="button" aria-label="設定" onClick={onOpenSettings} className="ui-btn ui-btn--text" style={{ width: 44, height: 44, padding: 0, border: 0, background: 'transparent', color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="gear" size={24} />
           </button>
@@ -326,25 +244,50 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
       </header>
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style={{ padding: '8px 16px 130px' }}>
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
-            <button
-              type="button"
-              onClick={onChara}
-              aria-label={type ? `モグキャラ ${type.code} ${type.name}（押すと診断カードへ）` : 'モグキャラはまだありません（押すと診断の案内）'}
-              style={{ flex: 'none', width: 129, padding: 0, border: 0, background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 8, color: color.ink, fontFamily: 'inherit' }}
-            >
-              {ch ? (
-                <img src={ch.framed} alt="" style={{ display: 'block', width: 129, height: 197, objectFit: 'contain', objectPosition: 'center bottom', transform: hop ? 'translateY(-10px)' : 'none', transition: 'transform 0.13s ease-out' }} />
-              ) : (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 129, height: 197, fontFamily: font.dela, fontSize: 120, lineHeight: 1, color: color.ink }}>？</span>
-              )}
-              {type && <TypeLabel code={type.code} />}
-            </button>
-            <IntroBlock user={user} type={type} g={g} />
+          {/* ③-1 写真（88・右下に dig）・名前・モグキャラのふだ（確定版 Final-03-Profile の 1・15） */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ position: 'relative', flex: 'none' }}>
+              <Avatar size={88} photoUrl={photoUrlOf(user.avatarPath)} name={user.name} label="写真" />
+              <button
+                type="button"
+                onClick={onOpenDig}
+                aria-label={`dig${dig}（押すと探検手帳）`}
+                className="ui-btn"
+                style={{ position: 'absolute', right: -14, bottom: -12, minWidth: 52, minHeight: 44, boxSizing: 'border-box', padding: '0 4px 10px 0', border: 0, background: 'transparent', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', color: color.ink }}
+              >
+                <Dig n={dig} size={14.6} outline />
+              </button>
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 8px' }}>
+              <h1 className="no-zoom" style={{ margin: 0, fontFamily: font.dela, fontSize: 22, fontWeight: 400, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{user.name}</h1>
+              <button
+                type="button"
+                onClick={onChara}
+                className="ui-btn"
+                aria-label={type ? `モグキャラ ${type.code} ${type.name}（押すと診断の結果）` : 'モグキャラはまだありません（押すと診断の案内）'}
+                style={{ flex: 'none', height: 34, padding: type ? '0 12px 0 5px' : '0 12px 0 8px', border: 0, borderRadius: 17, background: type ? (g ? g.light : color.surface) : color.surface, color: color.ink, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, transform: hop ? 'translateY(-3px)' : 'none', transition: 'transform 0.13s ease-out' }}
+              >
+                {type ? (
+                  <>
+                    {ch?.display && <img src={ch.display} alt="" style={{ display: 'block', width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />}
+                    <span style={{ fontFamily: font.dela, fontSize: 13, color: g ? g.dark : color.ink }}>{type.code}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>{type.name}</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ width: 20, height: 20, borderRadius: '50%', border: `${stroke.shape}px solid ${color.sub}`, color: color.sub, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: color.sub }}>未診断</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-            <button type="button" className="ui-btn ui-btn--primary" onClick={() => setEdit(true)} style={{ flex: '1 1 0%', height: 52, border: 0, borderRadius: 26, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
-              プロフィールを編集
+          {user.bio && <p style={{ margin: '14px 0 0', fontSize: 15, lineHeight: 1.65, overflowWrap: 'anywhere' }}>{user.bio}</p>}
+          <MyTags userId={user.id} />
+          {/* ③-1 ハッシュタグの下に［プロフィールを編集する］とシェア（確定版 Final-03-Profile の 1） */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <button type="button" className="ui-btn ui-btn--primary" onClick={() => setEdit(true)} style={{ flex: '1 1 0%', height: 56, border: 0, borderRadius: 28, background: color.ink, color: color.white, fontFamily: 'inherit', fontSize: 16, fontWeight: 700 }}>
+              プロフィールを編集する
             </button>
             <button
               type="button"
@@ -352,19 +295,18 @@ export default function ProfileScreen({ onOpenSettings, onOpenDiagnosis, onOpenS
               className="ui-btn"
               disabled={sharing}
               onClick={onShare}
-              style={{ flex: 'none', width: 52, height: 52, border: `${stroke.shape}px solid ${color.ink}`, borderRadius: '50%', padding: 0, background: color.white, color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sharing ? 0.6 : 1 }}
+              style={{ flex: 'none', width: 56, height: 56, border: `${stroke.shape}px solid ${color.ink}`, borderRadius: '50%', padding: 0, background: color.white, color: color.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sharing ? 0.6 : 1 }}
             >
               <Icon name="shareProfile" size={22} />
             </button>
           </div>
-          <MyTags userId={user.id} />
           {/* ③スタンプ帳-1 ［プロフィールを編集する］の下・「行ったお店」の上 */}
           <StampBookCard onOpen={onOpenStampBook} />
-          <div ref={cardRef}>
-            <DiagnosisCard user={user} type={type} onDiagnose={onOpenDiagnosis} />
-          </div>
           {/* ③ 行ったお店のカレンダー（第5回） */}
           <VisitCalendar onOpenShop={onOpenShop} />
+          {/* ③-3〜5 記録のレシート（第5回） */}
+          <RecordReceipt onRegister={onOpenRegister} />
+          <span ref={cardRef} />
         </div>
       </div>
 

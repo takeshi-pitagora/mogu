@@ -82,6 +82,13 @@ function Shell() {
   }, []);
   const openGuestSheet = useCallback(() => setGuestSheet(true), []);
   const openDiagnosis = useCallback((intent) => setDiagnosis({ intent }), []);
+  // ⑯ お店を登録する（停止中のときは先にシートで知らせる）
+  const openRegister = useCallback(() => {
+    if (guest) return openGuestSheet();
+    return fetchMyPenalty().then((pen) => {
+      if (pen) { setPenalty(pen); setPenaltySheet(true); } else setRegisterOpen(true);
+    });
+  }, [guest, openGuestSheet]);
   const openGroupTab = useCallback((groupId) => {
     setStack([]);
     setTab('group');
@@ -204,12 +211,7 @@ function Shell() {
           onConsumeTagRequest={() => setHomeTag(null)}
           guestSlot={guest ? (close) => <GuestSampleGroupRow onRegister={() => { close(); setGuestFlow('signup'); }} /> : undefined}
           onGuestLocked={openGuestSheet}
-          onOpenRegister={() => {
-            if (guest) return openGuestSheet();
-            return fetchMyPenalty().then((pen) => {
-              if (pen) { setPenalty(pen); setPenaltySheet(true); } else setRegisterOpen(true);
-            });
-          }}
+          onOpenRegister={openRegister}
         />
       </div>
       {!top && tab === 'group' && (
@@ -243,7 +245,14 @@ function Shell() {
       )}
       {!top && tab === 'profile' && (
         <div style={{ position: 'absolute', inset: 0 }}>
-          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen onOpenSettings={() => push('settings')} onOpenDiagnosis={openDiagnosis} onOpenShop={(id) => setShopProfileId(id)} onOpenStampBook={() => push('stampBook')} />}
+          {guest ? <GuestProfile onRegister={() => setGuestFlow('signup')} onOpenSettings={() => push('settings')} /> : <ProfileScreen
+              onOpenSettings={() => push('settings')}
+              onOpenDiagnosis={openDiagnosis}
+              onOpenShop={(id) => setShopProfileId(id)}
+              onOpenStampBook={() => push('stampBook')}
+              onOpenNotebook={() => push('notebook')}
+              onOpenRegister={openRegister}
+            />}
         </div>
       )}
       {top && (
