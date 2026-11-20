@@ -55,6 +55,7 @@ function Shell() {
   const [rules, setRules] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [guideRequest, setGuideRequest] = useState(0);
+  const [homeTag, setHomeTag] = useState(null); // ㉕-15 保存から「ホームで #○○ のお店を探す」
   const [savedVersion, setSavedVersion] = useState(0);
   const [guestSheet, setGuestSheet] = useState(false);
   const [guestFlow, setGuestFlow] = useState(null); // null | 'signup' | { welcome: true, pendingEmail }
@@ -195,6 +196,8 @@ function Shell() {
           onOpenNotifications={() => push('notifications')}
           unread={unread}
           guideRequest={guideRequest}
+          tagRequest={homeTag}
+          onConsumeTagRequest={() => setHomeTag(null)}
           guestSlot={guest ? (close) => <GuestSampleGroupRow onRegister={() => { close(); setGuestFlow('signup'); }} /> : undefined}
           onGuestLocked={openGuestSheet}
           onOpenRegister={() => {
@@ -222,7 +225,16 @@ function Shell() {
       )}
       {!top && tab === 'saved' && (
         <div style={{ position: 'absolute', inset: 0 }}>
-          <SavedScreen version={savedVersion} onOpenShop={openShop} onGoHome={() => changeTab('home')} onRegister={() => setGuestFlow('signup')} onGuestLocked={openGuestSheet} />
+          <SavedScreen
+            version={savedVersion}
+            onOpenShop={openShop}
+            onGoHome={(tag) => {
+              if (typeof tag === 'string' && tag) setHomeTag(tag);
+              changeTab('home');
+            }}
+            onRegister={() => setGuestFlow('signup')}
+            onGuestLocked={openGuestSheet}
+          />
         </div>
       )}
       {!top && tab === 'profile' && (

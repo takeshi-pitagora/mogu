@@ -13,7 +13,7 @@ export const SAVED_CARD_H = 262;
 const LONG_PRESS_MS = 480;
 const SLOP = 8;
 
-export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false }) {
+export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false, highlight = [] }) {
   const photos = shopPhotos(shop);
   // ㉔ 星をやめて、みんなのタグ3つ・予算感・「○人が保存」
   const tags = shop.tags || [];
@@ -42,37 +42,50 @@ export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false })
           ))}
         </div>
       )}
-      {/* ㉔ 星はやめて、右上は「○人が保存」 */}
-      {savedCount != null && (
-        <span style={{ position: 'absolute', right: 14, top: 14, display: 'flex', alignItems: 'center', gap: 4, height: 32, boxSizing: 'border-box', padding: '0 12px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, background: color.white, fontSize: 11, fontWeight: 700, color: color.sub, zIndex: 2 }}>
-          <Icon name="savedFill" size={14} color={color.accent} />
-          <span style={{ fontFamily: font.dela, fontSize: 15, color: color.ink }}>{savedCount}</span>
-          人
+      {/* ㉕ 自分が見つけた（はじめに登録した）お店は、左上にしるし */}
+      {shop.found_by_me && (
+        <span style={{ position: 'absolute', left: 14, top: 14, zIndex: 2, display: 'flex' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, height: 32, boxSizing: 'border-box', padding: '0 11px 0 8px', borderRadius: 16, background: color.ink, boxShadow: `0 0 0 ${stroke.shape}px ${color.white}`, color: color.white, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <Icon name="dig" size={15} color={color.white} />
+            あなたが見つけた
+          </span>
         </span>
       )}
-      <div style={{ position: 'absolute', left: 18, right: 18, bottom: 16, color: color.white, zIndex: 2 }}>
+      {/* ㉔ 星はやめて、右上は「○人が保存」 */}
+      {savedCount != null && (
+        <span style={{ position: 'absolute', right: 14, top: 14, display: 'flex', alignItems: 'center', gap: 4, height: 32, boxSizing: 'border-box', padding: '0 12px 0 9px', border: `${stroke.shape}px solid ${color.ink}`, borderRadius: 16, background: color.white, fontSize: 11, fontWeight: 700, color: color.sub, zIndex: 2 }}>
+          <Icon name="heartFill" size={15} color={color.accent} />
+          <span style={{ fontFamily: font.dela, fontSize: 15, color: color.ink }}>{savedCount}</span>
+          人が保存
+        </span>
+      )}
+      <div style={{ position: 'absolute', left: 18, right: 18, bottom: 14, color: color.white, zIndex: 2 }}>
         <h2 style={{ margin: 0, fontFamily: font.dela, fontSize: 21, fontWeight: 400, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shop.name}</h2>
         {tags.length > 0 && (
-          <div style={{ marginTop: 6, display: 'flex', gap: 6, overflow: 'hidden' }}>
-            {tags.slice(0, 3).map((t) => (
-              <span
-                key={t}
-                style={{ flex: 'none', height: 26, boxSizing: 'border-box', padding: '0 9px', border: `2px solid ${color.white}`, borderRadius: 20, background: 'rgba(46,44,42,0.48)', color: color.white, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}
-              >
-                #{t}
-              </span>
-            ))}
+          <div style={{ marginTop: 7, display: 'flex', flexWrap: 'nowrap', gap: 6, overflow: 'hidden' }}>
+            {tags.slice(0, 3).map((t) => {
+              // ㉕ 絞り込みに使っているタグは、カードの中でも白くする
+              const on = highlight.includes(t);
+              return (
+                <span
+                  key={t}
+                  style={{ flex: 'none', height: 30, boxSizing: 'border-box', padding: '0 10px', border: `${stroke.shape}px solid ${color.white}`, borderRadius: 22, background: on ? color.white : alpha(color.ink, 0.48), color: on ? color.ink : color.white, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}
+                >
+                  #{t}
+                </span>
+              );
+            })}
           </div>
         )}
         {(place || budget) && (
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: color.line, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+          <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: color.line, whiteSpace: 'nowrap', overflow: 'hidden' }}>
             {place && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{place}</span>}
             {place && budget && <span aria-hidden="true">·</span>}
-            {budget && <span style={{ fontFamily: font.dela, fontSize: 14, color: color.white }}>{budget}</span>}
+            {budget && <span style={{ fontFamily: font.dela, fontSize: 13, color: color.white }}>{budget}</span>}
           </div>
         )}
         {(station || open) && (
-          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: color.line }}>
+          <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: color.line }}>
             {station && <span>{station.label}</span>}
             {station && open && <span aria-hidden="true">·</span>}
             {open && <OpenNow />}
@@ -83,7 +96,7 @@ export function SavedCardBody({ shop, index = 0, offset = 0, dragging = false })
   );
 }
 
-export default function SavedCard({ shop, onOpen, onLongPress }) {
+export default function SavedCard({ shop, onOpen, onLongPress, highlight }) {
   const photos = shopPhotos(shop);
   const [index, setIndex] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -162,7 +175,7 @@ export default function SavedCard({ shop, onOpen, onLongPress }) {
       onContextMenu={(e) => e.preventDefault()}
       style={{ touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', cursor: 'pointer' }}
     >
-      <SavedCardBody shop={shop} index={index} offset={offset} dragging={dragging} />
+      <SavedCardBody shop={shop} index={index} offset={offset} dragging={dragging} highlight={highlight} />
     </div>
   );
 }

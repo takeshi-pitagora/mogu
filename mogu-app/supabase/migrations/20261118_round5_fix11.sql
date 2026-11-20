@@ -422,3 +422,74 @@ as $$
 $$;
 revoke all on function public.stations_in_ward(text) from public, anon;
 grant execute on function public.stations_in_ward(text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 12. ㉕-10 近くの駅（歩いて15分ほど＝約1.2km。§6-9 の決まり）
+-- ---------------------------------------------------------------------
+create or replace function public.stations_near(p_name text, p_meters int default 1200)
+returns table (id uuid, name text, meters int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with base as (
+    select lat, lng from public.stations where name = p_name limit 1
+  )
+  select distinct on (s.name) s.id, s.name,
+         round(
+           2 * 6371000 * asin(sqrt(
+             power(sin(radians(s.lat - b.lat) / 2), 2)
+             + cos(radians(b.lat)) * cos(radians(s.lat))
+             * power(sin(radians(s.lng - b.lng) / 2), 2)
+           ))
+         )::int as meters
+    from public.stations s, base b
+   where s.name <> p_name
+     and 2 * 6371000 * asin(sqrt(
+           power(sin(radians(s.lat - b.lat) / 2), 2)
+           + cos(radians(b.lat)) * cos(radians(s.lat))
+           * power(sin(radians(s.lng - b.lng) / 2), 2)
+         )) <= coalesce(p_meters, 1200)
+   order by s.name, meters
+$$;
+revoke all on function public.stations_near(text, int) from public, anon;
+grant execute on function public.stations_near(text, int) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 13. ㉕-1・13 カードに「あなたが見つけた」を出すため、見つけた人も返す
+-- ---------------------------------------------------------------------
+drop function if exists public.shop_cards(uuid[]);
+create or replace function public.shop_cards(p_ids uuid[])
+returns table (
+  id uuid, name text, genre_main text, station_name text, walk_min int,
+  saved_count int, cover_path text, budget_label text, tags text[], discoverer_id uuid
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select s.id, s.name, s.genre_main,
+         (select st.name from public.stations st where st.id = s.station_id),
+         s.walk_min,
+         s.saved_count,
+         (select ph.card_path from public.shop_photos ph
+           where ph.id = s.cover_photo_id and ph.status = 'open'),
+         (select case b.bucket
+                   when 1 then '〜¥1,000' when 2 then '¥1,000〜¥2,000' when 3 then '¥2,000〜¥3,000'
+                   when 4 then '¥3,000〜¥4,000' when 5 then '¥4,000〜¥5,000' when 6 then '¥5,000〜¥7,000'
+                   when 7 then '¥7,000〜¥10,000' else '¥10,000〜' end
+            from public.budget_votes b
+           where b.shop_id = s.id and b.time_of_day = 'dinner'
+           group by b.bucket order by count(*) desc limit 1),
+         coalesce((select array_agg(t.name order by st2.plus_count desc, t.name)
+                     from public.shop_tags st2 join public.tags t on t.id = st2.tag_id
+                    where st2.shop_id = s.id and st2.status = 'open'
+                      and t.status = 'open'), '{}'),
+         s.discoverer_id
+    from public.shops s
+   where s.id = any(p_ids) and s.status <> 'deleted'
+$$;
+revoke all on function public.shop_cards(uuid[]) from public, anon;
+grant execute on function public.shop_cards(uuid[]) to authenticated;

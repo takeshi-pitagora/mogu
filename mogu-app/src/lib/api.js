@@ -32,7 +32,7 @@ export async function fetchDeck({ user, filters, group }) {
   if (filters.areas.length > 0) {
     data = data.filter((r) => filters.areas.includes(r.area));
   }
-  data = await withShopCards(data);
+  data = await withShopCards(data, user?.id || null);
 
   // 並び順「おすすめ」：ひとりのときは今のアプリの並びのまま。グループのときはメンバーのタイプで並べる（今の仕組み）
   if (filters.sort === 'mogu_type_popular' || filters.sort === 'trending') {
@@ -58,7 +58,7 @@ export async function fetchDeck({ user, filters, group }) {
 }
 
 // カードに出すもの（みんなのタグ3つ・予算感・「○人が保存」）を足す（㉔）
-export async function withShopCards(rows) {
+export async function withShopCards(rows, userId = null) {
   const ids = (rows || []).map((r) => r.id).filter(Boolean);
   if (ids.length === 0) return rows || [];
   const { data, error } = await supabase.rpc('shop_cards', { p_ids: ids });
@@ -77,6 +77,8 @@ export async function withShopCards(rows) {
       station_name: c.station_name || null,
       walk_min: c.walk_min ?? null,
       cover_path: c.cover_path || null,
+      discoverer_id: c.discoverer_id || null,
+      found_by_me: !!userId && c.discoverer_id === userId, // ㉕「あなたが見つけた」
     };
   });
 }
@@ -199,7 +201,8 @@ export async function fetchSaved(userId) {
     .filter((r) => r.restaurants && !r.restaurants.is_excluded)
     .map((r) => ({ ...r.restaurants, saved_at: r.created_at || null }));
   // ㉔ 保存のカードにも、みんなのタグ3つ・予算感・「○人が保存」を出す
-  return withShopCards(rows);
+  // ㉕ 「あなたが見つけた」の絞り込みに使うので、見つけた人（discoverer_id）も一緒に取る
+  return withShopCards(rows, userId || null);
 }
 
 export async function setSavedHidden({ userId, restaurantId, hidden }) {

@@ -38,7 +38,7 @@ const writeGuideSeen = () => {
   }
 };
 
-export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, onOpenNotifications, unread = false, guideRequest = 0, guestSlot, onGuestLocked, onOpenRegister }) {
+export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, onOpenNotifications, unread = false, guideRequest = 0, tagRequest = null, onConsumeTagRequest, guestSlot, onGuestLocked, onOpenRegister }) {
   const { user } = useAuth();
   const [shops, setShops] = useState([]);
   const [index, setIndex] = useState(0);
@@ -66,6 +66,14 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
   if (guideRequest !== lastGuideRequest) {
     setLastGuideRequest(guideRequest);
     if (guideRequest > 0) setGuide(true);
+  }
+
+  // ㉕-15 保存の［ホームで #○○ のお店を探す］から。そのタグだけで絞ってホームを出す
+  const [lastTagRequest, setLastTagRequest] = useState(null);
+  if (tagRequest && tagRequest !== lastTagRequest) {
+    setLastTagRequest(tagRequest);
+    setFilters((f) => ({ ...f, tags: [tagRequest] }));
+    onConsumeTagRequest?.();
   }
 
   useEffect(() => {

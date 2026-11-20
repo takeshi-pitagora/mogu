@@ -129,6 +129,13 @@ const STATIONS = [
   ['池袋', 35.7295, 139.7109], ['東池袋', 35.7253, 139.7194], ['要町', 35.733, 139.6987], ['北池袋', 35.7412, 139.7166],
 ];
 export function nearestStation(row) {
+  // ㉑ 登録されたお店は、プロフィールに入っている最寄り駅と徒歩の分をそのまま使う
+  if (row?.station_name) {
+    const name = `${String(row.station_name).replace(/駅$/u, '')}駅`;
+    const minutes = Number(row.walk_min);
+    if (Number.isFinite(minutes) && minutes > 0) return { name, minutes, label: `${name} 徒歩${minutes}分` };
+    return { name, minutes: null, label: name };
+  }
   const lat = Number(row?.lat);
   const lng = Number(row?.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;

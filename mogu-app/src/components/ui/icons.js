@@ -530,5 +530,17 @@ export const ICONS = {
     "kind": "fill",
     "sw": 2.75,
     "evenodd": true
+  },
+  "dig": {
+    "d": "M10.5 17a6.5 6.5 0 1 1 0-13a6.5 6.5 0 0 1 0 13zM15.5 15.5 20 20M8 10.5h5M10.5 8v5",
+    "kind": "stroke",
+    "sw": 2.4,
+    "evenodd": false
+  },
+  "hash": {
+    "d": "M9.5 4 7.5 20M16.5 4l-2 16M4.5 9h15.5M4 15h15.5",
+    "kind": "stroke",
+    "sw": 2.75,
+    "evenodd": false
   }
 };

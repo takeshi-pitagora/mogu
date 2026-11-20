@@ -224,3 +224,10 @@ export async function stationsInWard(ward) {
   if (error) throw error;
   return data || [];
 }
+
+// ㉕-10 近くの駅（歩いて15分ほど）
+export async function stationsNear(name, meters = 1200) {
+  const { data, error } = await supabase.rpc('stations_near', { p_name: name, p_meters: meters });
+  if (error) throw error;
+  return data || [];
+}
