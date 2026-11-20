@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { shopPhotoUrl } from './shops';
 import { HIGHLIGHTS, budgetBucketLabel } from './registerForm';
-import { CLOSED, FREE_TEXT_KEY, HOURS_KEYS, LINK_KEYS, PHONE_KEY, WEEKDAYS } from './shopFields';
+import { ADDRESS_KEY, CLOSED, FREE_TEXT_KEY, HOURS_KEYS, LINK_KEYS, PHONE_KEY, WEEKDAYS } from './shopFields';
 
 // =============================================================
 // ㉑ お店のプロフィール
@@ -85,6 +85,7 @@ export const INFO_ROWS = [
   { key: 'party', title: '何人で行くか' },
   { key: 'smoking', title: 'たばこ' },
   { key: 'facility', title: '設備' },
+  { key: ADDRESS_KEY, title: '住所' },
   { key: PHONE_KEY, title: '電話' },
   { key: FREE_TEXT_KEY, title: '自由記入' },
 ];

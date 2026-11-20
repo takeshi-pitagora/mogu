@@ -137,3 +137,40 @@ end;
 $$;
 revoke all on function public.set_my_tags(uuid[]) from public, anon;
 grant execute on function public.set_my_tags(uuid[]) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- §9-1 の3：予算感の性別を、⑤のアカウントからあとで変えられるように
+--   予算を男女別に出すためだけに使う値。ほかの人には出さない。
+--   すでに入れた予算感の gender_at_vote は、入れたときのまま変えない
+--   （過去の集計が動かないように）。次に入れるぶんから新しい値を使う。
+-- ---------------------------------------------------------------------
+create or replace function public.my_budget_gender()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select budget_gender from public.profiles where id = auth.uid()
+$$;
+revoke all on function public.my_budget_gender() from public, anon;
+grant execute on function public.my_budget_gender() to authenticated;
+
+create or replace function public.set_my_budget_gender(p_gender text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+begin
+  if v_user is null then raise exception 'not_signed_in'; end if;
+  if p_gender is null or p_gender not in ('male', 'female', 'no_answer') then
+    raise exception 'gender_invalid';
+  end if;
+  update public.profiles set budget_gender = p_gender where id = v_user;
+end;
+$$;
+revoke all on function public.set_my_budget_gender(text) from public, anon;
+grant execute on function public.set_my_budget_gender(text) to authenticated;

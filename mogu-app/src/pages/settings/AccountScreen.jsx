@@ -6,6 +6,7 @@ import Avatar from '../../components/ui/Avatar';
 import ConfirmSheet from '../../components/ui/ConfirmSheet';
 import { Row, RowGroup, SubPage } from './SettingsParts';
 import HandleEditSheet from './HandleEditSheet';
+import BudgetGenderSheet from './BudgetGenderSheet';
 
 // アカウント（確定版 Final-05 の 6・8）
 //   上に写真の丸（72）とニックネーム、ユーザーID（いつも表示。押すと変更。④と同じ決まり）、メールアドレス（表示だけ）、
@@ -17,6 +18,7 @@ export default function AccountScreen({ onBack, onOpenPassword }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [handleEdit, setHandleEdit] = useState(false);
+  const [genderSheet, setGenderSheet] = useState(false);
   if (!user) return null;
 
   const doDelete = async () => {
@@ -37,7 +39,12 @@ export default function AccountScreen({ onBack, onOpenPassword }) {
         <Row first height={56} label="ユーザーID" value={user.handle ? `@${user.handle}` : ''} onClick={() => setHandleEdit(true)} />
         <Row height={56} label="メールアドレス" value={user.email || ''} />
         <Row height={56} label="パスワードの変更" onClick={onOpenPassword} />
+        {/* ⑱ではじめて予算感を入れるときに聞いた性別を、あとから変える（§9-1 の3） */}
+        <Row height={56} label="予算感の性別" onClick={() => setGenderSheet(true)} />
       </RowGroup>
+      <p style={{ margin: '8px 2px 0', fontSize: 12, fontWeight: 500, lineHeight: 1.6, color: color.sub }}>
+        予算を男女別に出すためだけに使います
+      </p>
       <button
         type="button"
         onClick={() => {
@@ -63,6 +70,7 @@ export default function AccountScreen({ onBack, onOpenPassword }) {
         onConfirm={doDelete}
         onCancel={() => setConfirm(false)}
       />
+      {genderSheet && <BudgetGenderSheet onClose={() => setGenderSheet(false)} />}
       {handleEdit && <HandleEditSheet onClose={() => setHandleEdit(false)} />}
     </SubPage>
   );

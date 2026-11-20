@@ -8,6 +8,7 @@ import {
   LINK_KEYS,
   LINK_MAX,
   MENU_MAX,
+  ADDRESS_KEY,
   PHONE_KEY,
   WEEKDAYS,
   hoursLabel,
@@ -174,6 +175,20 @@ export default function OptionalStep({ form, onChange, bannedInFreeText, onOpenT
           )}
         </div>
       ))}
+
+      {/* 住所（地図には使わない。お店に向かうときはコピーして地図アプリへ） */}
+      <SectionTitle hint="任意">住所</SectionTitle>
+      <p style={{ flex: 'none', margin: '4px 0 0', fontSize: 13, fontWeight: 500, color: color.sub }}>
+        地図には使いません。お店に向かうときにコピーできます
+      </p>
+      <div style={{ marginTop: 8 }}>
+        <TextField
+          label="住所"
+          value={form.fields[ADDRESS_KEY] || ''}
+          onChange={(v) => onChange({ fields: { ...form.fields, [ADDRESS_KEY]: v } })}
+          placeholder="東京都渋谷区…"
+        />
+      </div>
 
       {/* 公式のリンク・電話 */}
       <SectionTitle>公式のリンク・電話</SectionTitle>

@@ -72,7 +72,12 @@ function Shell() {
     if (guestFlow === 'signup') setGuestFlow(null);
     setTab(t);
   };
-  const openShop = useCallback((s, opts = {}) => setShop({ shop: s, from: opts.from || 'saved' }), []);
+  // ㉑は1つの画面で、ホーム・保存・グループ・③のどこからでも同じものを開く（§5 ㉑）。
+  // まだ登録されていない古いお店のデータだけ、今までの⑨の詳細を出す
+  const openShop = useCallback((s, opts = {}) => {
+    if (s?.is_shop) setShopProfileId(s.id);
+    else setShop({ shop: s, from: opts.from || 'saved' });
+  }, []);
   const openGuestSheet = useCallback(() => setGuestSheet(true), []);
   const openDiagnosis = useCallback((intent) => setDiagnosis({ intent }), []);
   const openGroupTab = useCallback((groupId) => {

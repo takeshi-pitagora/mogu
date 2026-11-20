@@ -186,3 +186,15 @@ export async function saveUserTags(tagIds) {
   const { error } = await supabase.rpc('set_my_tags', { p_tag_ids: tagIds });
   if (error) throw error;
 }
+
+// ⑤ 予算感の性別（§9-1 の3）。予算を男女別に出すためだけに使う
+export async function myBudgetGender() {
+  const { data, error } = await supabase.rpc('my_budget_gender');
+  if (error) throw error;
+  return data || null;
+}
+
+export async function setMyBudgetGender(gender) {
+  const { error } = await supabase.rpc('set_my_budget_gender', { p_gender: gender });
+  if (error) throw error;
+}

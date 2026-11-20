@@ -60,6 +60,7 @@ export async function withShopCards(rows) {
     if (!c) return r;
     return {
       ...r,
+      is_shop: true, // 登録されたお店（㉑のページを開く）
       name: c.name || r.name,
       tags: c.tags || [],
       saved_count: c.saved_count ?? 0,

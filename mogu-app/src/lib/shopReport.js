@@ -44,6 +44,7 @@ export const EDITABLE_FIELDS = [
   { key: 'party', title: '何人で行くか' },
   { key: 'smoking', title: 'たばこ' },
   { key: 'facility', title: '設備' },
+  { key: 'address', title: '住所' },
   { key: 'phone', title: '電話' },
   { key: 'free_text', title: '自由記入' },
 ];
