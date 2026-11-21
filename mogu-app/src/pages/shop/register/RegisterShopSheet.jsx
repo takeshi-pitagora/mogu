@@ -206,7 +206,12 @@ export default function RegisterShopSheet({ onClose, onOpenShop, onAddPhoto, onR
           name={form.name}
           onChangeName={(v) => change({ name: v })}
           checked={checked}
-          onConfirmChecked={() => setCheckedName(form.name.trim())}
+          onConfirmChecked={() => {
+            // 「どれでもない（新しく登録する）」＝ここで登録を始める。
+            // 確かめた印を付けるだけだと、押しても何も起きないように見える
+            setCheckedName(form.name.trim());
+            if (form.name.trim().length > 0 && !search.error) goNext();
+          }}
           onPickExisting={(shop) => {
             setPicked(shop);
             setStep('exists');
