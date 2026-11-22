@@ -248,7 +248,13 @@ export function StationPicker({ onPick, onCancel }) {
           ))}
           {!loading && rows.length === 0 && (
             <p style={{ margin: '18px 0 0', fontSize: 13, fontWeight: 700, lineHeight: 1.6, color: color.sub }}>
-              {failed ? 'いま駅の一覧を読めませんでした。' : '見つかりませんでした。打ち方を変えてみてください。'}
+              {failed
+                ? 'いま駅の一覧を読めませんでした。'
+                /* 何も打っていないのに0件＝駅の一覧そのものが入っていない。
+                   「見つかりませんでした」と出すと、打ち方のせいに見えてしまう */
+                : q.trim() === ''
+                  ? '駅の一覧がまだ入っていません。しばらくしてからもう一度お試しください。'
+                  : '見つかりませんでした。打ち方を変えてみてください。'}
             </p>
           )}
         </div>
