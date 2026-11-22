@@ -49,6 +49,45 @@ window.__WATCH.checkContent = (where) => {
     }
   });
 
+  // ほかのものに隠れて押せないボタン（タブバーが上にかぶっている、など）。
+  // 画面には写っているのに指が届かない状態で、見た目では気づけない
+  // シート（ダイアログ）が開いているときは、その中のボタンだけを見る。
+  // 後ろの画面が隠れるのは当たり前なので数えない
+  const dialog = [...document.querySelectorAll('[role="dialog"]')].pop();
+  const scope = dialog || document;
+  scope.querySelectorAll('button, [role="button"]').forEach((b) => {
+    const r = b.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return;
+    if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return;
+    const cx = Math.min(Math.max(r.left + r.width / 2, 1), innerWidth - 1);
+    const cy = Math.min(Math.max(r.top + r.height / 2, 1), innerHeight - 1);
+    const top = document.elementFromPoint(cx, cy);
+    if (!top) return;
+    if (top === b || b.contains(top) || top.contains(b)) return;
+    // 上に乗っているのが「画面に貼りついたバー」(position: fixed) のときだけ数える。
+    // 別の画面がかぶっているだけなら、隠れていて当たり前なので数えない
+    let bar = null;
+    for (let e = top; e && e !== document.body; e = e.parentElement) {
+      if (getComputedStyle(e).position === 'fixed') { bar = e; break; }
+    }
+    if (!bar) return;
+    // 画面まるごと（別のページ）がかぶっているだけなら数えない。
+    // 数えたいのは、画面の一部を覆う細いバー（下のタブ・トーストなど）
+    const br = bar.getBoundingClientRect();
+    if (br.width * br.height > innerWidth * innerHeight * 0.7) return;
+    // スクロールできる所の中にあるボタンは、指で動かせば出てくるので数えない。
+    // 本当に困るのは、動かせない所（シートの足元など）がバーに隠れている場合
+    let scrollable = false;
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      const st = getComputedStyle(e);
+      if (/(auto|scroll)/.test(st.overflowY) && e.scrollHeight > e.clientHeight + 4) { scrollable = true; break; }
+    }
+    if (scrollable) return;
+    const label = (b.textContent || '').trim() || b.getAttribute('aria-label') || '(名前なし)';
+    const over = (bar.getAttribute('aria-label') || (bar.textContent || '').trim() || bar.tagName).slice(0, 24);
+    push('隠れていて押せないボタン', label.slice(0, 24) + ' ← 上に「' + over + '」');
+  });
+
   // 押せるのに名前が無いボタン（目の見えない人が使えない・押し間違いのもと）
   document.querySelectorAll('button').forEach((b) => {
     const r = b.getBoundingClientRect();

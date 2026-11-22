@@ -321,7 +321,8 @@ function Shell() {
 
       {/* ㉑ お店のプロフィール（新しい shops 表。⑯のタブからの入口は手順7） */}
       {shopProfileId && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 25 }}>
+        /* 下のタブ（z=40）より上に出す。下だと一番下の［保存］［グループに送る］が隠れる */
+        <div style={{ position: 'absolute', inset: 0, zIndex: 45 }}>
           <ShopProfile
             shopId={shopProfileId}
             onBack={() => setShopProfileId(null)}
@@ -345,7 +346,8 @@ function Shell() {
 
       {/* ⑰⑱⑲ お店を登録する */}
       {registerOpen && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 26 }}>
+        /* 下のタブ（z=40）より上に出す。下だと［次へ］［登録する］が隠れて先へ進めない */
+        <div style={{ position: 'absolute', inset: 0, zIndex: 46 }}>
           <RegisterShopSheet
             onClose={() => setRegisterOpen(false)}
             onOpenShop={(s) => {
