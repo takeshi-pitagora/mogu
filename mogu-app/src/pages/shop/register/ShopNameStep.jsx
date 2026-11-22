@@ -2,7 +2,6 @@ import { color, font, stroke } from '../../../theme/tokens';
 import { photoUrlOf } from '../../../lib/profile';
 import { SHOP_NAME_MAX, shopPhotoUrl, walkLabel } from '../../../lib/shops';
 import TextField from '../../../components/ui/TextField';
-import Button from '../../../components/ui/Button';
 import Icon from '../../../components/ui/Icon';
 import Avatar from '../../../components/ui/Avatar';
 
@@ -63,7 +62,15 @@ export default function ShopNameStep({
   onPickExisting, // 候補を押した（⑰-3へ）
   search, // useShopCandidates の戻り値
 }) {
-  const { candidates, searching, failed, asking, error } = search;
+  const { candidates, searching, failed, empty, showAsk, error } = search;
+
+  // 見出しとボタンの文字だけが変わる。ブロックとボタンは出したまま動かさない
+  const heading = failed
+    ? '登録済みのお店を見られませんでした'
+    : empty
+      ? '近い名前のお店はありませんでした'
+      : 'このお店ですか？';
+  const askLabel = failed || empty ? 'このまま新しく登録する' : 'どれでもない（新しく登録する）';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -93,16 +100,16 @@ export default function ShopNameStep({
         />
       </div>
 
-      {asking && (
+      {showAsk && (
         <div style={{ flex: 'none', marginTop: 18 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-            <h3 style={{ margin: 0, fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>このお店ですか？</h3>
-            <span style={{ flex: 'none', fontSize: 12, fontWeight: 700, color: color.sub }}>名前の近い順</span>
+            <h3 style={{ margin: 0, fontFamily: font.dela, fontSize: 16, fontWeight: 400 }}>{heading}</h3>
+            {candidates.length > 0 && <span style={{ flex: 'none', fontSize: 12, fontWeight: 700, color: color.sub }}>名前の近い順</span>}
           </div>
           {candidates.map((s) => (
             <CandidateRow key={s.id} shop={s} onSelect={onPickExisting} />
           ))}
-          {searching && candidates.length === 0 && (
+          {searching && (
             <p role="status" style={{ margin: 0, height: 60, display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 700, color: color.sub }}>
               探しています
             </p>
@@ -129,18 +136,8 @@ export default function ShopNameStep({
             <span style={{ flex: 'none', width: 44, height: 44, borderRadius: 12, background: color.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="plus" size={20} />
             </span>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>どれでもない（新しく登録する）</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{askLabel}</span>
           </button>
-        </div>
-      )}
-
-      {/* 登録済みのお店を読めなかったとき：確かめる手順は飛ばさない */}
-      {failed && !checked && !error && (
-        <div style={{ flex: 'none', marginTop: 18 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, lineHeight: 1.6 }}>いま登録済みのお店を見られませんでした。</p>
-          <Button variant="secondary" onClick={onConfirmChecked} style={{ marginTop: 10 }}>
-            確かめずに新しく登録する
-          </Button>
         </div>
       )}
     </div>

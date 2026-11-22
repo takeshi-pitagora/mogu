@@ -43,7 +43,13 @@ export default function useShopCandidates(name, checked) {
     candidates,
     searching,
     failed,
+    // 近い名前のお店が1つも無かった（探し終わった）
+    empty: fresh && !failed && candidates.length === 0,
     asking,
+    // 「新しく登録する」のボタンを出しているあいだ。
+    //   探している間も、0件のときも、読めなかったときも出したままにする。
+    //   （0件になった瞬間にボタンごと消えると、押そうとした指が空振りする）
+    showAsk: shouldSearch,
     error,
     canGoNext: trimmed.length > 0 && !error && !asking && !failed,
   };
