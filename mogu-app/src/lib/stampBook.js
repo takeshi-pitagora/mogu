@@ -41,25 +41,31 @@ export function todayIso() {
 
 // 「8.16」
 export function shortDate(iso) {
-  if (!iso) return '';
-  const [, m, d] = String(iso).split('-');
-  return `${Number(m)}.${Number(d)}`;
+  const v = ymd(iso);
+  return v ? `${v.m}.${v.d}` : '';
+}
+
+// 日付の文字を「年・月・日」に分ける。
+//   「2026-11-09」でも「2026-11-09T00:00:00Z」でも同じように読めるようにする
+//   （読めない形だったら null。画面に NaN を出さない）
+function ymd(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ''));
+  return m ? { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) } : null;
 }
 
 // 「2026.11.9」
 export function dotDate(iso) {
-  if (!iso) return '';
-  const [y, m, d] = String(iso).split('-');
-  return `${y}.${Number(m)}.${Number(d)}`;
+  const v = ymd(iso);
+  return v ? `${v.y}.${v.m}.${v.d}` : '';
 }
 
 // 「2026年11月9日（月）」
 const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
 export function longDate(iso) {
-  if (!iso) return '';
-  const [y, m, d] = String(iso).split('-').map(Number);
-  const w = WEEK[new Date(y, m - 1, d).getDay()];
-  return `${y}年${m}月${d}日（${w}）`;
+  const v = ymd(iso);
+  if (!v) return '';
+  const w = WEEK[new Date(v.y, v.m - 1, v.d).getDay()];
+  return `${v.y}年${v.m}月${v.d}日（${w}）`;
 }
 
 // 台紙の期間「2026.8.16 — 9.27」。まだ1個もない台紙は「—」

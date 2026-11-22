@@ -16,6 +16,7 @@ import { LoadingState, ErrorState } from '../../components/ui/States';
 import { chara } from '../../lib/chara';
 import { getType } from '../../lib/mogutype';
 import { canShare, shareText } from '../../lib/open';
+import { fetchRestaurant } from '../../lib/api';
 import { shopPhotos, genreLabel } from '../../lib/shop';
 import { photoUrlOf } from '../../lib/profile';
 import { LOGO, LOGO_OUTLINE } from '../../lib/brand';
@@ -1136,18 +1137,26 @@ function RenameSheet({ group, onClose, onRenamed }) {
 }
 
 // お店のカード（グループの「新着」「ボード」で共通）
-function ShopRow({ s, onHeart, busy }) {
+function ShopRow({ s, onHeart, onOpen, busy }) {
   const photo = shopPhotos(s)[0];
   const place = [s.area, s.genre || genreLabel(s)].filter(Boolean).join('・');
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${color.line}` }}>
-      <div style={{ flex: 'none', width: 56, height: 56, borderRadius: 16, overflow: 'hidden', background: color.ink }}>
-        {photo && <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
-        {place && <div style={{ marginTop: 2, fontSize: 12, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place}</div>}
-      </div>
+      {/* 写真と名前を押すと、お店のページを開く */}
+      <button
+        type="button"
+        onClick={() => onOpen?.(s)}
+        className="ui-btn"
+        style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, padding: 0, border: 0, background: 'transparent', color: color.ink, fontFamily: 'inherit', textAlign: 'left' }}
+      >
+        <span style={{ flex: 'none', display: 'block', width: 56, height: 56, borderRadius: 16, overflow: 'hidden', background: color.ink }}>
+          {photo && <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
+          {place && <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: color.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place}</span>}
+        </span>
+      </button>
       {s.matched_at && (
         <span style={{ flex: 'none', fontSize: 11, fontWeight: 700, color: color.ink, display: 'flex', alignItems: 'center', gap: 3 }}>
           <Icon name="check" size={13} />
@@ -1160,6 +1169,7 @@ function ShopRow({ s, onHeart, busy }) {
       <button
         type="button"
         aria-pressed={s.self_hearted}
+        aria-label={s.self_hearted ? `${s.name} の♡を外す` : `${s.name} に♡をつける`}
         disabled={busy}
         onClick={() => onHeart(s)}
         className="ui-btn ui-press"
@@ -1171,7 +1181,7 @@ function ShopRow({ s, onHeart, busy }) {
   );
 }
 
-function GroupShops({ groupId }) {
+function GroupShops({ groupId, onOpenShop }) {
   const [feed, setFeed] = useState([]);
   const [board, setBoard] = useState([]);
   const [status, setStatus] = useState('loading');
@@ -1216,6 +1226,18 @@ function GroupShops({ groupId }) {
     }
   };
 
+  // 行を押したとき：お店を読み直してから開く（登録されたお店なら㉑のページ）
+  const openRow = async (s) => {
+    try {
+      const row = await fetchRestaurant(s.restaurant_id);
+      if (row) onOpenShop?.(row, { from: 'group' });
+      else onOpenShop?.({ id: s.restaurant_id, name: s.name, photo: s.photo, area: s.area, genre: s.genre }, { from: 'group' });
+    } catch (err) {
+      console.error('お店の取得エラー:', err?.message || err);
+      onOpenShop?.({ id: s.restaurant_id, name: s.name, photo: s.photo, area: s.area, genre: s.genre }, { from: 'group' });
+    }
+  };
+
   if (status === 'loading') return <LoadingState style={{ paddingTop: 60 }} />;
   if (status === 'error') return <ErrorState kind="server" onRetry={reload} style={{ paddingTop: 60 }} />;
 
@@ -1225,7 +1247,7 @@ function GroupShops({ groupId }) {
         <>
           <h3 style={{ margin: '10px 0 0', fontFamily: font.dela, fontSize: 15, fontWeight: 400 }}>新着</h3>
           {feed.map((s) => (
-            <ShopRow key={s.restaurant_id} s={{ ...s, self_hearted: false }} onHeart={toggleHeart} busy={heartBusy === s.restaurant_id} />
+            <ShopRow key={s.restaurant_id} s={{ ...s, self_hearted: false }} onHeart={toggleHeart} onOpen={openRow} busy={heartBusy === s.restaurant_id} />
           ))}
         </>
       )}
@@ -1233,14 +1255,14 @@ function GroupShops({ groupId }) {
       {board.length === 0 ? (
         <p style={{ margin: '12px 0 0', fontSize: 13, color: color.sub }}>まだお店がありません。ホームでいいねすると、ここに並びます</p>
       ) : (
-        board.map((s) => <ShopRow key={s.restaurant_id} s={s} onHeart={toggleHeart} busy={heartBusy === s.restaurant_id} />)
+        board.map((s) => <ShopRow key={s.restaurant_id} s={s} onHeart={toggleHeart} onOpen={openRow} busy={heartBusy === s.restaurant_id} />)
       )}
     </div>
   );
 }
 
 // グループの詳細（確定版 Final-11 の 16〜19）：お店／メンバー／設定
-function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRenamed }) {
+function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRenamed, onOpenShop }) {
   const { user } = useAuth();
   const [tab, setTab] = useState('shops');
   const [members, setMembers] = useState(group.members || []);
@@ -1379,7 +1401,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRe
           {tabBtn('settings', '設定')}
         </div>
         <div style={{ padding: '6px 20px 150px' }}>
-          {tab === 'shops' && <GroupShops groupId={group.id} />}
+          {tab === 'shops' && <GroupShops groupId={group.id} onOpenShop={onOpenShop} />}
           {tab === 'members' && (
             <>
               <button
@@ -1485,7 +1507,7 @@ function GroupDetail({ group, inUse, onBack, onToggleUse, onInvite, onLeft, onRe
   );
 }
 
-export default function GroupScreen({ selectedGroup, onSelectGroup, reloadSignal = 0, pendingOpenGroup, onConsumePendingOpenGroup }) {
+export default function GroupScreen({ selectedGroup, onSelectGroup, reloadSignal = 0, pendingOpenGroup, onConsumePendingOpenGroup, onOpenShop }) {
   const { user } = useAuth();
   const toast = useToast();
   const [groups, setGroups] = useState([]);
@@ -1583,6 +1605,7 @@ export default function GroupScreen({ selectedGroup, onSelectGroup, reloadSignal
       <GroupDetail
         group={g}
         inUse={inUse}
+        onOpenShop={onOpenShop}
         onBack={toList}
         onToggleUse={() => onSelectGroup?.(inUse ? null : { id: g.id, name: g.name, members: g.members, count: g.count })}
         onInvite={() => setView({ name: 'invite', group: g, back: { name: 'detail', group: g } })}

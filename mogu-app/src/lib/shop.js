@@ -11,7 +11,10 @@ import { shopPhotoUrl } from './shops';
 export function shopPhotos(row) {
   if (!row) return [];
   const list = Array.isArray(row.photos) ? row.photos.filter(Boolean) : [];
-  const all = list.length > 0 ? list : [row.photo_food, row.photo_interior, row.photo_exterior].filter(Boolean);
+  // 1枚だけ返す関数もある（get_group_feed・get_group_board の photo 列、
+  // 候補の cover_path・card_path）。これを見ていないと写真が出ない
+  const one = [row.photo, row.cover_path, row.card_path].filter(Boolean);
+  const all = list.length > 0 ? list : one.length > 0 ? one : [row.photo_food, row.photo_interior, row.photo_exterior].filter(Boolean);
   return all.map(toPhotoUrl).filter(Boolean);
 }
 

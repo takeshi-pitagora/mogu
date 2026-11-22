@@ -83,6 +83,17 @@ export async function withShopCards(rows, userId = null) {
   });
 }
 
+// お店を1つだけ読む（グループの新着・ボードの行から開くときに使う）。
+//   登録されたお店なら is_shop が付くので、㉑のページを開ける
+export async function fetchRestaurant(id, userId = null) {
+  if (!id) return null;
+  const { data, error } = await supabase.from('restaurants').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const [row] = await withShopCards([data], userId);
+  return row || data;
+}
+
 // 「同じモグタイプに人気」「急上昇中」（3回目 §7-7）：定期的に集計した表から並び順（restaurant_idの配列）をもらう
 const missingFn = (error) => !!error && /(function|could not find|does not exist|PGRST20[2-6])/i.test(`${error.message || ''} ${error.code || ''}`);
 export async function fetchPopularityOrder(sort, user) {

@@ -88,12 +88,13 @@ function LogPage({ log, months, onReason, onRegister }) {
             <div>
               {rows.map((r, i) => {
                 const off = r.state === 'cancelled';
+                // 押せるのは「取消」の行だけ（わけを出す）。
+                // それ以外をボタンにすると、押しても何も起きないものに見えてしまう
+                const Tag = off ? 'button' : 'div';
                 return (
-                  <button
+                  <Tag
                     key={r.id}
-                    type="button"
-                    className="ui-btn"
-                    onClick={() => (off ? onReason(r) : null)}
+                    {...(off ? { type: 'button', className: 'ui-btn', onClick: () => onReason(r), 'aria-label': `${actionLabel(r.action, r.amount)} が取り消されたわけを見る` } : {})}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, minHeight: 60, padding: '8px 0', boxSizing: 'border-box', border: 0, borderBottom: i < rows.length - 1 ? `1px dashed ${paper.slotLine}` : 'none', background: 'transparent', color: color.ink, fontFamily: 'inherit', textAlign: 'left' }}
                   >
                     <span style={{ flex: 1, minWidth: 0 }}>
@@ -105,7 +106,7 @@ function LogPage({ log, months, onReason, onRegister }) {
                       <Num size={18} muted={r.state !== 'confirmed'} strike={off}>{off ? '−' : '+'}{r.amount}</Num>
                       <span style={{ marginLeft: 2 }}><CoinStamp state={r.state} /></span>
                     </span>
-                  </button>
+                  </Tag>
                 );
               })}
             </div>

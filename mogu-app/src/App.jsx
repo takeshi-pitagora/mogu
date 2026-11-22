@@ -252,6 +252,7 @@ function Shell() {
             <GuestGroupLocked onRegister={() => setGuestFlow('signup')} onLocked={openGuestSheet} locked={guestSheet} />
           ) : (
             <GroupScreen
+              onOpenShop={openShop}
               selectedGroup={selectedGroup}
               onSelectGroup={setSelectedGroup}
               reloadSignal={groupsVersion}
