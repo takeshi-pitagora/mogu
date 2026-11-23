@@ -113,7 +113,14 @@ function SceneTile({ scene, selected, onClick }) {
       <span style={{ position: 'relative', zIndex: 1, display: 'block', fontFamily: font.dela, fontSize: 17, fontWeight: 400 }}>
         {scene.label}
       </span>
-      <span style={{ position: 'relative', zIndex: 1, display: 'block', marginTop: 6, width: '70%', fontSize: 11, fontWeight: 500, lineHeight: 1.5, color: selected ? color.white : color.sub }}>
+      {/* タグは2行まで。3行になると右下の絵にかぶって読めなくなる */}
+      <span
+        style={{
+          position: 'relative', zIndex: 1, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2,
+          overflow: 'hidden', marginTop: 6, width: '66%', fontSize: 11, fontWeight: 500, lineHeight: 1.5,
+          color: selected ? color.white : color.sub,
+        }}
+      >
         {scene.tags.map((t) => `#${t}`).join('・')}
       </span>
       {/* 右下にシーンに合うモグキャラ（うしろに淡い色の丸）。
