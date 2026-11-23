@@ -113,12 +113,13 @@ function SceneTile({ scene, selected, onClick }) {
       <span style={{ position: 'relative', zIndex: 1, display: 'block', fontFamily: font.dela, fontSize: 17, fontWeight: 400 }}>
         {scene.label}
       </span>
-      <span style={{ position: 'relative', zIndex: 1, display: 'block', marginTop: 6, width: '62%', fontSize: 11, fontWeight: 500, lineHeight: 1.5, color: selected ? color.white : color.sub }}>
+      <span style={{ position: 'relative', zIndex: 1, display: 'block', marginTop: 6, width: '70%', fontSize: 11, fontWeight: 500, lineHeight: 1.5, color: selected ? color.white : color.sub }}>
         {scene.tags.map((t) => `#${t}`).join('・')}
       </span>
-      {/* 右下にシーンに合うモグキャラ（高さ104・足もとはタイルの下のふち、うしろに淡い色の丸） */}
-      <span aria-hidden="true" style={{ position: 'absolute', right: 2, bottom: 0, width: 108, height: 104 }}>
-        <span style={{ position: 'absolute', right: 10, bottom: 6, width: 86, height: 86, borderRadius: 43, background: pale }} />
+      {/* 右下にシーンに合うモグキャラ（うしろに淡い色の丸）。
+          確定版は高さ104だったが、タイルの文字にかぶって読みにくいので小さくした（けんとの指示 2026-11-23） */}
+      <span aria-hidden="true" style={{ position: 'absolute', right: 2, bottom: 0, width: 88, height: 84 }}>
+        <span style={{ position: 'absolute', right: 8, bottom: 6, width: 70, height: 70, borderRadius: 35, background: pale }} />
         <img src={c?.framed} alt="" style={{ position: 'absolute', right: 0, bottom: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom' }} />
       </span>
     </button>

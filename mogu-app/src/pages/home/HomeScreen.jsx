@@ -60,6 +60,12 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
   const samples = useRef([]);
   const draggingRef = useRef(false);
   const dxRef = useRef(0);
+  // 指で動かしているあいだは、画面を描き直さずに style を直接書く。
+  // setState で毎回描き直すと、指の動きに追いつかずカクつく（けんとの指示 2026-11-23）
+  const cardRef = useRef(null);
+  const stickerRef = useRef(null);
+  const glowRef = useRef(null);
+  const rafRef = useRef(0);
 
   // 設定の「使い方をもう一度見る」から
   const [lastGuideRequest, setLastGuideRequest] = useState(guideRequest);
@@ -185,17 +191,41 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
     setDragging(true);
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
+  // 1フレームに1回だけ書く（指の動きは1フレームに何回も来る）
+  const paint = () => {
+    rafRef.current = 0;
+    const dx = dxRef.current;
+    const st = Math.min(1, Math.abs(dx) / SWIPE_THRESHOLD);
+    if (cardRef.current) {
+      cardRef.current.style.transform = `translate3d(${dx}px,0,0) rotate(${dx * ROTATE_PER_PX}deg)`;
+    }
+    if (stickerRef.current) stickerRef.current.style.opacity = String(st);
+    if (glowRef.current) glowRef.current.style.opacity = String(st);
+  };
+
   const onPointerMove = (e) => {
     if (!draggingRef.current) return;
     const dx = e.clientX - startX.current;
+    const before = dxRef.current;
     dxRef.current = dx;
     samples.current.push({ x: e.clientX, t: e.timeStamp });
     if (samples.current.length > 6) samples.current.shift();
-    setDragX(dx);
+    if (!rafRef.current) rafRef.current = requestAnimationFrame(paint);
+    // 絵が入れ替わる境目（どちらの印を出すか・ボタンを光らせるか）だけ描き直す
+    const side = (v) => (v > 4 ? 1 : v < -4 ? -1 : 0);
+    const over = (v) => Math.abs(v) >= SWIPE_THRESHOLD;
+    if (side(before) !== side(dx) || over(before) !== over(dx)) setDragX(dx);
   };
   const onPointerUp = (e) => {
     if (!draggingRef.current) return;
     draggingRef.current = false;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    if (cardRef.current) cardRef.current.style.transform = '';
+    if (stickerRef.current) stickerRef.current.style.opacity = '';
+    if (glowRef.current) glowRef.current.style.opacity = '';
     setDragging(false);
     const dx = dxRef.current;
     const pts = samples.current.filter((p) => (e?.timeStamp ?? 0) - p.t <= 100);
@@ -303,6 +333,7 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
         {showDeck && (
           <div
             key={current.id}
+            ref={cardRef}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -311,16 +342,21 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
               position: 'absolute',
               inset: 0,
               zIndex: 2,
-              transform: `translateX(${tx}px) rotate(${rot}deg)`,
+              transform: `translate3d(${tx}px,0,0) rotate(${rot}deg)`,
               transformOrigin: '50% 100%',
               transition: dragging ? 'none' : `transform ${EXIT_MS}ms ease-out`,
+              willChange: 'transform',
               touchAction: 'none',
               userSelect: 'none',
               WebkitUserSelect: 'none',
             }}
           >
             <ShopCard shop={current} photoIndex={photoIndex} onPhotoIndex={setPhotoIndex} onOpen={() => onOpenShop?.(current, { from: 'home' })} onBeFirst={() => onOpenRegister?.(current)} />
-            {dir && strength > 0 && <SwipeSticker kind={dir} opacity={strength} />}
+            {dir && (
+              <span ref={stickerRef} aria-hidden="true" style={{ position: 'absolute', inset: 0, opacity: strength, pointerEvents: 'none', zIndex: 3 }}>
+                <SwipeSticker kind={dir} />
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -339,7 +375,11 @@ export default function HomeScreen({ selectedGroup, onSelectGroup, onOpenShop, o
         </div>
       )}
 
-      <SwipeGlow kind={dir} opacity={dir ? strength : 0} />
+      {dir && (
+        <span ref={glowRef} aria-hidden="true" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 12, opacity: strength }}>
+          <SwipeGlow kind={dir} opacity={1} />
+        </span>
+      )}
 
       {guide && status === 'ready' && current && (
         <FirstGuide

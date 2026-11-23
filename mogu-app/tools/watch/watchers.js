@@ -110,6 +110,13 @@ window.__WATCH.listButtons = () => {
     if (b.disabled) return;
     b.setAttribute('data-watch-id', String(i));
     const label = ((b.textContent || '').trim() || b.getAttribute('aria-label') || '(名前なし)').slice(0, 40);
+    // いま見えている画面のボタンだけを押す。
+    // 裏に残っている画面のボタンは、押しても何も起きなくて当たり前
+    const r2 = b.getBoundingClientRect();
+    const cx = Math.min(Math.max(r2.left + r2.width / 2, 1), innerWidth - 1);
+    const cy = Math.min(Math.max(r2.top + r2.height / 2, 1), innerHeight - 1);
+    const top = document.elementFromPoint(cx, cy);
+    const hidden = !!top && top !== b && !b.contains(top) && !top.contains(b);
     // アプリの外へ出るもの（ブラウザ・メール）と、いま開いているタブは
     // 「押しても画面が変わらない」のが正しいので、数えない
     const outside = /利用規約|プライバシー|ヘルプ|お問い合わせ|運営者|お店の情報|出典|ライセンス/.test(label)
@@ -117,7 +124,7 @@ window.__WATCH.listButtons = () => {
       || b.getAttribute('aria-current') === 'page'
       || b.getAttribute('aria-selected') === 'true'
       || b.getAttribute('aria-pressed') === 'true';
-    out.push({ id: String(i), label, outside });
+    out.push({ id: String(i), label, outside: outside || hidden });
   });
   return out;
 };

@@ -40,10 +40,12 @@ export function EmptyState({ title, description, actions = [], style }) {
 }
 
 // 読み込み中（初めて）：ハリー（幅110）と3つの点（左から順に黒くなる）、「読み込んでいます」
+// ハリーの位置は、どの画面でも同じ高さに見えるようにそろえる（けんとの指示 2026-11-23）。
+//   画面ごとに余白を足すと、画面を移るたびにハリーが上下に飛ぶ
 export function LoadingState({ label = '読み込んでいます', style }) {
   const h = harry();
   return (
-    <div role="status" style={{ ...centerBox, padding: '0 32px', ...style }}>
+    <div role="status" style={{ ...centerBox, flex: 1, minHeight: 320, padding: '0 32px', ...style }}>
       <img src={h?.framed} alt="" style={{ display: 'block', width: 110, height: 168, objectFit: 'contain', objectPosition: 'center bottom' }} />
       <div aria-hidden="true" style={{ display: 'flex', gap: 8, marginTop: 18 }}>
         <span className="ui-dot" style={{ width: 10, height: 10, borderRadius: '50%' }} />

@@ -507,7 +507,7 @@ export default function SavedScreen({ version = 0, onOpenShop, onGoHome, onRegis
           </div>
 
           <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, marginTop: 8, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            {status === 'loading' && <LoadingState style={{ height: '70%' }} />}
+            {status === 'loading' && <LoadingState />}
             {status === 'error' && <ErrorState kind="server" onRetry={() => { setStatus('loading'); setReloadKey((k) => k + 1); }} style={{ height: '70%' }} />}
             {status === 'ready' && visible.length === 0 && <SavedNoHit tag={pickedTags[0] || (isTagQuery ? tagQ : '') || ''} onGoHome={onGoHome} />}
             {status === 'ready' && visible.length > 0 && (

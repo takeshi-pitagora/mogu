@@ -1,7 +1,8 @@
 import { color, stroke } from '../../theme/tokens';
 
 // ⑯ 下のタブのまん中のステッカーの＋（確定版 Final-16・引き渡し書 第5回 §4）
-//   クリームの角丸の四角（42・角丸13）に 2pt の黒い線と黒い＋（線 2.75）、−8度傾ける
+//   クリームの角丸の四角（42・角丸13）に 2pt の黒い線と黒い＋（線 2.75）
+//   確定版 Final-16 は −8度の傾きだったが、傾いて見えるのでまっすぐにした（けんとの指示 2026-11-23）
 //   押せる範囲は 幅52×高さ56。押したとき #E2DCD2。選んだ状態にはならない
 const PRESSED_BG = '#E2DCD2';
 
@@ -34,7 +35,6 @@ export default function PlusSticker({ onClick, pressed = false, style }) {
           border: `${stroke.shape}px solid ${color.ink}`,
           borderRadius: 13,
           background: pressed ? PRESSED_BG : color.surface,
-          transform: 'rotate(-8deg)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

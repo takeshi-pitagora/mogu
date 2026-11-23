@@ -150,7 +150,7 @@ export default function RegisterShopSheet({ onClose, onOpenShop, onAddPhoto, onR
   if (quotaError) {
     body = <ErrorState kind="offline" onRetry={retryQuota} style={{ flex: 1, paddingBottom: 40 }} />;
   } else if (!quota) {
-    body = <LoadingState style={{ flex: 1, paddingBottom: 40 }} />;
+    body = <LoadingState />;
   } else if (quota.suspended) {
     body = (
       <EmptyState
@@ -171,7 +171,7 @@ export default function RegisterShopSheet({ onClose, onOpenShop, onAddPhoto, onR
     );
   } else if (sending) {
     // ⑱-18 登録中
-    body = <LoadingState label="登録しています" style={{ flex: 1, paddingBottom: 40 }} />;
+    body = <LoadingState label="登録しています" />;
   } else if (sendError) {
     // ⑱-19 通信できないとき（入れた内容は消えない）
     body = (

@@ -26,7 +26,12 @@ export default function AddPhotoStep({ shop, room, onBack, onDone }) {
   const take = async (e) => {
     const files = [...(e.target.files || [])].slice(0, Math.max(0, left - picked.length));
     e.target.value = '';
-    const shots = await Promise.all(files.map(inspectPhoto));
+    // 1枚ずつ読む。まとめて読むと、原寸の写真が同時に何枚も開いて落ちる
+    const shots = [];
+    for (const f of files) {
+      // eslint-disable-next-line no-await-in-loop
+      shots.push(await inspectPhoto(f));
+    }
     setPicked([...picked, ...shots.map((s) => ({ ...s, kind: 'food' }))]);
   };
 

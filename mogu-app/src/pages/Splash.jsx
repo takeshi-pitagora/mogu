@@ -10,16 +10,17 @@ const W = 270;
 const H = 111.5;
 const TEXT_W = 182.9;
 const HARRY_W = W - TEXT_W;
-const PEEK_MS = 400;
-const REST_MS = 150; // iOS の起動画面からつながって見えるよう、少し止まってから動かす
-const OUT_MS = 200;
+const PEEK_MS = 600; // ハリネズミが出てくる動き
+const REST_MS = 350; // iOS の起動画面からつながって見えるよう、少し止まってから動かす
+const HOLD_MS = 450; // 出たあと、見せたまま止めておく
+const OUT_MS = 260;
 
 export default function Splash({ ready, onDone }) {
   const [phase, setPhase] = useState('rest'); // rest → peek → peeked（ログインの確認が終わっていれば消える）
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase('peek'), REST_MS);
-    const t2 = setTimeout(() => setPhase((p) => (p === 'peek' ? 'peeked' : p)), REST_MS + PEEK_MS);
+    const t2 = setTimeout(() => setPhase((p) => (p === 'peek' ? 'peeked' : p)), REST_MS + PEEK_MS + HOLD_MS);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);

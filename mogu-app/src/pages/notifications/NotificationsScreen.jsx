@@ -612,7 +612,7 @@ export default function NotificationsScreen({ onBack, onOpenGroup, onOpenShop, o
         </div>
       </header>
 
-      {status === 'loading' && <LoadingState style={{ flex: 1 }} />}
+      {status === 'loading' && <LoadingState />}
       {status === 'error' && (
         <ErrorState
           kind="server"

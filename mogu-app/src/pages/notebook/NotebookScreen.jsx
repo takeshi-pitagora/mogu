@@ -450,7 +450,7 @@ export default function NotebookScreen({ onBack, onOpenShop, onOpenSettings, onO
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: color.bg, fontFamily: font.plex, color: color.ink }}>
       <BackHeader title="探検手帳" onBack={onBack} />
 
-      {status === 'loading' && <LoadingState style={{ height: '70%' }} />}
+      {status === 'loading' && <LoadingState />}
       {status === 'error' && <ErrorState kind="server" onRetry={() => { setStatus('loading'); setReloadKey((k) => k + 1); }} style={{ height: '70%' }} />}
 
       {status === 'ready' && head && (

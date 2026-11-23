@@ -292,7 +292,7 @@ function GroupList({ groups, status, selectedId, onRetry, onOpen, onCreate, onJo
               style={{ flex: 1, minWidth: 0, height: '100%', border: 0, outline: 'none', background: 'transparent', color: color.ink, fontFamily: 'inherit', fontSize: 15, padding: 0 }}
             />
           </div>
-          {status === 'loading' && <LoadingState style={{ paddingTop: 80 }} />}
+          {status === 'loading' && <LoadingState />}
           {status === 'error' && <ErrorState kind="server" onRetry={onRetry} style={{ paddingTop: 60 }} />}
           {status === 'ready' && (
             <div style={{ paddingBottom: 130 }}>
@@ -1238,7 +1238,7 @@ function GroupShops({ groupId, onOpenShop }) {
     }
   };
 
-  if (status === 'loading') return <LoadingState style={{ paddingTop: 60 }} />;
+  if (status === 'loading') return <LoadingState />;
   if (status === 'error') return <ErrorState kind="server" onRetry={reload} style={{ paddingTop: 60 }} />;
 
   return (

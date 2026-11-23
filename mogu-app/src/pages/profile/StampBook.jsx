@@ -89,7 +89,7 @@ export default function StampBook({ onBack, onOpenShop }) {
     <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', background: color.white, fontFamily: font.plex, color: color.ink }}>
       <BackHeader title="スタンプ帳" onBack={onBack} />
 
-      {status === 'loading' && <LoadingState style={{ height: '70%' }} />}
+      {status === 'loading' && <LoadingState />}
       {status === 'error' && <ErrorState kind="server" onRetry={() => { setStatus('loading'); setReloadKey((k) => k + 1); }} style={{ height: '70%' }} />}
 
       {status === 'ready' && (
