@@ -11,7 +11,7 @@ import StepFrame from './StepFrame';
 export default function StationStep({ form, onChange, onOpenPicker }) {
   const picked = form.station;
   return (
-    <StepFrame form={form} title="最寄駅と、駅から歩く時間は？">
+    <StepFrame form={form} step="station" title="最寄駅と、駅から歩く時間は？">
       <div style={{ flex: 'none', marginTop: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
         <button
           type="button"

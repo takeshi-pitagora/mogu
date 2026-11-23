@@ -21,7 +21,7 @@ export default function VisitBudgetStep({ form, onChange, askGender, onOpenCalen
   const custom = form.visitedOn && form.visitedOn !== today && form.visitedOn !== yesterday;
 
   return (
-    <StepFrame form={form} title="いつ行った？ いくら使った？">
+    <StepFrame form={form} step="visit" title="いつ行った？ いくら使った？">
       <p style={{ flex: 'none', margin: '4px 0 0', fontSize: 13, fontWeight: 500, lineHeight: 1.6, color: color.sub }}>
         金額は、飲み物も入れたひとりぶん
       </p>

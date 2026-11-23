@@ -16,7 +16,7 @@ export default function HighlightStep({ form, onChange }) {
   };
 
   return (
-    <StepFrame form={form} title="いちばんのおすすめは？">
+    <StepFrame form={form} step="highlight" title="いちばんのおすすめは？">
       <div style={{ flex: 'none', marginTop: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <p style={{ flex: 'none', margin: 0, fontSize: 12, fontWeight: 500, lineHeight: 1.6, color: color.sub }}>8つから1〜2つ</p>

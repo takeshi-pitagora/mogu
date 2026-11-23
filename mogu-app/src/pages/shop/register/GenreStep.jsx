@@ -22,7 +22,7 @@ export default function GenreStep({ form, onChange }) {
   };
 
   return (
-    <StepFrame form={form} title="ジャンルは？" note="メイン1つ＋サブ1つまで（2つ目に押したものがサブ）">
+    <StepFrame form={form} step="genre" title="ジャンルは？" note="メイン1つ＋サブ1つまで（2つ目に押したものがサブ）">
       <ChipRow style={{ marginTop: 10 }}>
         {GENRES.map((g) => {
           const isMain = g === genreMain;

@@ -58,7 +58,7 @@ export default function PhotosStep({ form, onChange, noticeShown, onNoticeShown 
   };
 
   return (
-    <StepFrame form={form} title="お店の写真を足そう">
+    <StepFrame form={form} step="photos" title="お店の写真を足そう">
       <div style={{ flex: 'none', marginTop: 18 }}>
         <ChipRow>
           {photos.map((p, i) => (
