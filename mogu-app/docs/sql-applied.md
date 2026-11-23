@@ -19,6 +19,7 @@
 | `20261122_round5_fix20.sql` | 駅の部分一致。「谷」で渋谷、「じゅく」で新宿が出る | |
 | `20261122_round5_fix21.sql` | `get_my_groups` を drop してから作り直す。グループの固定・ミュート・新着件数が効かない件 | |
 | `20261123_round5_stations_all.sql` | 東京の主な駅172件。これ1本で入る。何回流しても同じ | 2026-11-22 |
+| `20261123_round5_fix22.sql` | 1人だけのグループでマッチの通知を出さない | |
 
 ## それぞれの確かめ方
 
@@ -28,6 +29,8 @@ select count(*) as 駅の数, count(name_kana) as よみ入り, count(lat) as �
 
 -- fix20（「谷」で3駅くらい出れば効いている。1駅も出なければ未適用）
 select name from public.search_stations('谷', 5);
+
+-- fix22（1人グループでいいねしても notifications が増えなければ効いている）
 
 -- fix21（列が10個あれば効いている。5個なら未適用）
 select pg_get_function_result(p.oid)
