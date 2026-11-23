@@ -46,14 +46,15 @@ export function SwipeButtons({ onPass, onUndo, onLike, highlight, disabled = fal
 // plain: カードのまん中にそのまま置く（ログインの最初の画面の見本。確定版 Final-07）
 export function SwipeSticker({ kind, opacity = 1, plain = false }) {
   const like = kind === 'like';
-  const text = like ? 'Like!' : 'Pass!';
+  const text = like ? 'LIKE' : 'PASS';
   const fill = like ? swipeColor.like.text : swipeColor.pass.text;
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, transform: plain ? 'none' : `translateX(${like ? -30 : 30}px) scale(0.84)`, zIndex: 3, pointerEvents: 'none', opacity }}>
       <svg width="330" height="130" viewBox="0 0 330 130" style={{ position: 'absolute', left: '50%', top: '50%', margin: '-65px 0 0 -165px', overflow: 'visible', transform: `rotate(${like ? -10 : 10}deg)` }}>
-        <text x="169" y="99" textAnchor="middle" fontFamily={font.dela} fontSize="88" letterSpacing="2" fill={color.ink} stroke={color.ink} strokeWidth="18" strokeLinejoin="round">{text}</text>
-        <text x="165" y="94" textAnchor="middle" fontFamily={font.dela} fontSize="88" letterSpacing="2" fill={color.white} stroke={color.white} strokeWidth="18" strokeLinejoin="round">{text}</text>
-        <text x="165" y="94" textAnchor="middle" fontFamily={font.dela} fontSize="88" letterSpacing="2" fill={fill} stroke={color.ink} strokeWidth="5" strokeLinejoin="round" paintOrder="stroke">{text}</text>
+        <rect x="36" y="20" width="258" height="92" rx="16" fill="none" stroke={fill} strokeWidth="7" />
+        <text x="165" y="86" textAnchor="middle" fontFamily={font.plex} fontWeight="700" fontSize="56" letterSpacing="4" fill={fill}>
+          {text}
+        </text>
       </svg>
     </div>
   );
