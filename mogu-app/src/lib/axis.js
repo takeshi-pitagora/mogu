@@ -25,6 +25,10 @@ export const AXIS_META = [
 // カードの地と文字（確定版 Final-06）
 export const AXIS_CARD = { bg: '#2E2C2A', border: '#4A4744', text: '#FFFFFF', weak: '#A8A199', number: '#F5E6C8' };
 
+// 4軸カードのバーの右半分（右の文字の側）。左半分は軸の色なので、
+// ここをグレーにして左右を見分けられるようにする
+export const AXIS_GREY = ['#E6E2DC', '#AEA79E', '#6B6560'];
+
 // 4軸カードの見出し（result-axis-texts.json の blocks[文字][強さ].label を、そのままつなげたもの）
 const HEADINGS = {
   V: { 1: 'やや映えを重視する', 2: '映えを重視する', 3: 'とことん映えを重視する' },

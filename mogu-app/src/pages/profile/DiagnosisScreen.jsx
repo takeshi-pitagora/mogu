@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { color, font, stroke } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthContext';
 import { getType } from '../../lib/mogutype';
-import { AXIS_CARD, AXIS_LABELS, AXIS_META, axisHeading, axisPercent, judge, scoreToSum } from '../../lib/axis';
+import { AXIS_CARD, AXIS_GREY, AXIS_LABELS, AXIS_META, axisHeading, axisPercent, judge, scoreToSum } from '../../lib/axis';
 import { DIAGNOSE_URL, fetchMoguTypeResult, MYPAGE_URL } from '../../lib/mogutypeApi';
 import { openExternal } from '../../lib/open';
 import Button from '../../components/ui/Button';
@@ -241,39 +241,46 @@ function AxisCard({ meta, label, left, right, leftStrong, heading }) {
   const weakLabel = leftStrong ? label.right : label.left;
   // ピンは「左の端＝左の文字そのもの」の目盛りの上に立つ。値（0〜3）の位置＝右の％
   const pinAt = right;
-  const seg = [meta.main, meta.mid, meta.pale, meta.pale, meta.mid, meta.main];
+  // 左半分＝軸の色（左の文字の側）、右半分＝グレー（右の文字の側）。
+  // 左右を同じ色にすると鏡写しに見えて、ピンがどちら側にいるか分からなかった
+  const seg = [meta.main, meta.mid, meta.pale, AXIS_GREY[0], AXIS_GREY[1], AXIS_GREY[2]];
   return (
     <section style={{ position: 'relative', textAlign: 'left', boxSizing: 'border-box', padding: '18px 20px 20px', border: `${stroke.shape}px solid ${AXIS_CARD.border}`, borderRadius: 28, background: AXIS_CARD.bg, color: AXIS_CARD.text }}>
       <span
         aria-hidden="true"
-        style={{ position: 'absolute', right: 16, top: 10, fontFamily: font.dela, fontSize: 54, lineHeight: 1, color: 'transparent', WebkitTextStroke: `2px ${meta.outline}`, transform: 'scaleX(0.78)', transformOrigin: 'right top' }}
+        style={{ position: 'absolute', right: 16, top: 10, fontFamily: font.plex, fontWeight: 700, fontSize: 52, lineHeight: 1, color: meta.outline, opacity: 0.35, transform: 'scaleX(0.9)', transformOrigin: 'right top' }}
       >
         {meta.number}
       </span>
       <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', height: 30, padding: '0 12px', borderRadius: 10, background: meta.main, fontSize: 14, fontWeight: 700 }}>{meta.badge}</span>
-      <h3 style={{ position: 'relative', margin: '10px 0 0', paddingRight: 64, fontFamily: font.dela, fontSize: 21, fontWeight: 400, lineHeight: 1.3 }}>{heading}</h3>
+      <h3 style={{ position: 'relative', margin: '10px 0 0', paddingRight: 64, fontFamily: font.plex, fontSize: 20, fontWeight: 700, lineHeight: 1.35 }}>{heading}</h3>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 10 }}>
         <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>{strongLabel}</span>
-          <span style={{ fontFamily: font.dela, fontSize: 46, lineHeight: 1, color: AXIS_CARD.number, textShadow: `3px 3px 0 ${meta.main}` }}>{strongPercent}</span>
-          <span style={{ fontFamily: font.dela, fontSize: 16, color: AXIS_CARD.number }}>%</span>
+          <span style={{ fontFamily: font.plex, fontWeight: 700, fontSize: 46, lineHeight: 1, letterSpacing: -1, color: AXIS_CARD.number }}>{strongPercent}</span>
+          <span style={{ fontFamily: font.plex, fontWeight: 700, fontSize: 16, color: AXIS_CARD.number }}>%</span>
         </span>
         <span style={{ fontSize: 14, fontWeight: 700, color: AXIS_CARD.weak }}>
           {weakPercent}% {weakLabel}
         </span>
       </div>
       <div style={{ position: 'relative', paddingTop: 30, marginTop: 2 }}>
-        <span aria-hidden="true" style={{ position: 'absolute', top: 0, left: `calc(${pinAt}% - 10px)` }}>
+        <span aria-hidden="true" style={{ position: 'absolute', top: 0, left: `calc(${pinAt}% - 15px)` }}>
           <svg width="30" height="44" viewBox="0 0 30 44">
-            <path d="M10 42 19.5 15" stroke="#C9C2B8" strokeWidth="3" />
-            <circle cx="20" cy="12" r="10" fill={color.red} stroke={color.ink} strokeWidth="2" />
-            <circle cx="16.5" cy="8.5" r="3" fill="#FFFFFF" fillOpacity="0.8" />
+            <path d="M15 42 15 24" stroke="#C9C2B8" strokeWidth="3" />
+            <circle cx="15" cy="13" r="10" fill={color.red} stroke={color.ink} strokeWidth="2" />
+            <circle cx="11.5" cy="9.5" r="3" fill="#FFFFFF" fillOpacity="0.8" />
           </svg>
         </span>
         <div aria-hidden="true" style={{ display: 'flex', height: 22, boxSizing: 'border-box', border: `3px solid ${color.white}`, borderRadius: 11, overflow: 'hidden' }}>
           {seg.map((bg, i) => (
             <span key={i} style={{ flex: 1, background: bg, borderLeft: i === 0 ? 0 : `2px solid ${color.ink}` }} />
           ))}
+        </div>
+        {/* どちらの端が何の側か、ひと目で分かるように */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, fontWeight: 700, color: AXIS_CARD.weak }}>
+          <span>{label.left}</span>
+          <span>{label.right}</span>
         </div>
       </div>
     </section>
