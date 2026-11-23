@@ -51,7 +51,7 @@ export function SwipeSticker({ kind, opacity = 1, plain = false }) {
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, transform: plain ? 'none' : `translateX(${like ? -30 : 30}px) scale(0.84)`, zIndex: 3, pointerEvents: 'none', opacity }}>
       <svg width="330" height="130" viewBox="0 0 330 130" style={{ position: 'absolute', left: '50%', top: '50%', margin: '-65px 0 0 -165px', overflow: 'visible', transform: `rotate(${like ? -10 : 10}deg)` }}>
-        <rect x="36" y="20" width="258" height="92" rx="16" fill="none" stroke={fill} strokeWidth="7" />
+        <rect x="36" y="20" width="258" height="92" rx="16" fill={alpha(color.white, 0.82)} stroke={fill} strokeWidth="7" />
         <text x="165" y="86" textAnchor="middle" fontFamily={font.plex} fontWeight="700" fontSize="56" letterSpacing="4" fill={fill}>
           {text}
         </text>
@@ -65,10 +65,10 @@ export function SwipeGlow({ kind, opacity }) {
   if (!kind || opacity <= 0) return null;
   const like = kind === 'like';
   const c = like ? swipeColor.like.glow : swipeColor.pass.glow;
-  const bg = like
-    ? `radial-gradient(ellipse 85% 75% at 50% 48%, ${alpha(c, 0.04)} 0%, ${alpha(c, 0.14)} 62%, ${alpha(c, 0.28)} 100%)`
-    : `radial-gradient(ellipse 85% 75% at 50% 48%, ${alpha(c, 0.1)} 0%, ${alpha(c, 0.3)} 62%, ${alpha(c, 0.6)} 100%)`;
-  const sh = like ? `inset 0 0 70px 14px ${alpha(c, 0.42)}` : `inset 0 0 70px 14px ${alpha(c, 0.62)}`;
+  // 左右とも濃い色になったので、濃さは同じ式にする
+  //   （パスが薄いグレーだったころは、見えるように濃くしていた）
+  const bg = `radial-gradient(ellipse 85% 75% at 50% 48%, ${alpha(c, 0.06)} 0%, ${alpha(c, 0.18)} 62%, ${alpha(c, 0.34)} 100%)`;
+  const sh = `inset 0 0 70px 14px ${alpha(c, 0.45)}`;
   return <div aria-hidden="true" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 12, background: bg, boxShadow: sh, opacity }} />;
 }
 

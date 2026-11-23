@@ -42,8 +42,8 @@ export const groupOf = (typeCode) => {
 
 // この場所だけで使う色
 export const swipeColor = {
-  like: { text: '#C62828', glow: '#0047AB' }, // 右（いいね）：赤
-  pass: { text: '#283593', glow: '#C9CDD2' }, // 左（パス）：青
+  like: { text: '#C62828', glow: '#C62828' }, // 右（いいね）：赤。光も同じ赤
+  pass: { text: '#283593', glow: '#283593' }, // 左（パス）：青。光も同じ青
 };
 export const appIconBg = { light: '#F7EAD1', dark: '#2E2C2A' };
 
